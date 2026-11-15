@@ -13,6 +13,142 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.8.57",
+    date: "November 14, 2026",
+    added: [
+      "Nyxs is open source under the MIT license: the code, the issues and the releases are at github.com/nyxs-code/nyxs-code.",
+      "Each session in Recents has a menu: pin it, mark it unread, group it in sections, move it to another project, copy it as Markdown or for another model, schedule a task from it, or select several to archive or delete.",
+    ],
+    improved: [
+      "A cloned project's Claude Code settings (hooks, allow rules, environment variables) and its MCP servers stay off until you trust the folder, as Nyxs' own project settings already did.",
+      "A theme changed in one session now updates in the other open sessions.",
+      "Clicking a path to a program in the chat no longer runs it, and network paths in a reply are never looked up.",
+      "Plugin and skill catalogs are downloaded with their certificates checked.",
+      "The installer shows Nyxs Code as the publisher.",
+    ],
+    fixed: [
+      "Moving or deleting a video project no longer fails on Windows while its player is running.",
+    ],
+    card: {
+      v: 1,
+      slides: [
+        {
+          title: {
+            "en-US": "Nyxs is open source", "es-ES": "Nyxs es de código abierto", "fr-FR": "Nyxs devient open source",
+            "de-DE": "Nyxs ist Open Source", "it-IT": "Nyxs è open source", "pt-BR": "Nyxs é código aberto",
+            "id-ID": "Nyxs kini open source", "ja-JP": "Nyxsがオープンソースに", "ko-KR": "Nyxs가 오픈 소스가 됐어요", "hi-IN": "Nyxs अब ओपन सोर्स है",
+          },
+          desc: {
+            "en-US": "The code is on GitHub under the MIT license: read it, build it or send a change.",
+            "es-ES": "El código está en GitHub con licencia MIT: léelo, compílalo o propón cambios.",
+            "fr-FR": "Le code est sur GitHub sous licence MIT : lis-le, compile-le ou propose un changement.",
+            "de-DE": "Der Code ist auf GitHub (MIT-Lizenz): lesen, bauen, mitmachen.",
+            "it-IT": "Il codice è su GitHub con licenza MIT: leggilo, compilalo o proponi modifiche.",
+            "pt-BR": "O código está no GitHub com licença MIT: leia, compile ou sugira mudanças.",
+            "id-ID": "Kodenya ada di GitHub dengan lisensi MIT: baca, build, atau kirim perubahan.",
+            "ja-JP": "コードはMITライセンスでGitHubに公開。読む、ビルドする、変更を送るのも自由です。",
+            "ko-KR": "코드는 MIT 라이선스로 GitHub에 있어요. 읽고, 빌드하고, 변경을 보낼 수 있어요.",
+            "hi-IN": "कोड MIT लाइसेंस के साथ GitHub पर है: पढ़ें, बिल्ड करें या बदलाव भेजें।",
+          },
+          scene: {
+            kind: "terminal",
+            lines: [
+              { kind: "cmd", text: "git clone …/nyxs-code" },
+              { kind: "out", text: "Cloning into 'nyxs-code'..." },
+              { kind: "ok", text: "MIT License" },
+            ],
+          },
+        },
+        {
+          title: {
+            "en-US": "A menu for each session", "es-ES": "Un menú para cada sesión", "fr-FR": "Un menu par session",
+            "de-DE": "Ein Menü pro Sitzung", "it-IT": "Un menu per ogni sessione", "pt-BR": "Um menu para cada sessão",
+            "id-ID": "Menu untuk tiap sesi", "ja-JP": "セッションごとのメニュー", "ko-KR": "세션마다 메뉴가 생겼어요", "hi-IN": "हर सत्र का अपना मेनू",
+          },
+          desc: {
+            "en-US": "Pin sessions, group them in sections, move them to another project or copy them.",
+            "es-ES": "Fija sesiones, agrúpalas en secciones, muévelas a otro proyecto o cópialas.",
+            "fr-FR": "Épingle, range en sections, déplace vers un autre projet ou copie tes sessions.",
+            "de-DE": "Sitzungen anheften, in Abschnitte sortieren, verschieben oder kopieren.",
+            "it-IT": "Fissa le sessioni, raggruppale in sezioni, spostale in un altro progetto o copiale.",
+            "pt-BR": "Fixe sessões, agrupe em seções, mova para outro projeto ou copie.",
+            "id-ID": "Sematkan sesi, kelompokkan dalam bagian, pindahkan ke proyek lain, atau salin.",
+            "ja-JP": "セッションを固定、セクションに整理、別のプロジェクトへ移動、コピーもできます。",
+            "ko-KR": "세션을 고정하고, 섹션으로 묶고, 다른 프로젝트로 옮기거나 복사할 수 있어요.",
+            "hi-IN": "सत्र पिन करें, सेक्शन में रखें, दूसरे प्रोजेक्ट में ले जाएँ या कॉपी करें।",
+          },
+          scene: { kind: "icon", icon: "layers" },
+        },
+        {
+          title: {
+            "en-US": "Safer cloned projects", "es-ES": "Proyectos ajenos, seguros", "fr-FR": "Projets clonés plus sûrs",
+            "de-DE": "Sicher bei fremden Repos", "it-IT": "Progetti clonati sicuri", "pt-BR": "Projetos clonados seguros",
+            "id-ID": "Repo kloningan lebih aman", "ja-JP": "クローンした作業も安全に", "ko-KR": "복제한 프로젝트도 안전하게", "hi-IN": "क्लोन प्रोजेक्ट अब सुरक्षित",
+          },
+          desc: {
+            "en-US": "A repo's hooks, MCP servers and allow rules don't run until you trust its folder.",
+            "es-ES": "Los hooks, servidores MCP y reglas de un repo no se aplican hasta que confíes en él.",
+            "fr-FR": "Les hooks, serveurs MCP et règles d'un dépôt attendent que tu lui fasses confiance.",
+            "de-DE": "Hooks, MCP-Server und Regeln eines Repos greifen erst, wenn du ihm vertraust.",
+            "it-IT": "Hook, server MCP e regole di un repo partono solo quando ti fidi della cartella.",
+            "pt-BR": "Hooks, servidores MCP e regras de um repo só valem depois que você confiar nele.",
+            "id-ID": "Hook, server MCP, dan aturan repo baru berjalan setelah kamu memercayai foldernya.",
+            "ja-JP": "リポジトリのフック、MCPサーバー、許可ルールは、信頼するまで動きません。",
+            "ko-KR": "저장소의 훅, MCP 서버, 허용 규칙은 폴더를 신뢰하기 전까지 실행되지 않아요.",
+            "hi-IN": "रिपो के हुक, MCP सर्वर और नियम तभी चलते हैं जब आप फ़ोल्डर पर भरोसा करें।",
+          },
+          scene: { kind: "icon", icon: "shield" },
+        },
+        {
+          title: {
+            "en-US": "And also", "es-ES": "Y además", "fr-FR": "Et aussi", "de-DE": "Außerdem", "it-IT": "E inoltre",
+            "pt-BR": "E também", "id-ID": "Selain itu", "ja-JP": "そのほか", "ko-KR": "그 밖에", "hi-IN": "और भी",
+          },
+          desc: {
+            "en-US": "2 more changes in this version.", "es-ES": "2 cambios más en esta versión.", "fr-FR": "2 autres changements dans cette version.",
+            "de-DE": "2 weitere Änderungen in dieser Version.", "it-IT": "Altre 2 novità in questa versione.", "pt-BR": "Mais 2 mudanças nesta versão.",
+            "id-ID": "2 perubahan lain di versi ini.", "ja-JP": "このバージョンのその他の変更2つ。", "ko-KR": "이번 버전의 다른 변경 사항 2가지.", "hi-IN": "इस संस्करण में 2 और बदलाव।",
+          },
+          scene: {
+            kind: "list",
+            items: [
+              {
+                tag: "improved",
+                text: {
+                  "en-US": "A theme changed in one session now updates in the others.",
+                  "es-ES": "Un tema cambiado en una sesión se actualiza en las demás.",
+                  "fr-FR": "Un thème changé dans une session s'applique aux autres.",
+                  "de-DE": "Ein geändertes Theme gilt sofort auch in anderen Sitzungen.",
+                  "it-IT": "Un tema cambiato in una sessione si aggiorna nelle altre.",
+                  "pt-BR": "Um tema mudado numa sessão agora atualiza nas outras.",
+                  "id-ID": "Tema yang diubah di satu sesi kini ikut berubah di sesi lain.",
+                  "ja-JP": "変えたテーマがほかのセッションにも反映されます。",
+                  "ko-KR": "한 세션에서 바꾼 테마가 다른 세션에도 바로 적용돼요.",
+                  "hi-IN": "एक सत्र में बदली थीम अब बाकी सत्रों में भी दिखती है।",
+                },
+              },
+              {
+                tag: "fixed",
+                text: {
+                  "en-US": "Moving or deleting a video project no longer fails on Windows.",
+                  "es-ES": "Mover o borrar un proyecto de vídeo ya no falla en Windows.",
+                  "fr-FR": "Supprimer ou renommer un projet vidéo marche sous Windows.",
+                  "de-DE": "Videoprojekte lassen sich unter Windows wieder löschen.",
+                  "it-IT": "Eliminare un progetto video ora funziona anche su Windows.",
+                  "pt-BR": "Mover ou apagar um projeto de vídeo não falha mais no Windows.",
+                  "id-ID": "Memindah atau menghapus proyek video tak lagi gagal di Windows.",
+                  "ja-JP": "Windowsで動画プロジェクトの移動や削除が失敗しなくなりました。",
+                  "ko-KR": "Windows에서 동영상 프로젝트 이동·삭제가 더 이상 실패하지 않아요.",
+                  "hi-IN": "Windows पर वीडियो प्रोजेक्ट हटाना या ले जाना अब विफल नहीं होता।",
+                },
+              },
+            ],
+          },
+        },
+      ],
+    },
+  },
+  {
     version: "0.8.56",
     date: "November 14, 2026",
     added: [
