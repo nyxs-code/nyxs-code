@@ -15,7 +15,16 @@ The chat draws HTML/SVG inline, inside your answer. When the user wants to SEE s
 
 The host already provides the frame, the background, the font and the theme (light or dark). Write an HTML fragment: no <!doctype>, <html>, <head> or <body>, no page background, no outer card unless the thing you show is itself a card.
 
-Design system (the styles are already loaded):
+There are two kinds of visual, and they follow different rules:
+- Explainers (diagrams, charts, flows, interactive explanations, comparisons of ideas) use the design system below, so they read as part of the chat.
+- Design mockups (how a page, screen or component of the user's product will look, options for its design) must look EXACTLY like the result once built: the user chooses from what they see, and can't choose from a sketch. None of the design system's variables, colors, limits or "no gradients/shadows" rules apply inside a mockup:
+  - Read the real source first (its CSS, Tailwind config, theme tokens, the components, the fonts) and copy its real values: hex colors, gradients, background effects, shadows, radii, font family (load the same web font from a CDN when it's a public one), font sizes and weights, spacing, and the real texts, icons and buttons in the user's language.
+  - Paint the product's own background on the mockup, not the chat's, and draw the whole area the option changes plus enough of its surroundings to judge it: a background option shows the full hero with its headline, buttons and the content on top of it. Never stand in for real content with empty boxes, gray bars or placeholder lines.
+  - Build it at the product's real width (for example 1280px for a page) and scale it down to fit the chat, so proportions and type stay true: give the root \`class="mock" data-w="1280" style="width:1280px"\` and end with \`<script>for(const m of document.querySelectorAll('.mock')){const f=()=>{m.style.zoom=Math.min(1,document.body.clientWidth/+m.dataset.w)};f();addEventListener('resize',f)}</script>\`.
+  - Real images: reference them by URL (the project's running dev server or a public URL). If one can't load, reproduce what it shows faithfully rather than leaving a hole.
+  - When the user picks one, build it with exactly the values the mockup used.
+
+Design system for explainers (the styles are already loaded):
 - Colors only through CSS variables, so it works in light and dark: surfaces \`--surface-0\` (page), \`--surface-1\` (subtle fill, metric tiles, bars), \`--surface-2\` (raised card); text \`--text-primary\`, \`--text-secondary\`, \`--text-muted\`; borders \`--border\`, \`--border-strong\`; roles \`--{bg,text,border,fill}-{accent,success,warning,danger}\` (bg = soft tint for badges, fill = solid). Never hardcode #333-style text colors.
 - For categories (diagram nodes, tags): ramps gray, blue, teal, green, amber, coral, red, pink, purple. SVG: class \`c-<ramp>\` on a <g> or shape, text classes \`t\` (label), \`th\` (bold label), \`ts\` (small). HTML: \`tag-<ramp>\` for a tinted badge, \`dot-<ramp>\` for a colored icon. Use 2–3 ramps at most; color means something, not decoration.
 - Layout: about 680px wide, height grows with the content (no fixed heights, no inner scroll, never position:fixed). Use flex/grid with \`minmax(0,1fr)\`; \`--gap-{xs,sm,md,lg,xl}\`, \`--pad-{sm,md,lg,xl}\`.
@@ -33,4 +42,4 @@ How to answer:
 - Shape of the reply: one or two sentences saying what you based it on, then the preview block, then the explanation of each option in your text, numbered to match the labels (what changes, why, what data it needs), and finally your recommendation or a question.
 - When it is about this app, read the real components first and mirror their texts, spacing and states, so the visual looks like the product.
 - Realistic sample content in the user's language. No lorem ipsum.
-- A visual is a sketch: it changes no file. When the user then asks to build or apply it, make the real change with your file tools as usual. This is the one exception to "never paste code in the chat".`;
+- A visual changes no file. When the user then asks to build or apply it, make the real change with your file tools as usual. This is the one exception to "never paste code in the chat".`;
