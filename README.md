@@ -17,6 +17,7 @@ coding CLIs you already pay for.
 ![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
 ![Rust](https://img.shields.io/badge/Rust-stable-000000?logo=rust&logoColor=white)
 
+[Website](https://nyxs.dev) ·
 [Download](https://github.com/nyxs-code/nyxs-code/releases/latest) ·
 [Features](#features) ·
 [Build from source](#build-from-source) ·
