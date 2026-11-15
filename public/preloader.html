@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Nyxs · Preloader — spinner → favicon</title>
+<style>
+  @property --deg { syntax: "<angle>";      initial-value: 0deg; inherits: true; }
+  @property --p   { syntax: "<percentage>";  initial-value: 0%;   inherits: true; }
+  @property --lw  { syntax: "<length>";      initial-value: 12px; inherits: true; }
+
+  :root {
+    --orange: #fdb022;
+    --cyan: #2dc5e8;
+    --bg-0: #0e0a1a;
+    --bg-1: #1a1030;
+    --accent: #863bff;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%;
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    color: #ece7ff;
+    background:
+      radial-gradient(1200px 600px at 50% -10%, #25153f 0%, transparent 60%),
+      linear-gradient(160deg, var(--bg-1) 0%, var(--bg-0) 100%);
+    -webkit-font-smoothing: antialiased;
+  }
+  header { text-align: center; padding: 36px 20px 8px; }
+  header h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: .5px; }
+  header p  { margin: 8px 0 0; font-size: 13px; opacity: .55; }
+
+  .grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 22px;
+    max-width: 900px; margin: 28px auto 60px; padding: 0 20px;
+  }
+  .card {
+    position: relative; border: 1px solid rgba(255,255,255,.07);
+    background: rgba(0,0,0,.25); border-radius: 20px;
+    padding: 30px 20px 22px; display: flex; flex-direction: column;
+    align-items: center; gap: 16px; overflow: hidden;
+    transition: border-color .25s, transform .25s;
+  }
+  .card:hover { border-color: rgba(134,59,255,.5); transform: translateY(-3px); }
+  .card .tag {
+    position: absolute; top: 12px; left: 14px; font-size: 11px;
+    letter-spacing: 1.5px; text-transform: uppercase; opacity: .4; font-weight: 600;
+  }
+  .card .name { font-size: 14px; font-weight: 600; opacity: .85; }
+  .card .desc { font-size: 11.5px; opacity: .45; text-align: center; max-width: 230px; line-height: 1.5; }
+
+  .stage { position: relative; width: 130px; height: 130px; display: grid; place-items: center; }
+
+  /* ---- Spinner conic (basado en tu componente) ---- */
+  .spin-wrap, .logo-wrap {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    transform-origin: 50% 50%;
+  }
+  .spinner {
+    --size: 96px;
+    --color: var(--orange);
+    --color-2: var(--accent);
+    --color-3: var(--cyan);
+    width: var(--size); aspect-ratio: 1; border-radius: 50%;
+    background: conic-gradient(from var(--deg), var(--color), var(--color-2), var(--color-3), transparent var(--p));
+    -webkit-mask: radial-gradient(circle, transparent calc(var(--size)/2 - var(--lw)), #000 calc(var(--size)/2 - var(--lw)));
+            mask: radial-gradient(circle, transparent calc(var(--size)/2 - var(--lw)), #000 calc(var(--size)/2 - var(--lw)));
+    filter: drop-shadow(0 0 10px var(--color-3));
+    animation: rotate 1.1s ease infinite, lineWidth 3.3s ease infinite;
+  }
+  @keyframes rotate {
+    from { --p: 20%; } 50% { --p: 50%; } 70% { --p: 30%; } 90% { --p: 10%; }
+    to   { --p: 20%; --deg: -360deg; }
+  }
+  @keyframes lineWidth {
+    from, 20%, 70%, to { --lw: 12px; } 50% { --lw: 2px; }
+  }
+
+  /* ---- Logo real ---- */
+  .logo-wrap img { position: absolute; width: 90px; height: 90px; image-rendering: -webkit-optimize-contrast; }
+
+  /* =====================================================================
+     SECUENCIA (bucle 5s): el spinner gira -> se transforma -> aparece el favicon
+     ===================================================================== */
+
+  /* ---------- 01 · DISOLVER (cross-fade spinner -> logo) ---------- */
+  .v1 .spin-wrap { animation: s-fade 5s ease infinite; }
+  .v1 .logo-wrap { animation: l-fadeScale 5s ease infinite; }
+  @keyframes s-fade {
+    0%{opacity:0} 8%{opacity:1} 52%{opacity:1} 66%{opacity:0} 100%{opacity:0}
+  }
+  @keyframes l-fadeScale {
+    0%,54%{opacity:0; transform:scale(.7)} 72%{opacity:1; transform:scale(1)}
+    90%{opacity:1; transform:scale(1)} 100%{opacity:0; transform:scale(1)}
+  }
+
+  /* ---------- 02 · COLAPSAR (el spinner implota, el logo crece del centro) ---------- */
+  .v2 .spin-wrap { animation: s-implode 5s cubic-bezier(.6,0,.3,1) infinite; }
+  .v2 .logo-wrap { animation: l-grow 5s cubic-bezier(.34,1.4,.5,1) infinite; }
+  @keyframes s-implode {
+    0%{opacity:0; transform:scale(1)} 8%{opacity:1} 52%{opacity:1; transform:scale(1)}
+    66%{opacity:0; transform:scale(0)} 100%{opacity:0; transform:scale(0)}
+  }
+  @keyframes l-grow {
+    0%,55%{opacity:0; transform:scale(0)} 73%{opacity:1; transform:scale(1)}
+    90%{opacity:1; transform:scale(1)} 100%{opacity:0; transform:scale(1.05)}
+  }
+
+  /* ---------- 03 · HALO (el spinner se queda de aura girando, el logo aparece dentro) ---------- */
+  .v3 .spin-wrap { animation: s-halo 5s ease infinite; }
+  .v3 .logo-wrap { animation: l-halo 5s ease infinite; }
+  @keyframes s-halo {
+    0%{opacity:0; transform:scale(1)} 8%{opacity:1} 52%{opacity:1; transform:scale(1)}
+    66%{opacity:.55; transform:scale(1.18)} 86%{opacity:.55; transform:scale(1.18)}
+    100%{opacity:0; transform:scale(1.3)}
+  }
+  @keyframes l-halo {
+    0%,56%{opacity:0; transform:scale(.6)} 72%{opacity:1; transform:scale(1)}
+    86%{opacity:1; transform:scale(1)} 100%{opacity:0; transform:scale(1)}
+  }
+
+  /* ---------- 04 · ENSAMBLAR (el spinner barre detrás, las 2 mitades llegan y forman el logo) ---------- */
+  .v4 .spin-wrap { animation: s-sweep 5s ease infinite; }
+  .v4 .half-o { clip-path: polygon(0 0,100% 0,100% 100%); animation: asmO 5s cubic-bezier(.3,1.2,.5,1) infinite; }
+  .v4 .half-c { clip-path: polygon(0 0,100% 100%,0 100%); animation: asmC 5s cubic-bezier(.3,1.2,.5,1) infinite; }
+  @keyframes s-sweep {
+    0%{opacity:0; transform:scale(1)} 8%{opacity:1} 44%{opacity:1} 58%{opacity:0; transform:scale(1.2)} 100%{opacity:0}
+  }
+  @keyframes asmO {
+    0%,42%{opacity:0; transform:translate(36px,-36px) rotate(35deg)}
+    64%{opacity:1; transform:translate(0,0) rotate(0)}
+    88%{opacity:1; transform:none} 100%{opacity:0; transform:none}
+  }
+  @keyframes asmC {
+    0%,42%{opacity:0; transform:translate(-36px,36px) rotate(-35deg)}
+    64%{opacity:1; transform:translate(0,0) rotate(0)}
+    88%{opacity:1; transform:none} 100%{opacity:0; transform:none}
+  }
+
+  footer { text-align:center; font-size:11px; opacity:.3; padding-bottom:40px; }
+  code { background: rgba(255,255,255,.07); padding: 2px 6px; border-radius: 5px; font-size: 11px; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Nyxs · Preloader</h1>
+    <p>El spinner gira y al final se revela el favicon — 4 transiciones distintas</p>
+  </header>
+
+  <div class="grid">
+    <div class="card v1">
+      <span class="tag">01</span>
+      <div class="stage">
+        <div class="spin-wrap"><div class="spinner"></div></div>
+        <div class="logo-wrap"><img src="logo.png" alt=""></div>
+      </div>
+      <span class="name">Disolver</span>
+      <span class="desc">El spinner gira y se desvanece mientras el favicon aparece encima.</span>
+    </div>
+
+    <div class="card v2">
+      <span class="tag">02</span>
+      <div class="stage">
+        <div class="spin-wrap"><div class="spinner"></div></div>
+        <div class="logo-wrap"><img src="logo.png" alt=""></div>
+      </div>
+      <span class="name">Colapsar</span>
+      <span class="desc">El spinner implota hacia el centro y el favicon crece desde ahí.</span>
+    </div>
+
+    <div class="card v3">
+      <span class="tag">03</span>
+      <div class="stage">
+        <div class="spin-wrap"><div class="spinner"></div></div>
+        <div class="logo-wrap"><img src="logo.png" alt=""></div>
+      </div>
+      <span class="name">Halo</span>
+      <span class="desc">El spinner se queda como aura girando y el favicon aparece dentro.</span>
+    </div>
+
+    <div class="card v4">
+      <span class="tag">04</span>
+      <div class="stage">
+        <div class="spin-wrap"><div class="spinner"></div></div>
+        <div class="logo-wrap"><img class="half-o" src="logo.png" alt=""><img class="half-c" src="logo.png" alt=""></div>
+      </div>
+      <span class="name">Ensamblar</span>
+      <span class="desc">El spinner barre detrás y las dos mitades llegan para formar el favicon.</span>
+    </div>
+  </div>
+
+  <footer>
+    Elige el número y la dejo como <code>splashscreen</code> real de la app (HTML + componente React).
+  </footer>
+</body>
+</html>

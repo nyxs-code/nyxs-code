@@ -1,0 +1,114 @@
+{
+  "version": 1,
+  "startedAt": "2026-10-29T12:00:00.250Z",
+  "durationMs": 250,
+  "model": "anthropic:claude-sonnet-4-5",
+  "cwd": "E:\\ws",
+  "permissionMode": "auto",
+  "maxSteps": 5,
+  "prompt": "Set the value in src/app.ts to 2.",
+  "status": "ok",
+  "events": [
+    {
+      "type": "start",
+      "model": "anthropic:claude-sonnet-4-5",
+      "cwd": "E:\\ws",
+      "permissionMode": "auto",
+      "maxSteps": 5
+    },
+    {
+      "type": "tool",
+      "id": "r1",
+      "name": "Read",
+      "detail": "src/app.ts"
+    },
+    {
+      "type": "tool",
+      "id": "e1",
+      "name": "Edit",
+      "detail": "src/app.ts"
+    }
+  ],
+  "messages": [
+    {
+      "role": "user",
+      "content": "<system-reminder>Language check: the user's latest message is in English. Write your ENTIRE reply — the opening message, every progress update and the final summary — in English, regardless of the language of earlier messages, tool results, files, memory or these instructions. File, function and library names do NOT change this.</system-reminder>"
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool-call",
+          "toolCallId": "r1",
+          "toolName": "Read",
+          "input": {
+            "file_path": "src/app.ts"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "content": [
+        {
+          "type": "tool-result",
+          "toolCallId": "r1",
+          "toolName": "Read",
+          "output": {
+            "type": "text",
+            "value": "     1\texport const value = 1;\n"
+          }
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool-call",
+          "toolCallId": "e1",
+          "toolName": "Edit",
+          "input": {
+            "file_path": "src/app.ts",
+            "old_string": "1",
+            "new_string": "2"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "content": [
+        {
+          "type": "tool-result",
+          "toolCallId": "e1",
+          "toolName": "Edit",
+          "output": {
+            "type": "text",
+            "value": "OK: 1 replacement(s) in src/app.ts"
+          }
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "The value was 1; it is 2 now."
+        }
+      ]
+    }
+  ],
+  "result": {
+    "text": "The value was 1; it is 2 now.",
+    "usage": {
+      "readTokens": 0,
+      "creationTokens": 0,
+      "inputTokens": 360,
+      "outputTokens": 21,
+      "costUsd": 0.001395
+    },
+    "denied": []
+  }
+}

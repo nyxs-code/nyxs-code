@@ -1,0 +1,349 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Nyxs computer use</title>
+<!--
+  The frame Nyxs shows around each display while its agent uses the computer: the glowing
+  rainbow edge of Louis Studios' "Neon Hello" (studios.lou15.com), its frame alone, without the
+  word. The shader, colours, light profile, turn, breathing, pulse and grain are the component's,
+  number for number; on a black screen it is the same picture. The glow gathers where the agent
+  acts (Nyxs calls nyxsPointer), as the component's gathers under the pointer.
+
+  The window is click-through and kept out of screenshots; Nyxs calls nyxsShow / nyxsHide to
+  fade it in and out.
+
+  Performance: this page covers every display, above everything, the whole time the agent works.
+  The frame is one full-screen pass on the GPU at 30 fps, at CSS pixel density (its light is
+  smooth, so device pixels add nothing), and stops altogether while hidden. No CSS filters or
+  animated custom properties, which repaint the whole screen on the CPU and made the PC lag.
+-->
+<style>
+  @keyframes turn { to { transform: rotate(360deg); } }
+
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+  body { font: 500 13px "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; }
+
+  .stage { position: fixed; inset: 0; opacity: 0; transition: opacity 0.6s ease; }
+  .stage.on { opacity: 1; }
+  .stage.off { display: none; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+
+  /* Without WebGL: the component's own fallback frame, four colour strips fading inward under a
+     white-hot rim, breathing. */
+  .fallback { position: absolute; inset: 0; pointer-events: none; animation: breathe 5s ease-in-out infinite alternate; }
+  .fallback > div { position: absolute; mix-blend-mode: screen; }
+  @keyframes breathe { from { opacity: 0.82; } to { opacity: 1; } }
+
+  /* The notice, low in the middle so it covers no title bar or menu. */
+  .pill {
+    position: absolute; left: 50%; bottom: 56px; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 15px; border-radius: 8px;
+    background: rgba(18, 19, 23, 0.86); color: #fff;
+    border: 0.5px solid rgba(255, 255, 255, 0.14);
+    white-space: nowrap;
+  }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: conic-gradient(#8e42e9, #47abe1, #68def3, #5d57ee, #c75976, #eab748, #d875a1, #8e42e9);
+    animation: turn 1.5s linear infinite;
+  }
+  .muted { color: rgba(255, 255, 255, 0.6); }
+  kbd { font: inherit; font-size: 12px; padding: 0 6px; border-radius: 4px; background: rgba(255, 255, 255, 0.14); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dot, .fallback { animation: none; }
+    .stage { transition: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="stage" id="stage">
+    <canvas id="frame" aria-hidden="true"></canvas>
+    <div class="pill"><span class="dot"></span><span id="text"></span></div>
+  </div>
+  <script>
+    // ---- The component's frame, unchanged ----
+
+    // Per perimeter stop (clockwise from the top left corner, 16 stops) the light of the bright
+    // inner edge and of the wide falloff, and the falloff in reference px (736 x 414): edge gain,
+    // edge decay, falloff gain, decay, wash gain, decay.
+    // prettier-ignore
+    const FRAME_NEAR = [[0.258,0.071,1.701],[0.376,0.343,1.939],[0.241,0.847,1.322],[0.373,1.388,2.261],[0.32,0.848,1.213],[0.372,1.192,1.557],[0.223,0.909,1.847],[0.353,0.3,2.404],[0.496,0.172,1.566],[1.198,0.305,0.463],[1.073,0.968,0.174],[1.354,1.019,0.291],[0.785,0.586,0.096],[1.285,1.079,0.231],[1.212,0.433,0.642],[0.722,0.151,1.718]];
+    // prettier-ignore
+    const FRAME_FAR = [[0.61,0.242,1.219],[0.246,0.279,1.033],[0.155,0.503,1.166],[0.257,1.041,1.446],[0.284,0.949,1.3],[0.166,0.304,0.828],[0.133,0.289,0.87],[0.2,0.202,0.986],[0.453,0.166,1.063],[0.649,0.21,0.29],[0.931,0.304,0.113],[1.476,0.533,0.126],[1.217,0.456,0.14],[0.974,0.189,0.256],[0.989,0.303,0.53],[0.713,0.23,0.645]];
+    const FRAME_PROFILE = [3.3614, 5.07, 1.3328, 24.0, 0.1, 63.0];
+    const FRAME_REF_AREA = 736 * 414;
+    // prettier-ignore
+    const FRAME_COLORS = ["#8e42e9", "#6769e8", "#47abe1", "#68def3", "#67cae3", "#59aeda", "#419be2", "#5d57ee", "#8e41e3", "#c75976", "#d1a036", "#eab748", "#d59531", "#d99c59", "#d875a1", "#b64ad7"];
+    // The component's loop for "hello" (lead, write, hold, erase, rest), which times the turn,
+    // the breathing and the pulse after each write.
+    const LEAD = 0.4, WRITE = 3.6, HOLD = 4.3, ERASE = 1.4, REST = 0.3, STILL = 0.55;
+    const LOOP = LEAD + WRITE + HOLD + ERASE + REST;
+    const STILL_T = LEAD + WRITE + HOLD * STILL;
+    const FPS = 30;
+
+    const VERT = `#version 300 es
+layout(location = 0) in vec2 aPos;
+void main() { gl_Position = vec4(aPos, 0.0, 1.0); }
+`;
+    // The component's composite with only its frame: the light of the four edges, gathered
+    // toward the pointer, mapped with 1 - exp(-light) and grained against banding. Over the
+    // desktop it is drawn as premultiplied light, so on black it is the component's picture.
+    const FRAG = `#version 300 es
+precision highp float;
+uniform vec2 uRes;
+uniform vec3 uBox;        // css width, height, px per css px
+uniform vec3 uNear[16];
+uniform vec3 uFar[16];
+uniform vec4 uProf;
+uniform vec2 uProf2;
+uniform float uRot;
+uniform float uGain;
+uniform vec4 uPointer;    // css x, y, hover, reach
+uniform float uSeed;
+out vec4 o;
+
+float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+vec3 nearAt(float i) { return uNear[int(mod(i, 16.0))]; }
+vec3 farAt(float i) { return uFar[int(mod(i, 16.0))]; }
+vec4 crw(float u) {
+  float u2 = u * u, u3 = u2 * u;
+  return vec4(-0.5 * u3 + u2 - 0.5 * u, 1.5 * u3 - 2.5 * u2 + 1.0, -1.5 * u3 + 2.0 * u2 + 0.5 * u, 0.5 * u3 - 0.5 * u2);
+}
+vec3 edge(float p, float d) {
+  float f = mod(p, 4.0) * 4.0;
+  float i = floor(f);
+  vec4 w = crw(f - i);
+  vec3 nr = nearAt(i + 15.0) * w.x + nearAt(i) * w.y + nearAt(i + 1.0) * w.z + nearAt(i + 2.0) * w.w;
+  vec3 fr = farAt(i + 15.0) * w.x + farAt(i) * w.y + farAt(i + 1.0) * w.z + farAt(i + 2.0) * w.w;
+  return nr * uProf.x * exp(-d / uProf.y) + fr * (uProf.z * exp(-d / uProf.w) + uProf2.x * exp(-d / uProf2.y));
+}
+void main() {
+  vec2 fc = gl_FragCoord.xy;
+  float W = uBox.x, H = uBox.y;
+  float x = fc.x / uBox.z, y = (uRes.y - fc.y) / uBox.z;
+  vec3 f = edge(x / W + uRot, y) + edge(1.0 + y / H + uRot, W - x)
+         + edge(3.0 - x / W + uRot, H - y) + edge(4.0 - y / H + uRot, x);
+  vec2 dp = vec2(x, y) - uPointer.xy;
+  float near = exp(-dot(dp, dp) / (uPointer.w * uPointer.w));
+  vec3 light = f * uGain * (1.0 + 1.1 * uPointer.z * near);
+  vec3 col = 1.0 - exp(-max(light, 0.0));
+  float a = max(col.r, max(col.g, col.b));
+  col += (hash(fc + uSeed) - 0.5) * (2.0 / 255.0) * step(0.004, a);
+  col = clamp(col, 0.0, 1.0);
+  o = vec4(col, max(col.r, max(col.g, col.b)));
+}
+`;
+
+    // Critically damped spring, as the component eases its pointer glow.
+    function spring(s, target, dt, omega) {
+      const f = 1 + 2 * dt * omega, oo = omega * omega;
+      const det = 1 / (f + dt * dt * oo);
+      const x = (f * s.x + dt * s.v + dt * dt * oo * target) * det;
+      s.v = (s.v + dt * oo * (target - s.x)) * det;
+      s.x = x;
+    }
+
+    const stage = document.getElementById("stage");
+    const canvas = document.getElementById("frame");
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // Where the agent last acted, as a fraction of the screen; the glow fades a while after.
+    const POINTER_HOLD_MS = 2500;
+    const pointer = { fx: 0.5, fy: 0.5, on: 0, at: 0 };
+
+    function startGl() {
+      const gl = canvas.getContext("webgl2", { premultipliedAlpha: true, alpha: true, antialias: false });
+      if (!gl) return null;
+      const compile = (type, src) => {
+        const s = gl.createShader(type);
+        gl.shaderSource(s, src);
+        gl.compileShader(s);
+        return s;
+      };
+      const prog = gl.createProgram();
+      gl.attachShader(prog, compile(gl.VERTEX_SHADER, VERT));
+      gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FRAG));
+      gl.linkProgram(prog);
+      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return null;
+      gl.useProgram(prog);
+      const u = (n) => gl.getUniformLocation(prog, n);
+      const buf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+      gl.uniform3fv(u("uNear"), new Float32Array(FRAME_NEAR.flat()));
+      gl.uniform3fv(u("uFar"), new Float32Array(FRAME_FAR.flat()));
+
+      let W = 1, H = 1, scale = 1;
+      const resize = () => {
+        W = Math.max(1, innerWidth);
+        H = Math.max(1, innerHeight);
+        // CSS px: the light is smooth, so device pixels only cost more.
+        scale = 1;
+        canvas.width = Math.round(W * scale);
+        canvas.height = Math.round(H * scale);
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        const fk = Math.sqrt((W * H) / FRAME_REF_AREA);
+        const P = FRAME_PROFILE;
+        gl.uniform4f(u("uProf"), P[0], P[1] * fk, P[2], P[3] * fk);
+        gl.uniform2f(u("uProf2"), P[4], P[5] * fk);
+      };
+      addEventListener("resize", resize);
+      resize();
+
+      const hover = { x: 0, v: 0 }, px = { x: W / 2, v: 0 }, py = { x: H / 2, v: 0 };
+      const start = performance.now();
+      let last = -1;
+      return (now) => {
+        const dt = last < 0 ? 0 : Math.min(Math.max(now - last, 0) / 1000, 1 / 10);
+        last = now;
+        const t = reduce ? STILL_T : (now - start) / 1000;
+        // The pulse after each write, the breathing and the turn, on the component's clock.
+        const lt = ((t % LOOP) + LOOP) % LOOP;
+        const pt = (((lt - (LEAD + WRITE + 0.05)) % LOOP) + LOOP) % LOOP;
+        const pulse = pt > 0 ? 0.55 * (1 - Math.exp(-pt / 0.07)) * Math.exp(-pt / 0.75) : 0;
+        const ph = (2 * Math.PI * (t - STILL_T)) / LOOP;
+        const breathe = 1 + 0.12 * Math.sin(2 * ph) + (reduce ? 0 : pulse);
+        const on = pointer.on && now - pointer.at < POINTER_HOLD_MS ? 1 : 0;
+        if (hover.x < 0.01 && on) {
+          px.x = pointer.fx * W;
+          py.x = pointer.fy * H;
+        }
+        spring(hover, on, dt, 5);
+        spring(px, pointer.fx * W, dt, 9);
+        spring(py, pointer.fy * H, dt, 9);
+        gl.uniform2f(u("uRes"), canvas.width, canvas.height);
+        gl.uniform3f(u("uBox"), W, H, scale);
+        gl.uniform1f(u("uRot"), (4 * (t - STILL_T)) / LOOP);
+        gl.uniform1f(u("uGain"), breathe);
+        gl.uniform4f(u("uPointer"), px.x, py.x, Math.max(hover.x, 0), 0.28 * Math.min(W, H));
+        gl.uniform1f(u("uSeed"), reduce ? 0 : Math.floor(t * 30) % 97);
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+      };
+    }
+
+    // The component's fallback: each edge its colours along it, fading inward, under a rim.
+    function startFallback() {
+      canvas.remove();
+      const box = document.createElement("div");
+      box.className = "fallback";
+      const q = Math.floor(FRAME_COLORS.length / 4);
+      const seq = (a, b, rev) => {
+        const out = [];
+        for (let i = a; i <= b; i++) out.push(FRAME_COLORS[i % FRAME_COLORS.length]);
+        return rev ? out.reverse() : out;
+      };
+      const strip = (side, cols) => {
+        const along = side === "top" || side === "bottom" ? "90deg" : "180deg";
+        const inward = { top: "180deg", bottom: "0deg", left: "90deg", right: "270deg" }[side];
+        const fade = `linear-gradient(${inward}, #000 0%, rgba(0,0,0,0.7) 3%, rgba(0,0,0,0.34) 12%, rgba(0,0,0,0.13) 28%, transparent 60%)`;
+        const el = document.createElement("div");
+        Object.assign(el.style, { backgroundImage: `linear-gradient(${along}, ${cols.join(", ")})`, webkitMaskImage: fade, maskImage: fade });
+        if (side === "top") Object.assign(el.style, { left: 0, right: 0, top: 0, height: "60%" });
+        if (side === "bottom") Object.assign(el.style, { left: 0, right: 0, bottom: 0, height: "60%" });
+        if (side === "left") Object.assign(el.style, { top: 0, bottom: 0, left: 0, width: "60%" });
+        if (side === "right") Object.assign(el.style, { top: 0, bottom: 0, right: 0, width: "60%" });
+        return el;
+      };
+      box.append(strip("top", seq(0, q)), strip("right", seq(q, 2 * q)), strip("bottom", seq(2 * q, 3 * q, true)), strip("left", seq(3 * q, 4 * q, true)));
+      const rim = document.createElement("div");
+      Object.assign(rim.style, { inset: 0, boxShadow: "inset 0 0 3px 1px rgba(255,255,255,0.75), inset 0 0 14px 2px rgba(255,255,255,0.18)", mixBlendMode: "normal" });
+      box.append(rim);
+      stage.prepend(box);
+    }
+
+    const draw = startGl();
+    if (!draw) startFallback();
+    canvas.addEventListener("webglcontextlost", (e) => {
+      e.preventDefault();
+      stopLoop();
+      startFallback();
+    });
+
+    let raf = 0;
+    let lastTick = 0;
+    let running = false;
+    const tick = (now) => {
+      raf = 0;
+      if (!running) return;
+      if (now - lastTick >= 1000 / FPS - 2) {
+        lastTick = now;
+        draw(now);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    const startLoop = () => {
+      if (!draw || running) return;
+      running = true;
+      raf = requestAnimationFrame(tick);
+    };
+    const stopLoop = () => {
+      running = false;
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
+    };
+
+    const text = document.getElementById("text");
+    // "Nyxs is using your computer · Press Esc to stop": the part after the dot is dimmed and
+    // the key name drawn as a key.
+    window.nyxsSetLabel = (label) => {
+      text.replaceChildren();
+      const [lead, ...rest] = label.split(" · ");
+      text.appendChild(document.createTextNode(lead));
+      if (!rest.length) return;
+      const tail = document.createElement("span");
+      tail.className = "muted";
+      tail.textContent = " · ";
+      text.appendChild(tail);
+      rest.join(" · ").split(/(\bEsc\b)/).forEach((part) => {
+        if (part === "Esc") {
+          const k = document.createElement("kbd");
+          k.textContent = "Esc";
+          text.appendChild(k);
+        } else if (part) {
+          const span = document.createElement("span");
+          span.className = "muted";
+          span.textContent = part;
+          text.appendChild(span);
+        }
+      });
+    };
+    // Where the agent acted on this display, as fractions of it; null when it acted elsewhere.
+    window.nyxsPointer = (fx, fy) => {
+      if (typeof fx !== "number" || typeof fy !== "number") {
+        pointer.on = 0;
+        return;
+      }
+      pointer.fx = Math.min(1, Math.max(0, fx));
+      pointer.fy = Math.min(1, Math.max(0, fy));
+      pointer.on = 1;
+      pointer.at = performance.now();
+    };
+    // Matches FADE_OUT in overlay.rs: once faded out, the frame stops drawing altogether.
+    const FADE_MS = 600;
+    let offTimer = 0;
+    // A frame is shown at opacity 0 and fades in on the next frame, so the transition runs.
+    window.nyxsShow = () => {
+      clearTimeout(offTimer);
+      stage.classList.remove("off");
+      startLoop();
+      requestAnimationFrame(() => requestAnimationFrame(() => stage.classList.add("on")));
+    };
+    window.nyxsHide = () => {
+      stage.classList.remove("on");
+      clearTimeout(offTimer);
+      offTimer = setTimeout(() => {
+        stage.classList.add("off");
+        stopLoop();
+      }, FADE_MS);
+    };
+    window.nyxsSetLabel(new URLSearchParams(location.search).get("label") || "Nyxs is using your computer · Press Esc to stop");
+    window.nyxsShow();
+  </script>
+</body>
+</html>

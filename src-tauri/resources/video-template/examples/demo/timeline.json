@@ -1,0 +1,235 @@
+{
+  "version": 1,
+  "compositions": [
+    {
+      "id": "Main",
+      "name": "Main",
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationInFrames": 240,
+      "background": "#05050A",
+      "markers": [
+        { "id": "marker-title", "frame": 75, "label": "Title" },
+        { "id": "marker-outro", "frame": 165, "label": "Outro", "color": "#22C55E" }
+      ],
+      "tracks": [
+        {
+          "id": "track-scenes",
+          "name": "Scenes",
+          "kind": "video",
+          "clips": [
+            {
+              "id": "clip-logo",
+              "type": "scene",
+              "name": "Logo reveal",
+              "from": 0,
+              "durationInFrames": 75,
+              "file": "LogoReveal.tsx",
+              "exportName": "LogoReveal",
+              "props": { "text": "nyxs video" }
+            },
+            {
+              "id": "clip-title",
+              "type": "scene",
+              "name": "Title card",
+              "from": 75,
+              "durationInFrames": 90,
+              "file": "TitleCard.tsx",
+              "exportName": "TitleCard",
+              "props": { "title": "Edit videos by talking", "subtitle": "Remotion inside Nyxs" },
+              "transitionIn": { "kind": "slide", "durationInFrames": 20, "direction": "from-right" }
+            },
+            {
+              "id": "clip-outro-bg",
+              "type": "shape",
+              "name": "Outro background",
+              "from": 165,
+              "durationInFrames": 75,
+              "shape": "rect",
+              "fill": "linear-gradient(135deg, #1E1B4B 0%, #0B0B12 60%)",
+              "width": 1920,
+              "height": 1080,
+              "transitionIn": { "kind": "iris", "durationInFrames": 20 },
+              "effects": [{ "kind": "vignette", "amount": 0.6 }]
+            }
+          ]
+        },
+        {
+          "id": "track-overlay",
+          "name": "Overlays",
+          "kind": "overlay",
+          "clips": [
+            {
+              "id": "clip-lower-third",
+              "type": "scene",
+              "name": "Lower third",
+              "from": 100,
+              "durationInFrames": 60,
+              "file": "LowerThird",
+              "exportName": "LowerThird",
+              "props": { "name": "Nyxs", "role": "Your AI video editor" }
+            },
+            {
+              "id": "clip-dot",
+              "type": "shape",
+              "name": "Accent dot",
+              "from": 170,
+              "durationInFrames": 70,
+              "shape": "circle",
+              "fill": "#7C5CFF",
+              "width": 90,
+              "height": 90,
+              "transform": {
+                "x": { "keyframes": [{ "frame": 0, "value": 760, "easing": "spring" }, { "frame": 30, "value": 960 }] },
+                "y": 300,
+                "scale": { "keyframes": [{ "frame": 0, "value": 0, "easing": "ease-out" }, { "frame": 20, "value": 1 }] },
+                "rotation": 0
+              },
+              "effects": [{ "kind": "drop-shadow", "x": 0, "y": 12, "blur": 30, "color": "rgba(124, 92, 255, 0.6)" }]
+            }
+          ]
+        },
+        {
+          "id": "track-badge",
+          "name": "Badge",
+          "kind": "overlay",
+          "clips": [
+            {
+              "id": "clip-badge",
+              "type": "scene",
+              "name": "Badge (project scene)",
+              "from": 20,
+              "durationInFrames": 55,
+              "file": "Badge",
+              "exportName": "Badge",
+              "props": { "label": "DEMO" }
+            }
+          ]
+        },
+        {
+          "id": "track-text",
+          "name": "Text",
+          "kind": "text",
+          "clips": [
+            {
+              "id": "clip-outro-text",
+              "type": "text",
+              "name": "Outro text",
+              "from": 170,
+              "durationInFrames": 70,
+              "text": "Made with Nyxs Video",
+              "style": {
+                "fontFamily": "Inter",
+                "fontSize": 96,
+                "fontWeight": 800,
+                "color": "#FFFFFF",
+                "align": "center",
+                "letterSpacing": -2,
+                "shadow": "0 8px 40px rgba(0, 0, 0, 0.5)"
+              },
+              "transform": {
+                "x": 960,
+                "y": 440,
+                "scale": 1,
+                "rotation": { "keyframes": [{ "frame": 0, "value": -4, "easing": "ease-out" }, { "frame": 40, "value": 0 }] }
+              },
+              "animation": {
+                "in": { "kind": "words", "durationInFrames": 24 },
+                "out": { "kind": "fade", "durationInFrames": 12 }
+              }
+            }
+          ]
+        },
+        {
+          "id": "track-captions",
+          "name": "Captions",
+          "kind": "text",
+          "clips": [
+            {
+              "id": "clip-captions",
+              "type": "captions",
+              "name": "Captions",
+              "from": 180,
+              "durationInFrames": 60,
+              "mode": "karaoke",
+              "highlightColor": "#A78BFA",
+              "style": {
+                "fontFamily": "Inter",
+                "fontSize": 56,
+                "fontWeight": 700,
+                "color": "#FFFFFF",
+                "align": "center",
+                "stroke": "#000000"
+              },
+              "captions": [
+                { "text": "Describe", "startMs": 0, "endMs": 400 },
+                { "text": "the", "startMs": 400, "endMs": 550 },
+                { "text": "video,", "startMs": 550, "endMs": 1000 },
+                { "text": "Nyxs", "startMs": 1050, "endMs": 1400 },
+                { "text": "builds", "startMs": 1400, "endMs": 1700 },
+                { "text": "it.", "startMs": 1700, "endMs": 2000 }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "Vertical",
+      "name": "Vertical 9:16",
+      "width": 1080,
+      "height": 1920,
+      "fps": 30,
+      "durationInFrames": 90,
+      "background": "#0B0B12",
+      "markers": [],
+      "tracks": [
+        {
+          "id": "track-vertical-scenes",
+          "name": "Scenes",
+          "kind": "video",
+          "clips": [
+            {
+              "id": "clip-vertical-title",
+              "type": "scene",
+              "from": 0,
+              "durationInFrames": 90,
+              "file": "TitleCard",
+              "exportName": "TitleCard",
+              "props": { "title": "Vertical too", "subtitle": "1080 × 1920" },
+              "transitionIn": { "kind": "fade", "durationInFrames": 15 }
+            }
+          ]
+        },
+        {
+          "id": "track-vertical-text",
+          "name": "Text",
+          "kind": "text",
+          "clips": [
+            {
+              "id": "clip-vertical-tag",
+              "type": "text",
+              "from": 20,
+              "durationInFrames": 70,
+              "text": "#nyxs",
+              "style": {
+                "fontFamily": "Inter",
+                "fontSize": 64,
+                "fontWeight": 700,
+                "color": "#0B0B12",
+                "align": "center",
+                "background": "#FFFFFF",
+                "padding": 18,
+                "radius": 12
+              },
+              "transform": { "x": 540, "y": 1500, "scale": 1, "rotation": 0 },
+              "animation": { "in": { "kind": "typewriter", "durationInFrames": 20 } }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "assets": []
+}

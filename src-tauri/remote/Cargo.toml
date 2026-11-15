@@ -1,0 +1,39 @@
+[package]
+name = "nyxs-remote"
+version = "0.8.28"
+description = "Runs on a remote machine and does Nyxs' file, search and command work there over SSH"
+edition = "2021"
+publish = false
+
+# Its own workspace: it is built on its own for every target (static musl on Linux) and
+# never as part of the app.
+[workspace]
+
+[[bin]]
+name = "nyxs-remote"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+base64 = "0.22"
+globset = "0.4"
+ignore = "0.4"
+regex = "1"
+# The project watcher: inotify on Linux, ReadDirectoryChangesW on Windows, FSEvents on macOS
+# (see `listen`).
+notify = { version = "6", default-features = false, features = ["macos_fsevent"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+# The same version notify uses: checks a folder gives change events before watching it.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.48", features = ["Win32_Foundation", "Win32_Security", "Win32_Storage_FileSystem", "Win32_System_IO"] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+strip = true
+codegen-units = 1
+panic = "abort"

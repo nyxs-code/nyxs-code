@@ -1,0 +1,553 @@
+name: Release
+
+# Cut a release by pushing a version tag, e.g.:
+#   git tag v0.3.2 && git push origin v0.3.2
+#
+# This builds Nyxs for EVERY desktop target and publishes them — together with a
+# single updater manifest (latest.json) covering all platforms — to the PUBLIC
+# nyxs-code/nyxs-code repo's Releases, which the app's auto-updater reads. The app
+# then shows the "Actualización disponible" alert in the sidebar on each OS.
+#
+# Targets built (all on real OS runners — GitHub provides macOS/Linux/Windows):
+#   - windows-x86_64  (NSIS installer)              runs-on: windows-latest
+#   - darwin-aarch64  (Apple Silicon .app/.dmg)     runs-on: macos-15
+#   - darwin-x86_64   (Intel .app/.dmg)             runs-on: macos-15 (cross-compiled)
+#   - linux-x86_64    (AppImage + .deb)             off for now (see the build matrix)
+#
+# The Linux SSH helpers are still built: remote machines run them, whatever the desktop OS.
+#
+# Signing notes:
+#   - The Tauri UPDATER signature (TAURI_SIGNING_PRIVATE_KEY) is what the auto-
+#     updater verifies; it works on every platform and needs no OS-vendor account.
+#   - Windows: signed with Azure Artifact Signing, from the ARTIFACT_SIGNING_* and
+#     AZURE_* variables of the `release` environment. GitHub signs in to Azure with
+#     OIDC — no secret is stored — through a federated credential on
+#     `environment:release`. Without those variables the Windows build fails rather
+#     than ship unsigned. Signing doesn't remove SmartScreen's "unrecognized app" on
+#     day one: reputation builds with installs.
+#   - macOS: signed with the Developer ID Application certificate of the
+#     publisher's Apple developer team and notarized through an App Store Connect API key
+#     (secrets APPLE_*). The macOS `nyxs-remote` helpers carried as resources are
+#     signed first, since notarization rejects any unsigned Mach-O inside the bundle.
+#     Without APPLE_CERTIFICATE the Mac build falls back to ad-hoc signing, and an
+#     ad-hoc Apple Silicon build downloaded from the web is refused as "damaged".
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  # ── A release whose version has no entry in src/lib/changelog.ts fails here, in seconds,
+  #    instead of in `publish` after every platform has been built and signed.
+  notes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Check the changelog entry
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          node scripts/release-notes.mjs "$VERSION" || {
+            echo "::error::No usable release notes for $VERSION: add its entry to src/lib/changelog.ts."
+            exit 1
+          }
+
+  # ── The SSH helper (src-tauri/remote, `nyxs-remote`) for every system a remote machine can
+  #    run: each installer carries all of them, since the machine a user connects to needn't
+  #    match their own. Linux ones are static (musl, built with zig) so they run on any distro.
+  remote-helpers:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            kind: linux
+          - os: windows-latest
+            kind: windows
+          - os: macos-15
+            kind: macos
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+
+      - name: Build (Linux, static)
+        if: matrix.kind == 'linux'
+        working-directory: src-tauri/remote
+        run: |
+          rustup target add x86_64-unknown-linux-musl aarch64-unknown-linux-musl
+          pip install ziglang==0.13.0
+          cargo install cargo-zigbuild --locked --version 0.24.1
+          mkdir -p dist
+          for t in x86_64 aarch64; do
+            cargo zigbuild --release --target $t-unknown-linux-musl
+            cp target/$t-unknown-linux-musl/release/nyxs-remote dist/nyxs-remote-linux-$t
+          done
+
+      - name: Build (Windows)
+        if: matrix.kind == 'windows'
+        working-directory: src-tauri/remote
+        shell: bash
+        run: |
+          rustup target add x86_64-pc-windows-msvc aarch64-pc-windows-msvc
+          mkdir -p dist
+          for t in x86_64 aarch64; do
+            cargo build --release --target $t-pc-windows-msvc
+            cp target/$t-pc-windows-msvc/release/nyxs-remote.exe dist/nyxs-remote-windows-$t.exe
+          done
+
+      - name: Build (macOS)
+        if: matrix.kind == 'macos'
+        working-directory: src-tauri/remote
+        run: |
+          rustup target add x86_64-apple-darwin aarch64-apple-darwin
+          mkdir -p dist
+          for t in x86_64 aarch64; do
+            cargo build --release --target $t-apple-darwin
+            cp target/$t-apple-darwin/release/nyxs-remote dist/nyxs-remote-macos-$t
+          done
+
+      - name: Upload
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: remote-helpers-${{ matrix.kind }}
+          path: src-tauri/remote/dist/nyxs-remote-*
+          if-no-files-found: error
+
+  # ── Build one bundle per platform, in parallel, each emitting its installer/
+  #    updater files plus a manifest fragment ({ "<platform>": { signature, url } }).
+  build:
+    needs: [notes, remote-helpers]
+    environment: release
+    # `id-token: write` lets the Windows build ask GitHub for the OIDC token Azure
+    # trusts (federated credential on `environment:release`); nothing else uses it.
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            key: windows-x86_64
+            target: x86_64-pc-windows-msvc
+            kind: windows
+          - os: macos-15
+            key: darwin-aarch64
+            target: aarch64-apple-darwin
+            kind: macos
+          # Intel binary is cross-compiled on an Apple Silicon runner (macos-15):
+          # x86_64-apple-darwin is a tier-1 Rust target and macOS clang targets
+          # both arches, so this avoids the scarce/deprecated macos-13 Intel pool.
+          - os: macos-15
+            key: darwin-x86_64
+            target: x86_64-apple-darwin
+            kind: macos
+          # No Linux desktop build for now: nobody runs the app on Linux, and its apt step hung
+          # the v0.8.51 release for an hour while the Ubuntu mirror was down. The `linux` steps
+          # below stay; adding back { os: ubuntu-22.04, key: linux-x86_64,
+          # target: x86_64-unknown-linux-gnu, kind: linux } brings it back.
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo
+        uses: swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: "src-tauri -> target"
+          key: ${{ matrix.key }}
+
+      # Tauri v2 (webkit2gtk 4.1) Linux build dependencies + FUSE for AppImage.
+      - name: Install Linux build deps
+        if: matrix.kind == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libfuse2 \
+            file
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Bundled as resources (tauri.conf.json `bundle.resources`).
+      - name: Get the SSH helpers
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: remote-helpers-*
+          path: src-tauri/remote/dist
+          merge-multiple: true
+
+      - name: Align version with the tag
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          # The release commit sets the version in the repo (scripts/set-version.mjs); this only
+          # catches a release that forgot to.
+          REPO_VERSION=$(node -p "require('./package.json').version")
+          if [ "$REPO_VERSION" != "$VERSION" ]; then
+            echo "::warning::The repo says $REPO_VERSION but the tag is $VERSION. Run node scripts/set-version.mjs $VERSION in the release commit."
+          fi
+          # Pass the version as argv (a bash var isn't exported to node's env).
+          node -e "const fs=require('fs');const f='src-tauri/tauri.conf.json';const c=JSON.parse(fs.readFileSync(f));c.version=process.argv[1];fs.writeFileSync(f,JSON.stringify(c,null,2)+'\n')" "$VERSION"
+          node -e "const fs=require('fs');const f='package.json';const c=JSON.parse(fs.readFileSync(f));c.version=process.argv[1];fs.writeFileSync(f,JSON.stringify(c,null,2)+'\n')" "$VERSION"
+          echo "Version set to $VERSION"
+
+      # ── Azure Artifact Signing. The service principal behind AZURE_CLIENT_ID
+      #    only needs "Artifact Signing Certificate Profile Signer" on the signing
+      #    account.
+      - name: Sign in to Azure (Artifact Signing)
+        if: matrix.kind == 'windows'
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # Points Tauri's signing at signtool + Microsoft's Artifact Signing dlib, which
+      # signs with the account's short-lived certificate using the Azure CLI login
+      # above. Every binary Tauri signs (the app and the NSIS installer) goes through
+      # it.
+      #
+      # The token is fetched here, not when signing: the login rides GitHub's OIDC
+      # token, which lives a few minutes, and the first signature comes after the
+      # Rust build. Asking now caches a code-signing token that outlives the build.
+      #
+      # signtool runs through a small wrapper that keeps its output in sign.log,
+      # since Tauri only says "failed to run signtool.exe"; the step after the
+      # build prints the log when it fails.
+      - name: Set up Artifact Signing
+        if: matrix.kind == 'windows'
+        shell: pwsh
+        env:
+          SIGNING_ENDPOINT: ${{ vars.ARTIFACT_SIGNING_ENDPOINT }}
+          SIGNING_ACCOUNT: ${{ vars.ARTIFACT_SIGNING_ACCOUNT }}
+          SIGNING_PROFILE: ${{ vars.ARTIFACT_SIGNING_PROFILE }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          if (-not $env:SIGNING_ENDPOINT -or -not $env:SIGNING_ACCOUNT -or -not $env:SIGNING_PROFILE) {
+            throw "ARTIFACT_SIGNING_ENDPOINT/ACCOUNT/PROFILE are missing from the release environment: Windows builds must be signed."
+          }
+          $dir = Join-Path $env:RUNNER_TEMP "artifact-signing"
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          $ver = "1.0.128"
+          $pkg = Join-Path $dir "client.zip"
+          Invoke-WebRequest -Uri "https://api.nuget.org/v3-flatcontainer/microsoft.artifactsigning.client/$ver/microsoft.artifactsigning.client.$ver.nupkg" -OutFile $pkg
+          Expand-Archive -Path $pkg -DestinationPath (Join-Path $dir "client") -Force
+          $dlib = Get-ChildItem -Path (Join-Path $dir "client") -Recurse -Filter "Azure.CodeSigning.Dlib.dll" |
+            Where-Object { $_.Directory.Name -eq 'x64' } | Select-Object -First 1
+          if (-not $dlib) { throw "Azure.CodeSigning.Dlib.dll (x64) not found in the client package." }
+          $metadata = Join-Path $dir "metadata.json"
+          $json = @{
+            Endpoint               = $env:SIGNING_ENDPOINT
+            CodeSigningAccountName = $env:SIGNING_ACCOUNT
+            CertificateProfileName = $env:SIGNING_PROFILE
+            ExcludeCredentials     = @("ManagedIdentityCredential", "EnvironmentCredential", "WorkloadIdentityCredential", "SharedTokenCacheCredential", "VisualStudioCredential", "VisualStudioCodeCredential", "AzurePowerShellCredential", "AzureDeveloperCliCredential", "InteractiveBrowserCredential")
+          } | ConvertTo-Json
+          # No byte-order mark: the dlib's JSON reader refuses one.
+          [IO.File]::WriteAllText($metadata, $json, (New-Object System.Text.UTF8Encoding($false)))
+          $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" |
+            Sort-Object { [version]($_.Directory.Parent.Name) } -Descending | Select-Object -First 1
+          if (-not $signtool) { throw "signtool.exe not found." }
+          Write-Host "signtool: $($signtool.FullName)"
+          Write-Host "dlib:     $($dlib.FullName)"
+          az account get-access-token --resource https://codesigning.azure.net --output none
+          if ($LASTEXITCODE -ne 0) { throw "Could not get an Artifact Signing token for this login." }
+          $log = Join-Path $dir "sign.log"
+          $wrapper = Join-Path $dir "sign.ps1"
+          @"
+          param([string]`$File)
+          `$out = & '$($signtool.FullName)' sign /v /fd SHA256 /tr http://timestamp.acs.microsoft.com /td SHA256 /dlib '$($dlib.FullName)' /dmdf '$metadata' `$File 2>&1
+          `$code = `$LASTEXITCODE
+          "== `$File (exit `$code)" | Out-File -Append -FilePath '$log' -Encoding utf8
+          `$out | Out-File -Append -FilePath '$log' -Encoding utf8
+          exit `$code
+          "@ | Set-Content -Path $wrapper -Encoding utf8
+          $f = "src-tauri/tauri.conf.json"
+          $c = Get-Content $f -Raw | ConvertFrom-Json
+          $sign = [ordered]@{
+            cmd  = (Get-Command pwsh).Source
+            args = @("-NoProfile", "-NonInteractive", "-File", $wrapper, "%1")
+          }
+          $c.bundle.windows | Add-Member -NotePropertyName signCommand -NotePropertyValue $sign -Force
+          $c | ConvertTo-Json -Depth 100 | Set-Content $f -Encoding utf8
+          Write-Host "Windows binaries will be signed by Artifact Signing ($env:SIGNING_ACCOUNT / $env:SIGNING_PROFILE)."
+
+      # Windows: retry the build — signing and its RFC3161 timestamp can throttle
+      # when many files are signed quickly, failing signtool mid-bundle. A retry
+      # almost always succeeds (the Rust compile is cached).
+      - name: Build (Windows)
+        if: matrix.kind == 'windows'
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+        run: |
+          $max = 3
+          for ($i = 1; $i -le $max; $i++) {
+            Write-Host "Build attempt $i/$max..."
+            npm run tauri build -- --target ${{ matrix.target }}
+            if ($LASTEXITCODE -eq 0) { exit 0 }
+            Write-Host "Attempt $i failed (exit $LASTEXITCODE)."
+            if ($i -lt $max) { Start-Sleep -Seconds 15 }
+          }
+          Write-Error "tauri build failed after $max attempts."
+          exit 1
+
+      - name: Show the Artifact Signing log
+        if: failure() && matrix.kind == 'windows'
+        shell: pwsh
+        run: |
+          $log = Join-Path $env:RUNNER_TEMP "artifact-signing\sign.log"
+          if (Test-Path $log) { Get-Content $log } else { Write-Host "No signing was attempted (no sign.log)." }
+
+      # ── macOS: Developer ID signing + Apple notarization. Off (ad-hoc build, as
+      #    before) until the repo has APPLE_CERTIFICATE.
+      - name: Prepare Apple signing
+        if: matrix.kind == 'macos'
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          set -e
+          if [ -z "$APPLE_CERTIFICATE" ]; then
+            echo "APPLE_CERTIFICATE not set - building the Mac app ad-hoc signed."
+            echo "APPLE_SIGN=0" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          # The macOS nyxs-remote helpers ride inside the .app as resources, and
+          # notarization refuses an unsigned Mach-O anywhere in the bundle. Sign them
+          # here from a throwaway keychain (by certificate hash, not by name), then
+          # delete that keychain so Tauri's own import is the only identity left.
+          KC="$RUNNER_TEMP/helpers.keychain-db"
+          KC_PASS=$(openssl rand -hex 16)
+          printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KC_PASS" "$KC"
+          security set-keychain-settings -lut 900 "$KC"
+          security unlock-keychain -p "$KC_PASS" "$KC"
+          # The keychain must be on the user search list, or the partition-list and
+          # codesign lookups below answer "The specified item could not be found".
+          # delete-keychain at the end takes it off the list again.
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          security import "$RUNNER_TEMP/cert.p12" -k "$KC" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -k "$KC_PASS" "$KC" >/dev/null
+          rm -f "$RUNNER_TEMP/cert.p12"
+          HASH=$(security find-identity -v -p codesigning "$KC" | awk '/Developer ID Application/ {print $2; exit}')
+          [ -n "$HASH" ] || { echo "No Developer ID Application identity in the certificate."; exit 1; }
+          for f in src-tauri/remote/dist/nyxs-remote-macos-*; do
+            codesign --force --options runtime --timestamp --keychain "$KC" --sign "$HASH" "$f"
+            codesign --verify --strict --verbose=2 "$f"
+          done
+          security delete-keychain "$KC"
+          # The notarization key is a file for Tauri (APPLE_API_KEY_PATH), not a value.
+          KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
+          printf '%s' "$APPLE_API_KEY_P8" > "$KEY_PATH"
+          chmod 600 "$KEY_PATH"
+          echo "APPLE_API_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
+          echo "APPLE_SIGN=1" >> "$GITHUB_ENV"
+          echo "The Mac app will be signed with Developer ID and notarized."
+
+      - name: Build (macOS, signed + notarized)
+        if: matrix.kind == 'macos' && env.APPLE_SIGN == '1'
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+        run: npm run tauri build -- --target ${{ matrix.target }}
+
+      - name: Build (macOS ad-hoc / Linux)
+        if: matrix.kind == 'linux' || (matrix.kind == 'macos' && env.APPLE_SIGN != '1')
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+          # Run AppImage tooling without a FUSE mount (CI-friendly).
+          APPIMAGE_EXTRACT_AND_RUN: 1
+        run: npm run tauri build -- --target ${{ matrix.target }}
+
+      - name: Remove the notarization key
+        if: always() && matrix.kind == 'macos'
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/AuthKey.p8"
+
+      # Pick this platform's updater artifact (+ its .sig) and any user-facing
+      # installers, then write a manifest fragment the publish job merges. The
+      # updater URL points at the file the auto-updater downloads:
+      #   windows → -setup.exe   macOS → .app.tar.gz   linux → .AppImage
+      - name: Collect artifacts + manifest fragment
+        shell: bash
+        env:
+          KIND: ${{ matrix.kind }}
+          KEY: ${{ matrix.key }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -e
+          BASE="src-tauri/target/${TARGET}/release/bundle"
+          mkdir -p upload
+          case "$KIND" in
+            windows)
+              UPDATER=$(ls "$BASE/nsis/"*-setup.exe | head -1)
+              SIG=$(ls "$BASE/nsis/"*-setup.exe.sig | head -1)
+              UPLOADED_NAME=$(basename "$UPDATER")
+              cp "$UPDATER" "upload/$UPLOADED_NAME"
+              ;;
+            macos)
+              UPDATER=$(ls "$BASE/macos/"*.app.tar.gz | head -1)
+              SIG=$(ls "$BASE/macos/"*.app.tar.gz.sig | head -1)
+              # Tauri names this Nyxs.app.tar.gz for BOTH arches — rename per
+              # platform key so the two macOS builds don't overwrite each other
+              # in the published release. The minisign signature is over the file
+              # CONTENT, so renaming keeps it valid.
+              UPLOADED_NAME="Nyxs_${KEY}.app.tar.gz"
+              cp "$UPDATER" "upload/$UPLOADED_NAME"
+              DMG=$(ls "$BASE/dmg/"*.dmg | head -1)
+              cp "$DMG" upload/
+              ;;
+            linux)
+              UPDATER=$(ls "$BASE/appimage/"*.AppImage | head -1)
+              SIG=$(ls "$BASE/appimage/"*.AppImage.sig | head -1)
+              UPLOADED_NAME=$(basename "$UPDATER")
+              cp "$UPDATER" "upload/$UPLOADED_NAME"
+              DEB=$(ls "$BASE/deb/"*.deb 2>/dev/null | head -1 || true)
+              if [ -n "${DEB:-}" ]; then cp "$DEB" upload/; fi
+              ;;
+          esac
+          DL="https://github.com/nyxs-code/nyxs-code/releases/download/${GITHUB_REF_NAME}/${UPLOADED_NAME}"
+          SIGCONTENT=$(cat "$SIG")
+          node -e "const fs=require('fs');const o={};o[process.argv[1]]={signature:process.argv[2],url:process.argv[3]};fs.writeFileSync('upload/fragment-'+process.argv[1]+'.json',JSON.stringify(o));" "$KEY" "$SIGCONTENT" "$DL"
+          echo "Fragment:"; cat "upload/fragment-${KEY}.json"
+          echo "Upload set:"; ls -la upload
+
+      - name: Upload platform artifacts
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-${{ matrix.key }}
+          path: upload/
+          retention-days: 1
+
+  # ── Merge every platform's fragment into one latest.json and publish all
+  #    installers + the manifest to the public releases repo. Requires every
+  #    build to succeed so the manifest never ships missing a platform.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Download all platform artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: artifacts
+
+      - name: Assemble manifest + release files
+        shell: bash
+        run: |
+          set -e
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          # The release commit sets the version in the repo (scripts/set-version.mjs); this only
+          # catches a release that forgot to.
+          REPO_VERSION=$(node -p "require('./package.json').version")
+          if [ "$REPO_VERSION" != "$VERSION" ]; then
+            echo "::warning::The repo says $REPO_VERSION but the tag is $VERSION. Run node scripts/set-version.mjs $VERSION in the release commit."
+          fi
+          mkdir -p dist-release
+
+          # Every installer/updater file from all platforms (basenames are unique
+          # per target), excluding the manifest fragments.
+          find artifacts -type f ! -name 'fragment-*.json' -exec cp {} dist-release/ \;
+
+          # Client-facing notes from the curated changelog (src/lib/changelog.ts). The script
+          # exits 1 when the entry is missing or empty, so no release goes out without notes.
+          NOTES=$(node scripts/release-notes.mjs "$VERSION") || {
+            echo "::error::No usable release notes for $VERSION: add its entry to src/lib/changelog.ts."
+            exit 1
+          }
+          echo "Release notes:"; echo "$NOTES"
+          { echo "NOTES<<__EOF__"; echo "$NOTES"; echo "__EOF__"; } >> "$GITHUB_ENV"
+          PUBDATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          # Merge all per-platform fragments into one updater manifest.
+          NOTES="$NOTES" PUBDATE="$PUBDATE" VERSION="$VERSION" node -e '
+            const fs = require("fs");
+            const platforms = {};
+            for (const d of fs.readdirSync("artifacts")) {
+              const dir = "artifacts/" + d;
+              if (!fs.statSync(dir).isDirectory()) continue;
+              for (const f of fs.readdirSync(dir)) {
+                if (f.startsWith("fragment-") && f.endsWith(".json")) {
+                  Object.assign(platforms, JSON.parse(fs.readFileSync(dir + "/" + f)));
+                }
+              }
+            }
+            const m = {
+              version: process.env.VERSION,
+              notes: process.env.NOTES,
+              pub_date: process.env.PUBDATE,
+              platforms,
+            };
+            fs.writeFileSync("dist-release/latest.json", JSON.stringify(m, null, 2));
+          '
+          echo "Manifest:"; cat dist-release/latest.json
+          echo "Release files:"; ls -la dist-release
+
+      - name: Publish to the public repo's Releases
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        shell: bash
+        run: |
+          set -e
+          gh release create "${GITHUB_REF_NAME}" \
+            --repo nyxs-code/nyxs-code \
+            --title "Nyxs ${VERSION}" \
+            --notes "${NOTES}" \
+            dist-release/* \
+            || gh release upload "${GITHUB_REF_NAME}" \
+                 --repo nyxs-code/nyxs-code \
+                 --clobber dist-release/*

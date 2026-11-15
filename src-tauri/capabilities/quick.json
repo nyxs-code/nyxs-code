@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "quick",
+  "description": "Ventana rápida: solo eventos y su propia ventana",
+  "windows": [
+    "quick"
+  ],
+  "permissions": [
+    "core:default",
+    "core:window:allow-hide"
+  ]
+}

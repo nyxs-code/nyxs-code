@@ -1,0 +1,108 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "Nyxs",
+  "version": "0.8.56",
+  "identifier": "com.nyxs.desktop",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev:tauri",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "macOSPrivateApi": true,
+    "windows": [
+      {
+        "title": "Nyxs",
+        "width": 1100,
+        "height": 720,
+        "minWidth": 800,
+        "minHeight": 560,
+        "resizable": true,
+        "maximized": true,
+        "fullscreen": false,
+        "decorations": false,
+        "shadow": false,
+        "dragDropEnabled": false,
+        "backgroundColor": "#1f1e1d"
+      }
+    ],
+    "security": {
+      "csp": {
+        "default-src": ["'self'"],
+        "script-src": ["'self'"],
+        "style-src": ["'self'", "'unsafe-inline'"],
+        "img-src": ["'self'", "asset:", "http://asset.localhost", "data:", "blob:", "https:"],
+        "font-src": ["'self'", "data:"],
+        "media-src": ["'self'", "asset:", "http://asset.localhost", "data:", "blob:"],
+        "connect-src": ["'self'", "ipc:", "http://ipc.localhost", "asset:", "http://asset.localhost", "data:", "blob:", "wss://api.nyxs.dev"],
+        "frame-src": ["'self'", "asset:", "http://asset.localhost", "nyxspreview:", "http://nyxspreview.localhost", "http://nyxspreview.localhost:*", "https://localhost:*", "https://127.0.0.1:*", "http://127.0.0.1:*"],
+        "worker-src": ["'self'", "blob:"],
+        "object-src": ["'none'"],
+        "base-uri": ["'self'"],
+        "form-action": ["'none'"],
+        "frame-ancestors": ["'none'"]
+      },
+      "devCsp": {
+        "default-src": ["'self'"],
+        "script-src": ["'self'", "'unsafe-inline'"],
+        "style-src": ["'self'", "'unsafe-inline'"],
+        "img-src": ["'self'", "asset:", "http://asset.localhost", "data:", "blob:", "https:"],
+        "font-src": ["'self'", "data:"],
+        "media-src": ["'self'", "asset:", "http://asset.localhost", "data:", "blob:"],
+        "connect-src": ["'self'", "ipc:", "http://ipc.localhost", "asset:", "http://asset.localhost", "data:", "blob:", "ws://localhost:1420", "ws://127.0.0.1:1420", "wss://api.nyxs.dev"],
+        "frame-src": ["'self'", "asset:", "http://asset.localhost", "nyxspreview:", "http://nyxspreview.localhost", "http://nyxspreview.localhost:*", "https://localhost:*", "https://127.0.0.1:*", "http://127.0.0.1:*"],
+        "worker-src": ["'self'", "blob:"],
+        "object-src": ["'none'"],
+        "base-uri": ["'self'"],
+        "form-action": ["'none'"],
+        "frame-ancestors": ["'none'"]
+      },
+      "dangerousDisableAssetCspModification": ["style-src"],
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$APPDATA/**", "$APPLOCALDATA/**", "$HOME/.nyxs/**"]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "createUpdaterArtifacts": true,
+    "publisher": "Nyxs Code",
+    "resources": ["remote/dist/*", "resources/video-template/**/*"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installerHooks": "./windows/installer-hooks.nsh"
+      },
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "http://timestamp.digicert.com"
+    },
+    "macOS": {
+      "entitlements": "./Entitlements.plist"
+    },
+    "android": {
+      "debugApplicationIdSuffix": ".debug"
+    }
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["nyxs"]
+      }
+    },
+    "updater": {
+      "endpoints": [
+        "https://github.com/nyxs-code/nyxs-code/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVDMkI4ODQ3RERDQjUwQTkKUldTcFVNdmRSNGdyN0w4Y2pQZ0RDRnM0SlNCTk5mN1ZsR2VGZ1BNUkRqcXpUOEtCYXVKRTZYSWcK"
+    }
+  }
+}

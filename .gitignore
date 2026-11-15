@@ -1,0 +1,61 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Tauri
+src-tauri/target
+
+# Native end-to-end tests (e2e-native/): their build, drivers and runs
+dist-e2e
+src-tauri/target-e2e
+e2e-native/.drivers
+
+# Temp screenshots
+.preview.png
+.win.png
+
+# Plugin marketplace clones accidentally created under the repo (cache belongs in ~/.nyxs/plugins).
+/plugins/
+
+# Updater signing keys, certificates and env files — NEVER commit. Keys live only as CI secrets.
+*.key
+src-tauri/*.key
+.tauri-keys/
+*.pfx
+*.p12
+*.p8
+*.pem
+.env
+.env.*
+
+# Personal Claude Code settings and worktrees
+.claude/settings.local.json
+.claude/worktrees/
+
+# Video projects the app creates when this repo is the open workspace
+/videos/
+
+# Playwright (npm run test:e2e)
+test-results
+playwright-report

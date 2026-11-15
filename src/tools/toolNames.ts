@@ -1,0 +1,17 @@
+export const BASH_TOOL_NAME = "Bash";
+export const READ_TOOL_NAME = "Read";
+export const WRITE_TOOL_NAME = "Write";
+export const EDIT_TOOL_NAME = "Edit";
+export const GLOB_TOOL_NAME = "Glob";
+export const GREP_TOOL_NAME = "Grep";
+export const LIST_DIR_TOOL_NAME = "ListDir";
+export const WEB_FETCH_TOOL_NAME = "WebFetch";
+export const WEB_SEARCH_TOOL_NAME = "WebSearch";
+export const AGENT_TOOL_NAME = "Agent";
+export const READ_PDF_TOOL_NAME = "ReadPdf";
+export const WATCH_VIDEO_TOOL_NAME = "WatchVideo";
+export const WRITE_PLAN_TOOL_NAME = "WritePlan";
+export const REQUEST_PERMISSION_TOOL_NAME = "RequestPermission";
+export const RETRIEVE_CONTEXT_TOOL_NAME = "retrieve_context";
+export const LSP_TOOL_NAME = "Lsp";
+export const GIT_DIFF_TOOL_NAME = "GitDiff";

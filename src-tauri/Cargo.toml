@@ -1,0 +1,121 @@
+[package]
+name = "app"
+version = "0.8.56"
+description = "Nyxs, a desktop AI coding agent"
+authors = ["Nyxs Code"]
+license = "MIT"
+repository = "https://github.com/nyxs-code/nyxs-code"
+edition = "2021"
+rust-version = "1.90"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6.2", features = [] }
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+log = "0.4"
+# The OS data folders, found before Tauri starts (`identifier::migrate_folders`).
+dirs = "7"
+tauri = { version = "2.11.2", features = ["macos-private-api", "protocol-asset", "unstable"] }
+tauri-plugin-log = "2"
+# `unsafe-headers` lets a request set `Origin: ""` so the plugin omits the Origin it
+# otherwise injects; Anthropic rejects calls carrying a browser Origin (see providerModels).
+tauri-plugin-http = { version = "2", features = ["unsafe-headers"] }
+tauri-plugin-dialog = "2"
+# Saves the built-in browser's screenshots.
+png = "0.17"
+tauri-plugin-notification = "2"
+# Auto-update: checks the manifest of the public repo's latest release, downloads + installs
+# signed updates. `process` provides relaunch after install ("Instalar y reiniciar").
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+# Remembers the window's size, position and monitor across restarts (an update is one).
+tauri-plugin-window-state = "2"
+walkdir = "2"
+ignore = "0.4"
+regex = "1"
+globset = "0.4"
+# Filesystem watcher for the Files panel: native OS notifications
+# (ReadDirectoryChangesW on Windows, FSEvents/inotify elsewhere) so the tree
+# auto-refreshes on external changes without polling. See src/fswatch.rs.
+notify = "6"
+# Already in the tree via tauri-plugin-http; used directly to fetch dev-server
+# HTML for the preview (no CORS / no frontend HTTP scope to fight).
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "blocking"] }
+# Descarga + extracción de servidores LSP gestionados (modelo VS Code): la app
+# baja los binarios a su carpeta de datos. rust-analyzer viene .gz (unix) / .zip
+# (win); Node viene .tar.gz (unix) / .zip (win).
+flate2 = "1"
+tar = "0.4"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+# Verificación de integridad de las descargas (Node publica SHASUMS256.txt).
+sha2 = "0.10"
+printpdf = "0.7"
+# Text extraction from PDFs for models WITHOUT native PDF/vision input (e.g. most
+# openai-compatible models): we extract the text locally and hand it over as plain
+# text instead of the unusable file-data part. PDF/vision models keep the bytes.
+pdf-extract = "0.7"
+base64 = "0.22"
+# Pseudo-terminal for the interactive in-app terminal (ConPTY on Windows, a real
+# PTY elsewhere). Lets PowerShell run as a true interactive shell with prompts,
+# colors and line editing instead of one-shot piped commands.
+portable-pty = "0.8"
+tauri-plugin-deep-link = "2"
+# The Computer tool's screenshots: JPEG keeps a full screen to ~100-200 KB for the model.
+jpeg-encoder = "0.6"
+# The music player's folder: titles, artists, durations and covers from audio files' tags.
+lofty = "0.22"
+
+[dev-dependencies]
+urlpattern = "0.3"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-global-shortcut = "2"
+# Deleting a video project moves it to the OS trash / recycle bin instead of erasing it.
+trash = "5"
+# OS secure store for API keys (Windows Credential Manager / macOS Keychain /
+# Linux Secret Service). Keys never touch settings.json in plaintext.
+# NOTE: keyring v3 ships with an in-memory MOCK store by default; a platform
+# backend feature MUST be enabled per target or secrets vanish on restart.
+# Hence the target-specific deps below instead of a bare `keyring = "3"`.
+
+[target.'cfg(windows)'.dependencies]
+keyring = { version = "3", features = ["windows-native"] }
+# Send Windows toasts under our own AppUserModelID (registered in the registry)
+# so notifications show "Nyxs" + icon instead of the host process even in dev.
+tauri-winrt-notification = "0.7"
+winreg = "0.52"
+# Same versions wry uses: lets the built-in browser's pages switch color scheme live.
+webview2-com = "0.39"
+windows-core = "0.62"
+# The same windows crate as wry: the stream WebView2's CapturePreview writes a page's picture to.
+# Also the media sessions the music player reads other apps' songs from.
+windows = { version = "0.62", features = ["Foundation", "Foundation_Collections", "Media_Control", "Storage_Streams", "Win32_System_Com", "Win32_UI_Shell", "Win32_UI_Accessibility", "Win32_UI_WindowsAndMessaging"] }
+# Job object that takes the agent's PowerShell hosts down with Nyxs, even on a crash.
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Graphics_Dwm", "Win32_Graphics_Gdi", "Win32_Security", "Win32_Storage_FileSystem", "Win32_System_Console", "Win32_System_IO", "Win32_System_Diagnostics_ToolHelp", "Win32_System_JobObjects", "Win32_System_LibraryLoader", "Win32_System_Power", "Win32_System_Threading", "Win32_System_Pipes", "Win32_Security_Authorization", "Win32_UI_Accessibility", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3", features = ["apple-native"] }
+# Computer use on macOS: screenshots (ScreenCaptureKit), mouse and keyboard (CGEvent), windows'
+# controls (Accessibility) and the frame over the screen (AppKit). The versions tauri already uses.
+objc2 = "0.6"
+block2 = "0.6"
+objc2-foundation = "0.3"
+objc2-app-kit = "0.3"
+objc2-core-foundation = "0.3"
+objc2-core-graphics = "0.3"
+objc2-application-services = "0.3"
+objc2-screen-capture-kit = "0.3"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3", features = ["sync-secret-service", "crypto-rust"] }

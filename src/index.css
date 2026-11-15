@@ -1,0 +1,500 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* VS Code's Seti file icons (src/components/views/FileIcon.tsx). */
+@font-face {
+  font-family: "seti";
+  src: url("./assets/seti/seti.woff") format("woff");
+  font-display: block;
+}
+
+@theme inline {
+  --color-bg-0: var(--bg-0);
+  --color-bg-000: var(--bg-000);
+  --color-bg-100: var(--bg-100);
+  --color-bg-200: var(--bg-200);
+  --color-bg-300: var(--bg-300);
+  --color-text-100: var(--text-100);
+  --color-text-200: var(--text-200);
+  --color-text-300: var(--text-300);
+  --color-text-400: var(--text-400);
+  --color-text-500: var(--text-500);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --font-serif: "Source Serif 4", Georgia, serif;
+  /* `--ui-font` / `--code-font` are set at runtime by lib/appearance.ts (with
+     these stacks as the fallback), so the interface- and code-font preferences
+     drive Tailwind's `font-sans` / `font-mono` utilities and the base styles. */
+  --font-sans: var(--ui-font, "Inter Variable", "Inter", "Onest", system-ui, sans-serif);
+  --font-mono: var(--code-font, ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace);
+  --shadow-input: 0 1px 2px -1px rgba(0, 0, 0, 0.08), 0 2px 8px -2px rgba(0, 0, 0, 0.04);
+  --shadow-input-hover: 0 1px 2px -1px rgba(0, 0, 0, 0.08), 0 4px 12px -2px rgba(0, 0, 0, 0.08);
+  --shadow-input-focus: 0 0 0 2px rgba(42, 120, 214, 0.12), 0 4px 12px -2px rgba(0, 0, 0, 0.08);
+  --color-background: var(--bg-0);
+  --color-foreground: var(--text-100);
+  --color-card: var(--bg-100);
+  --color-card-foreground: var(--text-100);
+  --color-popover: var(--bg-100);
+  --color-popover-foreground: var(--text-100);
+  --color-primary: var(--text-100);
+  --color-primary-foreground: var(--bg-0);
+  --color-secondary: var(--bg-200);
+  --color-secondary-foreground: var(--text-100);
+  --color-muted: var(--bg-200);
+  --color-muted-foreground: var(--text-400);
+  --color-accent-foreground: var(--bg-0);
+  --color-destructive: oklch(0.577 0.245 27.325);
+  --color-border: var(--bg-300);
+  --color-input: var(--bg-300);
+  --color-ring: var(--accent);
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+
+:root {
+  --bg-0: #faf9f5;
+  --bg-000: #faf9f5;
+  --bg-100: #ffffff;
+  --bg-200: #f0eee6;
+  --bg-300: #dddddd;
+  --text-100: #1f1e1d;
+  --text-200: #3d3d3a;
+  --text-300: #73726c;
+  --text-400: #888888;
+  --text-500: #999999;
+  --accent: #2a78d6;
+  --accent-hover: #1f66bd;
+  --success: #2f7d4f;
+  --warning: #a8670f;
+  --danger: #c0392b;
+  --radius: 0.5rem;
+  /* Chat text: inline code in Claude's crimson on a quiet chip, links in plain blue. */
+  --inline-code-fg: #a32f4f;
+  --inline-code-bg: #f4f3ee;
+  --inline-code-border: #e3e1d9;
+  --link: #2f6fc4;
+  /* The user's message bubble: a neutral grey rather than the warm surface tone. */
+  --user-bubble: #f0f0ef;
+  --ease-silk: cubic-bezier(0.2, 0, 0, 1);
+}
+
+.dark {
+  --bg-0: #212121;
+  --bg-000: #212121;
+  --bg-100: #262624;
+  --bg-200: #30302e;
+  --bg-300: #454540;
+  --text-100: #ececec;
+  --text-200: #e1e1e0;
+  --text-300: #b4b4b4;
+  --text-400: #8a8a88;
+  --text-500: #6b6b65;
+  --accent: #4a8fe4;
+  --accent-hover: #6aa4ec;
+  --success: #5cc98a;
+  --warning: #e5b25d;
+  --danger: #f07a6a;
+  --inline-code-fg: #ec8ba1;
+  --inline-code-bg: #30302e;
+  --inline-code-border: #3f3f3b;
+  --link: #79aaf0;
+  --user-bubble: #303030;
+}
+
+.pink {
+  --success: #2f7d4f;
+  --warning: #a8670f;
+  --danger: #be123c;
+  --inline-code-fg: #9d174d;
+  --inline-code-bg: #fce7f3;
+  --inline-code-border: #f3c6da;
+  --link: #be185d;
+  --user-bubble: #fce7f3;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    margin: 0;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+    width: 100%;
+  }
+  /* The app is a fixed shell whose panes scroll inside: something a little too wide (a narrow
+     window) must not give the whole window scrollbars. */
+  html,
+  body {
+    overflow: hidden;
+  }
+  #root {
+    text-align: initial;
+  }
+  :where(button, a[href], summary, [role="button"], [role="menuitem"], [role="tab"], [role="option"], [tabindex]:not([tabindex="-1"])):focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s var(--ease-silk) both;
+}
+
+/* A word the model just wrote while a reply streams: it comes in blurred and clears. */
+@keyframes stream-word-in {
+  from {
+    opacity: 0;
+    filter: blur(5px);
+  }
+}
+
+.stream-word {
+  animation: stream-word-in 0.5s ease-out both;
+}
+
+/* The update card's demos (src/components/update/). */
+@keyframes update-card-in {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+}
+.update-card-in {
+  animation: update-card-in 0.5s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@keyframes update-card-wave {
+  0%,
+  100% {
+    height: 3px;
+  }
+  50% {
+    height: 15px;
+  }
+}
+@keyframes update-card-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.95);
+  }
+}
+.update-card-pop {
+  animation: update-card-pop 0.6s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@keyframes update-card-pick {
+  50% {
+    inset: -8px;
+  }
+}
+.update-card-pick::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border: 1.5px dashed var(--accent);
+  border-radius: 8px;
+  animation: update-card-pick 1.6s ease-in-out infinite;
+}
+@keyframes update-card-fly {
+  0%,
+  30% {
+    opacity: 0;
+    transform: translate(-40px, -30px) scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: none;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.update-card-fly {
+  animation: update-card-fly 2.8s cubic-bezier(0.32, 0.72, 0, 1) infinite;
+}
+@keyframes update-card-caret {
+  50% {
+    opacity: 0;
+  }
+}
+.update-card-caret {
+  animation: update-card-caret 1s steps(1) infinite;
+}
+/* The audit draws each step still, so what it measures is where things end up. */
+[data-card-still] *,
+[data-card-still] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* The glint running along the divider while a conversation is being compacted. */
+@keyframes compact-sweep {
+  from {
+    left: -40%;
+  }
+  to {
+    left: 100%;
+  }
+}
+
+.compact-sweep::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: compact-sweep 1.4s ease-in-out infinite;
+}
+
+.compact-sweep-reverse::after {
+  animation-direction: reverse;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .compact-sweep::after {
+    animation: none;
+    left: 30%;
+  }
+}
+
+/* The reasoning window while the model thinks (WorkTrace's LiveReasoning): no scrollbar, and the
+   top fades in once there is text above, so it reads as "more up there". */
+@property --reasoning-fade {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+.reasoning-live {
+  scrollbar-width: none;
+  mask-image: linear-gradient(to bottom, transparent, #000 var(--reasoning-fade));
+  transition: --reasoning-fade 240ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.reasoning-live::-webkit-scrollbar {
+  display: none;
+}
+
+.reasoning-live[data-scrolled] {
+  --reasoning-fade: 48px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reasoning-live {
+    transition: none;
+  }
+}
+
+/* Tree connectors for WorkTrace's steps: a vertical line with a rounded branch into each row,
+   ending in the last row's curve. The branch has a fixed height instead of 50% so an expanded row
+   (diff, output, reasoning) still connects at its first line. --bg-300 is opaque, so where the
+   line and a branch overlap the tone stays the same. */
+.work-tree-row {
+  position: relative;
+  padding-left: 16px;
+  padding-bottom: 2px;
+}
+
+.work-tree-row::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid var(--bg-300);
+}
+
+.work-tree-row:last-child::before {
+  display: none;
+}
+
+.work-tree-row::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 10px;
+  height: 11px;
+  border-left: 1px solid var(--bg-300);
+  border-bottom: 1px solid var(--bg-300);
+  border-bottom-left-radius: 7px;
+}
+
+@keyframes typing {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translateY(-2px);
+    opacity: 1;
+  }
+}
+
+@keyframes textShimmer {
+  from {
+    background-position: 100% center;
+  }
+  to {
+    background-position: 0% center;
+  }
+}
+
+.text-shimmer {
+  --shimmer-spread: 40px;
+  display: inline-block;
+  background-image:
+    linear-gradient(90deg, transparent calc(50% - var(--shimmer-spread)), var(--text-100), transparent calc(50% + var(--shimmer-spread))),
+    linear-gradient(var(--text-400), var(--text-400));
+  background-repeat: no-repeat, padding-box;
+  background-size: 250% 100%, auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: textShimmer var(--shimmer-duration, 2s) linear infinite;
+}
+
+/* Tooltips: dark in the light theme (like Claude's), the theme's own surface in the dark one.
+   Every tooltip uses these — the data-tooltip layer and the few hand-built ones. */
+.app-tooltip {
+  /* A slight rounding; this beats any rounded-* utility on the element. */
+  border-radius: 6px;
+  background: #1a1a19;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.app-tooltip-muted {
+  color: rgba(255, 255, 255, 0.62);
+}
+.dark .app-tooltip {
+  background: var(--bg-100);
+  color: var(--text-100);
+  border-color: var(--bg-300);
+}
+.dark .app-tooltip-muted {
+  color: var(--text-300);
+}
+
+/* Text highlighted in the chat (src/lib/chatHighlights.ts): a marker-pen tint under the text,
+   stronger in the dark theme so it still reads on the dark surface. */
+::highlight(nyxs-hl-yellow) { background-color: rgba(255, 208, 0, 0.5); }
+::highlight(nyxs-hl-green) { background-color: rgba(0, 212, 90, 0.38); }
+::highlight(nyxs-hl-blue) { background-color: rgba(30, 111, 255, 0.34); }
+::highlight(nyxs-hl-pink) { background-color: rgba(255, 45, 149, 0.34); }
+::highlight(nyxs-hl-orange) { background-color: rgba(255, 106, 0, 0.38); }
+::highlight(nyxs-hl-red) { background-color: rgba(255, 31, 31, 0.32); }
+.dark ::highlight(nyxs-hl-yellow) { background-color: rgba(255, 208, 0, 0.42); }
+.dark ::highlight(nyxs-hl-green) { background-color: rgba(0, 212, 90, 0.44); }
+.dark ::highlight(nyxs-hl-blue) { background-color: rgba(30, 111, 255, 0.52); }
+.dark ::highlight(nyxs-hl-pink) { background-color: rgba(255, 45, 149, 0.46); }
+.dark ::highlight(nyxs-hl-orange) { background-color: rgba(255, 106, 0, 0.46); }
+.dark ::highlight(nyxs-hl-red) { background-color: rgba(255, 31, 31, 0.46); }
+
+/* Hide the native password reveal/clear controls (Edge/IE) so our own eye
+   toggle is the only one shown on API-key inputs. */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+
+/* Scrollbar fino para artefactos y listas */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--bg-300);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--text-400);
+}
+/* The terminal draws its own scrollbar (sized in TerminalView); round it like the ones above. */
+.xterm .xterm-scrollable-element > .scrollbar > .slider {
+  border-radius: 9999px;
+}
+
+::highlight(find-match) {
+  background-color: color-mix(in srgb, var(--accent, #2a78d6) 35%, transparent);
+  color: inherit;
+}
+::highlight(find-current) {
+  background-color: var(--accent, #2a78d6);
+  color: #fff;
+}
+
+.line-clamp-4 {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Dark mode por defecto en la app de escritorio */
+:root {
+  color-scheme: dark;
+}
+
+/* A mod's theme with a backdrop (src/lib/mods/paint.ts): the panels over it are frosted glass,
+   tinted with the theme's glass color, or the page's own when it gives none. The glass is a layer
+   behind the panel and not the panel itself: an element with backdrop-filter becomes the box every
+   `position: fixed` inside it is placed in, and the menus and dialogs opened from the sidebar would
+   then sit inside the sidebar instead of over the window. The layer (z-index -1) paints in the app
+   root's stacking context, above the backdrop and below every panel's content. */
+.mod-glass [data-mod-panel] {
+  position: relative;
+  background-color: transparent;
+}
+.mod-glass [data-mod-panel]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: inherit;
+  background-color: color-mix(in srgb, var(--mod-glass-tint, var(--bg-0)) calc(var(--mod-glass-opacity, 0.6) * 100%), transparent);
+  backdrop-filter: blur(var(--mod-glass-blur, 16px));
+}

@@ -1,0 +1,27 @@
+{
+  "name": "nyxs-video-runtime",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Shared runtime of Nyxs Video: Remotion, the timeline engine, the player and the render script. Installed once under ~/.nyxs/video-runtime/<version>/.",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.541",
+    "@remotion/captions": "4.0.541",
+    "@remotion/cli": "4.0.541",
+    "@remotion/google-fonts": "4.0.541",
+    "@remotion/media-utils": "4.0.541",
+    "@remotion/player": "4.0.541",
+    "@remotion/renderer": "4.0.541",
+    "@remotion/transitions": "4.0.541",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "esbuild": "^0.28.2",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "remotion": "4.0.541",
+    "typescript": "~6.0.2"
+  }
+}
