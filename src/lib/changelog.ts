@@ -28,6 +28,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
     fixed: [
       "Moving or deleting a video project no longer fails on Windows while its player is running.",
+      "Several agents starting at once no longer fail to create their worktrees.",
     ],
     card: {
       v: 1,

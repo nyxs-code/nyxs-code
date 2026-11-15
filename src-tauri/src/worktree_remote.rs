@@ -10,7 +10,14 @@
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crate::remote::git::{git, git_bytes, git_input, git_raw, run};
+use crate::remote::git::{git_bytes, git_input, git_raw, run};
+
+/// `remote::git`, with every `git worktree …` waiting for the others (see `WORKTREE_GIT` in
+/// `worktree.rs`): parallel agents on one machine race on its `.git/worktrees` the same way.
+fn git(host: &str, cwd: &str, args: &[&str]) -> Result<String, String> {
+    let _serial = (args.first() == Some(&"worktree")).then(super::worktree_git_lock);
+    crate::remote::git::git(host, cwd, args)
+}
 use crate::remote::{fs as rfs, RemotePath};
 
 use super::{

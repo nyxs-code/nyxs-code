@@ -21,7 +21,18 @@ fn hide_console(cmd: &mut Command) {
     let _ = cmd;
 }
 
+/// Held around every `git worktree …` this process runs. Git doesn't guard its worktree records
+/// against itself: an `add` or `prune` reads every `.git/worktrees/*/commondir`, so parallel
+/// agents starting at once failed on the folder another `add` had only half written. Only the
+/// git call waits; seeding the new tree still runs in parallel.
+static WORKTREE_GIT: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+pub(crate) fn worktree_git_lock() -> std::sync::MutexGuard<'static, ()> {
+    WORKTREE_GIT.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 fn git(cwd: &Path, args: &[&str]) -> Result<String, String> {
+    let _serial = (args.first() == Some(&"worktree")).then(worktree_git_lock);
     let mut cmd = Command::new("git");
     cmd.arg("-C").arg(cwd).args(args);
     hide_console(&mut cmd);
