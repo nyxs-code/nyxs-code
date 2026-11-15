@@ -150,7 +150,8 @@ pub fn mcp_bridge_start(app: AppHandle) -> Result<McpBridgeInfo, String> {
             log::warn!("MCP bridge: {e}");
         }
         use tauri::Manager;
-        if let Some(main) = app.get_webview_window("main") {
+        // `get_window`: `get_webview_window` is `None` while the built-in browser is open.
+        if let Some(main) = app.get_window("main") {
             let token = token.clone();
             main.on_window_event(move |event| {
                 if matches!(event, tauri::WindowEvent::Destroyed) {

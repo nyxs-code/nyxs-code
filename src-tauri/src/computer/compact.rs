@@ -53,10 +53,17 @@ fn in_the_way(maximized: bool, fullscreen: bool, width: u32, work_width: u32) ->
     maximized || fullscreen || width > work_width / 2
 }
 
+/// The main window as a window, whatever webviews it holds. `get_webview_window("main")` is
+/// `None` while the built-in browser's child webview is open in it, and Nyxs then never stepped
+/// aside.
+fn main_window(app: &AppHandle) -> Option<tauri::Window> {
+    app.get_window("main")
+}
+
 /// Steps aside, once per time the agent takes the computer. True when the window moved, so
 /// the caller can let it settle before the agent's first screenshot.
 pub fn step_aside(app: &AppHandle) -> bool {
-    let Some(w) = app.get_webview_window("main") else {
+    let Some(w) = main_window(app) else {
         return false;
     };
     let mut slot = saved().lock().unwrap_or_else(|e| e.into_inner());
@@ -110,7 +117,7 @@ pub fn come_back(app: &AppHandle) {
     let Some(before) = saved().lock().unwrap_or_else(|e| e.into_inner()).take() else {
         return;
     };
-    let Some(w) = app.get_webview_window("main") else {
+    let Some(w) = main_window(app) else {
         return;
     };
     let _ = w.set_always_on_top(false);

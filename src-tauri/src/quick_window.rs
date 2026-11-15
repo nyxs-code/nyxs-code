@@ -70,13 +70,15 @@ pub fn quick_submit<R: Runtime>(app: AppHandle<R>, prompt: String) -> Result<(),
         return Ok(());
     }
     quick_hide(app.clone());
+    // `get_window`, not `get_webview_window`: the latter is `None` while the built-in browser's
+    // child webview is open in the main window.
     let main = app
-        .get_webview_window(MAIN_LABEL)
+        .get_window(MAIN_LABEL)
         .ok_or_else(|| "the main window isn't available".to_string())?;
     let _ = main.unminimize();
     let _ = main.show();
     let _ = main.set_focus();
-    main.emit_to(MAIN_LABEL, "quick:prompt", prompt)
+    app.emit_to(MAIN_LABEL, "quick:prompt", prompt)
         .map_err(|e| e.to_string())
 }
 
