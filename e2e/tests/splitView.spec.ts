@@ -22,7 +22,7 @@ test("a session opens to the side from its menu, and closing a pane goes back to
   const row = page.getByRole("button", { name: /^Sesión de prueba/ }).first();
   await row.hover();
   await row.locator("xpath=following-sibling::button[1]").click();
-  await page.getByRole("button", { name: "Open in split view" }).click();
+  await page.getByRole("menuitem", { name: "Open in split view" }).click();
 
   await expect(panes(page)).toHaveCount(2);
   await expect(composers(page)).toHaveCount(2);
