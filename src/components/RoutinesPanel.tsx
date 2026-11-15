@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { Zap, Plus, Trash2, Play, Power, Clock, Loader2, Pencil } from "lucide-react";
+import { Zap, Plus, Trash2, Play, Power, Clock, Loader2, Pencil, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "@/lib/i18n";
+import { workspaceName } from "@/lib/workspace";
 import {
   loadRoutines,
+  onRoutineDraft,
+  peekRoutineDraft,
+  takeRoutineDraft,
   saveRoutines,
   computeNextRun,
   isValidCron,
@@ -27,12 +31,28 @@ export function RoutinesPanel({ onRun }: { onRun?: (task: ScheduledTask) => void
   const L = useTranslations().routinesPanel;
   const [data, setData] = useState<RoutinesData>({ teams: [], tasks: [] });
   const [loading, setLoading] = useState(true);
-  const [adding, setAdding] = useState(false);
+  // A task asked for from a session's menu opens the form filled in.
+  const [adding, setAdding] = useState(() => !!peekRoutineDraft());
   // The routine the form is editing; none when it creates a new one.
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [name, setName] = useState("");
-  const [prompt, setPrompt] = useState("");
+  const [name, setName] = useState(() => peekRoutineDraft()?.name ?? "");
+  const [prompt, setPrompt] = useState(() => peekRoutineDraft()?.prompt ?? "");
   const [cron, setCron] = useState("0 9 * * 1-5");
+  const [workspace, setWorkspace] = useState<string | undefined>(() => peekRoutineDraft()?.workspace);
+
+  useEffect(() => {
+    // The draft read above is used up; one asked for while the panel is open fills it now.
+    takeRoutineDraft();
+    return onRoutineDraft(() => {
+      const d = takeRoutineDraft();
+      if (!d) return;
+      setName(d.name);
+      setPrompt(d.prompt);
+      setWorkspace(d.workspace);
+      setEditingId(null);
+      setAdding(true);
+    });
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -59,6 +79,7 @@ export function RoutinesPanel({ onRun }: { onRun?: (task: ScheduledTask) => void
     setName("");
     setPrompt("");
     setCron("0 9 * * 1-5");
+    setWorkspace(undefined);
     setAdding(false);
     setEditingId(null);
   };
@@ -68,6 +89,7 @@ export function RoutinesPanel({ onRun }: { onRun?: (task: ScheduledTask) => void
     setName(task.name);
     setPrompt(task.prompt);
     setCron(task.cron);
+    setWorkspace(task.workspace);
     setEditingId(task.id);
     setAdding(true);
   };
@@ -79,7 +101,7 @@ export function RoutinesPanel({ onRun }: { onRun?: (task: ScheduledTask) => void
         ...data,
         tasks: data.tasks.map((t) => {
           if (t.id !== editingId) return t;
-          const edited = { ...t, name: name.trim(), prompt: prompt.trim(), cron: cron.trim() };
+          const edited = { ...t, name: name.trim(), prompt: prompt.trim(), cron: cron.trim(), workspace };
           return { ...edited, nextRunAt: edited.enabled ? (computeNextRun(edited) ?? undefined) : undefined };
         }),
       });
@@ -93,6 +115,7 @@ export function RoutinesPanel({ onRun }: { onRun?: (task: ScheduledTask) => void
       cron: cron.trim(),
       enabled: true,
       createdAt: Date.now(),
+      workspace,
     };
     task.nextRunAt = computeNextRun(task) ?? undefined;
     await persist({ ...data, tasks: [task, ...data.tasks] });
@@ -145,6 +168,13 @@ export function RoutinesPanel({ onRun }: { onRun?: (task: ScheduledTask) => void
 
         {adding && (
           <div className="rounded-[8px] border border-bg-300 bg-bg-100 p-4 mb-6 flex flex-col gap-3">
+            {workspace && (
+              <div className="flex items-center gap-1.5 text-[12px] text-text-400">
+                <FolderOpen className="w-3.5 h-3.5 shrink-0" />
+                <span className="text-text-300">{L.project}:</span>
+                <span className="min-w-0 truncate text-text-200">{workspaceName(workspace)}</span>
+              </div>
+            )}
             <label className="flex flex-col gap-1">
               <span className="text-[12px] font-medium text-text-300">{L.name}</span>
               <input
@@ -221,6 +251,7 @@ export function RoutinesPanel({ onRun }: { onRun?: (task: ScheduledTask) => void
                     <p className="mt-1 text-[12.5px] text-text-400 line-clamp-2 break-words">{task.prompt}</p>
                     <p className="mt-1 text-[11.5px] text-text-500">
                       {task.enabled ? `${L.nextRun}: ${formatNextRun(task.nextRunAt)}` : L.disabled}
+                      {task.workspace && ` · ${workspaceName(task.workspace)}`}
                     </p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">

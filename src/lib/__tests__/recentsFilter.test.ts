@@ -91,3 +91,26 @@ describe("Recents group names", () => {
     ]);
   });
 });
+
+describe("the user's pinned sessions and sections", () => {
+  const labels = getTranslations("en-US").recentsGroups;
+  const all = [session("a", "/p", 1), session("b", "/p", 2), session("c", "/q", 3), session("d", "/q", 4)];
+  const marks = { pinned: ["c"], sections: [{ id: "s1", name: "Ideas", ids: ["b", "c"] }, { id: "s2", name: "Empty", ids: [] }] };
+
+  it("come first and take their sessions out of the projects", () => {
+    const groups = buildRecentsGroups(all, [], DEFAULT_RECENTS_FILTER, NOW, undefined, [], labels, marks);
+    expect(groups.map((g) => [g.label, g.items.map((s) => s.id)])).toEqual([
+      [labels.pinned, ["c"]],
+      ["Ideas", ["b"]],
+      ["Empty", []],
+      ["p", ["a"]],
+      ["q", ["d"]],
+    ]);
+    expect(groups.slice(0, 2).map((g) => g.kind)).toEqual(["pinned", "section"]);
+  });
+
+  it("leave an empty section out while a filter narrows the list", () => {
+    const groups = buildRecentsGroups(all, [], { ...DEFAULT_RECENTS_FILTER, project: "/q" }, NOW, undefined, [], labels, marks);
+    expect(groups.map((g) => g.label)).toEqual([labels.pinned, "q"]);
+  });
+});

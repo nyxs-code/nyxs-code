@@ -7,6 +7,8 @@ import { closeClaudeCodeChat } from "@/lib/claudeCode";
 import { warnUncommittedArchive } from "@/lib/featureSettings";
 import type { FileHistoryState } from "@/lib/fileHistory";
 import { newChatId } from "@/lib/sendMessage";
+import { carryMarks, forgetSessions } from "@/lib/sessionMarks";
+import { sessionHandoff, sessionMarkdown, type SessionCopy } from "@/lib/sessionExport";
 import {
   canRewindSession,
   deleteSessionFamily,
@@ -136,6 +138,7 @@ export async function deleteSession(id: string, withNested: boolean, env: Sessio
   // Off the screen right away: deleting waits for saves already queued for the session, and the
   // row used to stay until every folder was listed again.
   env.dropSessions(removed, id, newParent);
+  forgetSessions(removed);
   for (const sid of removed) {
     // An agent that fails to close must not keep the session around.
     try {
@@ -153,6 +156,64 @@ export async function deleteSession(id: string, withNested: boolean, env: Sessio
   } finally {
     env.refreshSessions();
   }
+}
+
+/** A session's chat with its messages: the one in memory when it's loaded, else read from disk. */
+async function chatOf(id: string, ws: string, env: SessionActionsEnv): Promise<Chat | null> {
+  const live = env.liveChats().find((c) => c.id === id);
+  if (live && env.hydrated.has(id)) return live;
+  return readSession(ws, id);
+}
+
+/** A copy of a whole session, saved next to it; where it is, for the caller to open. */
+export async function forkSession(id: string, env: SessionActionsEnv): Promise<{ id: string; workspace: string } | null> {
+  const ws = workspaceOf(id, env);
+  if (!ws) return null;
+  const chat = await chatOf(id, ws, env);
+  const last = chat?.messages.at(-1);
+  if (!chat || !last) return null;
+  const fork = forkChat({ ...chat, workspace: ws }, last.id, newChatId(env.liveChats()), `${chat.title} (${env.t.chatUi.forkSuffix})`);
+  if (!fork) return null;
+  await saveSession(ws, fork, Date.now());
+  env.refreshSessions();
+  return { id: fork.id, workspace: ws };
+}
+
+/**
+ * Moves a session to another project: saved there under a new id, then deleted here (a deleted
+ * id stays deleted, so it can't be reused). Its worktree, file-history backups and nesting belong
+ * to the old project and stay behind; a Claude Code session started there starts afresh with the
+ * whole conversation. Its sidebar marks go with it.
+ */
+export async function moveSession(id: string, to: string, env: SessionActionsEnv): Promise<{ id: string; workspace: string; wasActive: boolean } | null> {
+  const from = workspaceOf(id, env);
+  if (!from || from === to || env.streaming(id)) return null;
+  const chat = await chatOf(id, from, env);
+  if (!chat) return null;
+  const newId = newChatId(env.liveChats());
+  const moved: Chat = { ...chat, id: newId, workspace: to, worktree: undefined, fileHistory: undefined, parentId: undefined };
+  await saveSession(to, moved, Date.now());
+  carryMarks(id, newId);
+  const wasActive = env.activeId === id;
+  await deleteSession(id, false, env);
+  return { id: newId, workspace: to, wasActive };
+}
+
+/** What "Copy ▸" in a session's menu puts on the clipboard; null when the session has none. */
+export async function sessionCopyText(id: string, what: SessionCopy, env: SessionActionsEnv): Promise<string | null> {
+  const session = env.sessions.find((s) => s.id === id);
+  const live = env.liveChats().find((c) => c.id === id);
+  const ws = workspaceOf(id, env);
+  if (what === "id") return session ? id : null;
+  // Where its turns run: its worktree when it has one.
+  if (what === "dir") return live?.worktree?.path ?? session?.worktree?.path ?? ws;
+  const chat = ws ? await chatOf(id, ws, env) : (live ?? null);
+  if (!chat) return null;
+  const tm = env.t.sidebarMenu;
+  const labels = { user: tm.mdUser, assistant: tm.mdAssistant, handoffIntro: tm.handoffIntro, handoffProject: tm.handoffProject };
+  return what === "markdown"
+    ? sessionMarkdown(chat.title, chat.messages, labels)
+    : sessionHandoff(chat.title, chat.worktree?.path ?? ws, chat.messages, labels);
 }
 
 /** A new session with the open chat's conversation up to `messageId`, opened and saved. */

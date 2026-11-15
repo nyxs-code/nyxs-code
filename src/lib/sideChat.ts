@@ -89,10 +89,31 @@ interface SideChatHost {
 let host: SideChatHost | null = null;
 export const setSideChatHost = (h: SideChatHost | null) => { host = h; };
 export const setSideChatDocked = (docked: boolean) => { if (docked !== state.docked) set({ docked }); };
+/** The session whose side chat opens as soon as it is on screen (asked from the sidebar). */
+let openOnArrival: string | null = null;
 export const setSideChatFor = (chatId: string | null) => {
   const key = sideKey(chatId);
   if (key !== state.active) set({ active: key, pending: "" });
+  if (openOnArrival && key === openOnArrival) {
+    openOnArrival = null;
+    // After this render's effects: the host is registered again for the session now on screen,
+    // and docking before that would open the view in the panel of the one just left.
+    setTimeout(() => {
+      if (state.active === key && !sideSessionOf(key).floating) host?.dock();
+    }, 0);
+  }
 };
+
+/** Opens a session's side chat: now for the one on screen, or once it is opened. Only saved
+ *  sessions are offered it, which always have messages to ask about. */
+export function openSideChatFor(chatId: string): void {
+  const key = sideKey(chatId);
+  if (key === state.active) {
+    openSideChat();
+    return;
+  }
+  openOnArrival = key;
+}
 
 /** Answers being written, by session: closing a session's side chat stops its own. */
 const running = new Map<string, AbortController>();

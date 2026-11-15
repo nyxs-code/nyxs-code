@@ -51,7 +51,7 @@ import { RagConsentDialog } from "@/components/RagConsentDialog";
 import { SshAskpassDialog } from "@/components/SshAskpassDialog";
 import { TranscriptViewNotice } from "@/components/TranscriptViewNotice";
 import { SideChatCard, SideChatPane, type SideChatInputBase } from "@/components/SideChat";
-import { closeSideChat, setSideChatAvailable, setSideChatDocked, setSideChatFor, setSideChatHost, sideKey, toggleSideChat, useSideChat } from "@/lib/sideChat";
+import { closeSideChat, openSideChatFor, setSideChatAvailable, setSideChatDocked, setSideChatFor, setSideChatHost, sideKey, toggleSideChat, useSideChat } from "@/lib/sideChat";
 import { useSessionBridge } from "@/lib/useSessionBridge";
 import { useSessionDirectoryHost } from "@/lib/sessionDirectory";
 import { CliResumeDialog } from "@/components/CliResumeDialog";
@@ -81,7 +81,7 @@ import { CustomizePanel } from "@/components/CustomizePanel";
 import { BUILTIN_COMMANDS, BUILTIN_PROMPT_COMMANDS, parseBuiltinCommand, matchBuiltinPromptCommand, localizeCommandDescription, type SlashCommand } from "@/lib/slashCommand";
 import { RoutinesPanel } from "@/components/RoutinesPanel";
 import { createScheduler } from "@/lib/scheduler";
-import type { ScheduledTask } from "@/lib/scheduledTasks";
+import { startRoutineDraft, type ScheduledTask } from "@/lib/scheduledTasks";
 import { matchCommand } from "@/lib/commands";
 import { readSession, saveSession, renameSession } from "@/lib/sessionStorage";
 import { markChatAsOnDisk, useSessionAutosave } from "@/lib/useSessionAutosave";
@@ -510,10 +510,28 @@ export default function App() {
     void saveSession(workspace, chat, Date.now()).then(refreshSessions);
   };
 
+  // A routine made from a session runs in that session's project: the project opens first, and
+  // the routine starts once it is the open one (the chat and its turn take the open folder).
+  const pendingRoutineRef = useRef<ScheduledTask | null>(null);
   const runRoutine = useCallback(
-    (task: ScheduledTask) => startChatWithPrompt(task.name || "Routine", task.prompt),
-    [startChatWithPrompt],
+    (task: ScheduledTask) => {
+      if (!task.workspace || task.workspace === workspace) {
+        startChatWithPrompt(task.name || "Routine", task.prompt);
+        return;
+      }
+      pendingRoutineRef.current = task;
+      void ensureWorkspaceActive(task.workspace).then((ok) => {
+        if (!ok && pendingRoutineRef.current === task) pendingRoutineRef.current = null;
+      });
+    },
+    [startChatWithPrompt, workspace, ensureWorkspaceActive],
   );
+  useEffect(() => {
+    const task = pendingRoutineRef.current;
+    if (!task || task.workspace !== workspace) return;
+    pendingRoutineRef.current = null;
+    startChatWithPrompt(task.name || "Routine", task.prompt);
+  }, [workspace, startChatWithPrompt]);
 
   const startChatRef = useRef(startChatWithPrompt);
   useEffect(() => { startChatRef.current = startChatWithPrompt; });
@@ -1148,7 +1166,40 @@ export default function App() {
         }}
         onRewindSession={(id) => { void sessionActions.rewindSavedSession(id, sessionActionsEnv()); }}
         onArchiveSession={(id) => { void sessionActions.archiveSession(id, sessionActionsEnv()); }}
+        onArchiveSessions={(ids) => {
+          // One after the other: each may ask about its uncommitted files.
+          void (async () => {
+            for (const id of ids) await sessionActions.archiveSession(id, sessionActionsEnv());
+          })();
+        }}
+        onDeleteSessions={(ids) => {
+          void (async () => {
+            for (const id of ids) await sessionActions.deleteSession(id, false, sessionActionsEnv());
+          })().catch((e) => console.error("deleting sessions failed", e));
+        }}
         onOpenToSide={splitViewOn && activeChat ? openSessionToSide : undefined}
+        onNewSideChat={(id) => {
+          openSideChatFor(id);
+          void resumeSession(id, sessions.find((s) => s.id === id)?.workspace);
+        }}
+        onForkSession={(id) => {
+          void sessionActions.forkSession(id, sessionActionsEnv()).then((fork) => fork && resumeSession(fork.id, fork.workspace));
+        }}
+        onScheduleSession={(id) => {
+          const session = sessions.find((s) => s.id === id);
+          startRoutineDraft({ name: session?.title || chats.find((c) => c.id === id)?.title || "", prompt: "", workspace: session?.workspace ?? workspace ?? undefined });
+          setSection("routines");
+        }}
+        onCopySession={(id, what) => {
+          void sessionActions.sessionCopyText(id, what, sessionActionsEnv()).then((text) => {
+            if (text) void navigator.clipboard.writeText(text);
+          });
+        }}
+        onMoveSession={(id, ws) => {
+          void sessionActions.moveSession(id, ws, sessionActionsEnv()).then((moved) => {
+            if (moved?.wasActive) void resumeSession(moved.id, moved.workspace);
+          });
+        }}
         uncommittedFilesOf={uncommittedFilesOf}
         sessionsLoaded={sessionsLoaded}
         onOpenHelp={() => setHelpOpen(true)}

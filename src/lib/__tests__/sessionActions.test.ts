@@ -198,6 +198,45 @@ describe("deleting", () => {
   });
 });
 
+describe("from a session's menu", () => {
+  it("forks the whole session next to it, without opening it", async () => {
+    const { env, chats } = setup();
+    const fork = await actions.forkSession("a", env);
+    expect(fork?.workspace).toBe("/other");
+    expect(fake.calls).toEqual([`save /other ${fork!.id}`]);
+    // Saved, not put in memory: the caller opens it from disk in its project.
+    expect(chats().some((c) => c.id === fork!.id)).toBe(false);
+  });
+
+  it("moves a session to another project under a new id, its marks with it", async () => {
+    const { setPinned, sessionMarks, resetSessionMarksForTests } = await import("@/lib/sessionMarks");
+    resetSessionMarksForTests();
+    setPinned("a", true);
+    const { env } = setup();
+    const moved = await actions.moveSession("a", "/new", env);
+    expect(moved).toMatchObject({ workspace: "/new", wasActive: true });
+    expect(moved!.id).not.toBe("a");
+    expect(fake.calls.slice(0, 2)).toEqual([`save /new ${moved!.id}`, "deleteFamily a"]);
+    expect(sessionMarks().pinned).toEqual([moved!.id]);
+  });
+
+  it("doesn't move a session while it works, nor to its own project", async () => {
+    expect(await actions.moveSession("a", "/new", setup({ streaming: () => true }).env)).toBeNull();
+    expect(await actions.moveSession("a", "/other", setup().env)).toBeNull();
+    expect(fake.calls).toEqual([]);
+  });
+
+  it("copies the session as Markdown, its id and where it works", async () => {
+    const { env } = setup();
+    const md = await actions.sessionCopyText("a", "markdown", env);
+    expect(md).toBe(`# A\n\n## ${t.sidebarMenu.mdUser}\n\nu1\n\n## ${t.sidebarMenu.mdAssistant}\n\nr1\n\n## ${t.sidebarMenu.mdUser}\n\nu2\n`);
+    expect(await actions.sessionCopyText("a", "id", env)).toBe("a");
+    expect(await actions.sessionCopyText("child", "id", env)).toBeNull();
+    expect(await actions.sessionCopyText("a", "dir", env)).toBe("/other");
+    expect(await actions.sessionCopyText("a", "handoff", env)).toContain(t.sidebarMenu.handoffProject.replace("{path}", "/other"));
+  });
+});
+
 describe("forkOpenChat", () => {
   it("opens and saves a copy of the open chat up to the message", () => {
     const { env, chats } = setup();

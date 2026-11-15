@@ -55,6 +55,15 @@ export interface RecentsGroup {
   items: SessionSummary[];
   /** The project folder, when grouped by project. */
   workspace?: string;
+  /** The user's own groups, above the rest: their pinned sessions and their sections. */
+  kind?: "pinned" | "section";
+  sectionId?: string;
+}
+
+/** What the user marked: pinned sessions and their sections (see sessionMarks). */
+export interface RecentsMarks {
+  pinned: string[];
+  sections: { id: string; name: string; ids: string[] }[];
 }
 
 /** The group names, in the app's language. */
@@ -99,7 +108,8 @@ function groupOf(
 }
 
 /** `projects` are the folders the user works in: grouped by project, each one shows even before
- *  it has a session (unless other filters narrow the list down). */
+ *  it has a session (unless other filters narrow the list down). With `marks`, pinned sessions
+ *  and then the user's sections come first, and their sessions leave the other groups. */
 export function buildRecentsGroups(
   active: SessionSummary[],
   archived: SessionSummary[],
@@ -108,7 +118,25 @@ export function buildRecentsGroups(
   states?: Record<string, SessionState>,
   projects: string[] = [],
   labels: RecentsGroupLabels = enUS.recentsGroups,
+  marks?: RecentsMarks,
 ): RecentsGroup[] {
+  const narrowed = filter.status !== "active" || filter.project !== "all" || filter.activity !== "all";
+  const groups = buildGroups(active, archived, filter, now, states, projects, labels, marks, narrowed);
+  if (!marks) return groups.rest;
+  return [...groups.top, ...groups.rest];
+}
+
+function buildGroups(
+  active: SessionSummary[],
+  archived: SessionSummary[],
+  filter: RecentsFilter,
+  now: number,
+  states: Record<string, SessionState> | undefined,
+  projects: string[],
+  labels: RecentsGroupLabels,
+  marks: RecentsMarks | undefined,
+  narrowed: boolean,
+): { top: RecentsGroup[]; rest: RecentsGroup[] } {
   let pool: SessionSummary[] =
     filter.status === "active" ? active : filter.status === "archived" ? archived : [...active, ...archived];
 
@@ -117,7 +145,7 @@ export function buildRecentsGroups(
   const win = activityWindowMs(filter.activity);
   if (win !== Infinity) pool = pool.filter((s) => now - s.modifiedAt <= win);
 
-  const sorted = [...pool].sort((a, b) => {
+  const all = [...pool].sort((a, b) => {
     switch (filter.sort) {
       case "alphabetical":
         return (a.title || "").localeCompare(b.title || "");
@@ -129,8 +157,25 @@ export function buildRecentsGroups(
     }
   });
 
+  const top: RecentsGroup[] = [];
+  let sorted = all;
+  if (marks) {
+    const pinned = new Set(marks.pinned);
+    const sectionOf = new Map<string, string>();
+    for (const s of marks.sections) for (const id of s.ids) sectionOf.set(id, s.id);
+    const pinnedItems = all.filter((s) => pinned.has(s.id));
+    if (pinnedItems.length) top.push({ key: "__pinned__", label: labels.pinned, items: pinnedItems, kind: "pinned" });
+    for (const section of marks.sections) {
+      const items = all.filter((s) => !pinned.has(s.id) && sectionOf.get(s.id) === section.id);
+      // An empty section still shows while nothing narrows the list, so it can be filled or removed.
+      if (items.length || !narrowed) top.push({ key: `section:${section.id}`, label: section.name, items, kind: "section", sectionId: section.id });
+    }
+    sorted = all.filter((s) => !pinned.has(s.id) && !sectionOf.has(s.id));
+  }
+  const done = (rest: RecentsGroup[]) => ({ top, rest });
+
   if (filter.groupBy === "none") {
-    return [{ key: "all", label: null, items: sorted }];
+    return done([{ key: "all", label: null, items: sorted }]);
   }
 
   if (filter.groupBy === "project") {
@@ -149,12 +194,13 @@ export function buildRecentsGroups(
       g.items.push(s);
       g.last = Math.max(g.last, s.modifiedAt);
     }
-    const narrowed = filter.status !== "active" || filter.project !== "all" || filter.activity !== "all";
     if (!narrowed) for (const ws of projects) add(ws);
     // Most recently used project first; folders without sessions at the end, by name.
-    return [...groups.values()]
-      .sort((a, b) => Number(!a.workspace) - Number(!b.workspace) || b.last - a.last || (a.label ?? "").localeCompare(b.label ?? ""))
-      .map(({ last: _last, ...g }) => g);
+    return done(
+      [...groups.values()]
+        .sort((a, b) => Number(!a.workspace) - Number(!b.workspace) || b.last - a.last || (a.label ?? "").localeCompare(b.label ?? ""))
+        .map(({ last: _last, ...g }) => g),
+    );
   }
 
   const groups = new Map<string, RecentsGroup & { order: number }>();
@@ -163,5 +209,5 @@ export function buildRecentsGroups(
     if (!groups.has(g.key)) groups.set(g.key, { key: g.key, label: g.label, items: [], order: g.order });
     groups.get(g.key)!.items.push(s);
   }
-  return [...groups.values()].sort((a, b) => a.order - b.order || (a.label ?? "").localeCompare(b.label ?? ""));
+  return done([...groups.values()].sort((a, b) => a.order - b.order || (a.label ?? "").localeCompare(b.label ?? "")));
 }

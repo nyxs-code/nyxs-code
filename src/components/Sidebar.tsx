@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { useCloseOnBlur } from "@/lib/useCloseOnBlur";
-import { useMenuTop } from "@/lib/useMenuTop";
 import { createPortal } from "react-dom";
-import { Plus, Search, Settings, Code2, Zap, SlidersHorizontal, Briefcase, ChevronDown, ChevronRight, Check, Languages, LifeBuoy, History, LogOut, EllipsisVertical, MessageSquareHeart, GitPullRequest, GitPullRequestDraft, GitPullRequestClosed, GitMerge, Folder, FolderOpen } from "lucide-react";
+import { Plus, Search, Settings, Code2, Zap, SlidersHorizontal, Briefcase, ChevronDown, ChevronRight, Check, Languages, LifeBuoy, History, LogOut, EllipsisVertical, MessageSquareHeart, GitPullRequest, GitPullRequestDraft, GitPullRequestClosed, GitMerge, Folder, FolderOpen, Layers, Pin, Pencil, Trash2, X } from "lucide-react";
+import { SessionMenu, type SessionCopy, type SessionMenuAction, type SessionMenuTarget } from "@/components/sidebar/SessionMenu";
+import { createSection, deleteSection, moveToSection, renameSection, setPinned, setUnread, useSessionMarks } from "@/lib/sessionMarks";
 import { shortAge } from "@/lib/time";
 import { SIDEBAR_DEFAULT, SIDEBAR_MAX, SIDEBAR_MIN } from "@/lib/sidebarWidth";
 import { ghProblemText, useSessionPrs, type SessionPrBadge } from "@/lib/sessionPrs";
@@ -24,7 +25,7 @@ import { getSession, signOut, userInitials, AUTH_CHANGED_EVENT, type AuthUser } 
 import { FeedbackModal } from "@/components/FeedbackModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { BrailleSpinner } from "@/components/ui/braille-spinner";
 import { TextShimmer } from "@/components/ui/text-shimmer";
 import type { Section } from "@/lib/sections";
@@ -95,6 +96,9 @@ function ChatStatus({
   pr,
   prLabel,
   prProblem,
+  unread,
+  unreadLabel,
+  selected,
 }: {
   working: boolean;
   needsAttention: boolean;
@@ -104,14 +108,30 @@ function ChatStatus({
   prLabel?: string;
   /** Why the PR's status is unknown (gh without a login…), shown on hover. */
   prProblem?: string;
+  /** Marked unread by the user: an accent dot until it is opened. */
+  unread?: boolean;
+  unreadLabel?: string;
+  /** In selection mode, the row's checkbox instead of its status; undefined outside it. */
+  selected?: boolean;
 }) {
   const prMeta = pr ? PR_META[pr.status] : null;
+  if (selected !== undefined) {
+    return (
+      <span className="w-4 flex items-center justify-center shrink-0">
+        <span className={cn("w-3.5 h-3.5 rounded-[3px] border flex items-center justify-center", selected ? "bg-accent border-accent" : "border-text-500")}>
+          {selected && <Check className="w-3 h-3 text-bg-0" strokeWidth={3} />}
+        </span>
+      </span>
+    );
+  }
   return (
     <span className="w-4 flex items-center justify-center shrink-0">
       {needsAttention ? (
         <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" data-tooltip={attentionLabel} />
       ) : working ? (
         <BrailleSpinner className="text-text-200" />
+      ) : unread ? (
+        <span className="w-2 h-2 rounded-full bg-accent" aria-label={unreadLabel} />
       ) : pr && prMeta ? (
         <prMeta.icon
           className={cn("w-3.5 h-3.5", prMeta.cls)}
@@ -164,9 +184,20 @@ interface SidebarProps {
   onRenameSession?: (id: string, title: string) => void;
   onRewindSession?: (id: string) => void;
   onArchiveSession?: (id: string) => void;
+  /** Several sessions at once, from selection mode: one after the other. */
+  onArchiveSessions?: (ids: string[]) => void;
+  onDeleteSessions?: (ids: string[]) => void;
   /** Split view: shows the session next to the open one. Unset hides "Open to the side" and
    *  dragging rows onto the chat. */
   onOpenToSide?: (id: string) => void;
+  /** Opens the session with its side chat. */
+  onNewSideChat?: (id: string) => void;
+  /** A copy of the whole session, opened. */
+  onForkSession?: (id: string) => void;
+  /** The Routines form, filled in from the session. */
+  onScheduleSession?: (id: string) => void;
+  onCopySession?: (id: string, what: SessionCopy) => void;
+  onMoveSession?: (id: string, workspace: string) => void;
   /** Files the session changed that aren't committed, named in the delete confirmation. */
   uncommittedFilesOf?: (id: string) => Promise<string[]>;
   /** The sessions have been listed once; until then an empty project says nothing. */
@@ -274,22 +305,6 @@ function loadCollapsed(): Set<string> {
   }
 }
 
-type ChatMenuLabelKey =
-  | "openIn" | "openToSide" | "pin" | "markUnread" | "rename" | "fork" | "moveToGroup" | "revertFiles" | "archive" | "delete";
-
-type ChatMenuRow =
-  | { sep: true }
-  | { tkey: ChatMenuLabelKey; key?: string; arrow?: boolean; danger?: boolean; action: "delete" | "rename" | "rewind" | "archive" | "side" };
-
-const CHAT_MENU: ChatMenuRow[] = [
-  { tkey: "openToSide", action: "side" },
-  { tkey: "rename", action: "rename" },
-  { tkey: "revertFiles", action: "rewind" },
-  { sep: true },
-  { tkey: "archive", action: "archive" },
-  { tkey: "delete", danger: true, action: "delete" },
-];
-
 export function Sidebar({
   chats,
   activeChatId,
@@ -312,7 +327,14 @@ export function Sidebar({
   onRenameSession,
   onRewindSession,
   onArchiveSession,
+  onArchiveSessions,
+  onDeleteSessions,
   onOpenToSide,
+  onNewSideChat,
+  onForkSession,
+  onScheduleSession,
+  onCopySession,
+  onMoveSession,
   uncommittedFilesOf,
   sessionsLoaded = true,
   onOpenArchived,
@@ -345,8 +367,6 @@ export function Sidebar({
   // `y` is just under the ⋮ button and `above` just over it, where the menu goes when it doesn't
   // fit below (the last sessions of the list).
   const [chatMenu, setChatMenu] = useState<{ id: string; x: number; y: number; above: number } | null>(null);
-  const chatMenuRef = useRef<HTMLDivElement>(null);
-  const chatMenuTop = useMenuTop(chatMenuRef, chatMenu ? chatMenu.y : null, chatMenu?.above ?? 0);
   const [pendingDelete, setPendingDelete] = useState<{ id: string; title: string; isSession: boolean; dirty?: string[]; nested: number } | null>(null);
   const tGuard = useTranslations().archiveGuard;
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -354,10 +374,39 @@ export function Sidebar({
   const [recentsFilter, setRecentsFilter] = useState<RecentsFilter>(DEFAULT_RECENTS_FILTER);
   const now = useNow();
   const groupLabels = useTranslations().recentsGroups;
-  const recentGroups = buildRecentsGroups(sessions, archivedSessions, recentsFilter, now, sessionStates, projects, groupLabels);
+  const marks = useSessionMarks();
+  const recentGroups = buildRecentsGroups(sessions, archivedSessions, recentsFilter, now, sessionStates, projects, groupLabels, marks);
   const recentProjects = recentsProjects([...sessions, ...archivedSessions]);
   const recentTotal = recentGroups.reduce((n, g) => n + g.items.length, 0);
   const byProject = recentsFilter.groupBy === "project";
+  // Groups with a header that folds: projects, and the user's pinned sessions and sections.
+  const foldable = (g: { kind?: string }) => byProject || !!g.kind;
+  // An unread mark goes once the session is opened.
+  useEffect(() => {
+    if (activeChatId) setUnread(activeChatId, false);
+  }, [activeChatId]);
+  // Selection mode: the rows picked for a bulk action; null outside it.
+  const [selected, setSelected] = useState<Set<string> | null>(null);
+  const toggleSelected = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  useEffect(() => {
+    if (!selected) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelected(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selected]);
+  const [pendingBulkDelete, setPendingBulkDelete] = useState<string[] | null>(null);
+  // "New section…": the sessions it will hold and the name being typed.
+  const [newSection, setNewSection] = useState<{ ids: string[]; name: string } | null>(null);
+  const [sectionMenu, setSectionMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [renamingSection, setRenamingSection] = useState<{ id: string; name: string } | null>(null);
+  const sectionRenameCancelled = useRef(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
   const toggleCollapsed = (key: string) =>
     setCollapsed((prev) => {
@@ -375,7 +424,7 @@ export function Sidebar({
       return next;
     });
   const [projectMenu, setProjectMenu] = useState<{ workspace: string; x: number; y: number } | null>(null);
-  useCloseOnBlur(!!chatMenu || !!projectMenu, () => { setChatMenu(null); setProjectMenu(null); });
+  useCloseOnBlur(!!chatMenu || !!projectMenu || !!sectionMenu, () => { setChatMenu(null); setProjectMenu(null); setSectionMenu(null); });
   const [width, setWidth] = useState<number>(loadSidebarWidth);
   useEffect(() => {
     try { localStorage.setItem(accountKey(SIDEBAR_WIDTH_KEY), String(width)); } catch { /* storage full: the width just isn't kept */ }
@@ -383,7 +432,7 @@ export function Sidebar({
   const sessionPrs = useSessionPrs(recentGroups.flatMap((g) => g.items));
   // Ctrl+Tab walks Recents as shown: folded projects are skipped.
   const visibleOrder = recentGroups
-    .filter((g) => !(byProject && collapsed.has(g.key)))
+    .filter((g) => !(foldable(g) && collapsed.has(g.key)))
     .flatMap((g) => g.items.map((s) => s.id))
     .join("\n");
   useEffect(() => setSessionOrder(visibleOrder ? visibleOrder.split("\n") : []), [visibleOrder]);
@@ -402,6 +451,66 @@ export function Sidebar({
     }
     setRenamingId(null);
   };
+
+  /** What the session menu needs to know of a row. */
+  const menuTarget = (id: string): SessionMenuTarget => {
+    const session = sessions.find((s) => s.id === id) ?? archivedSessions.find((s) => s.id === id);
+    return {
+      id,
+      saved: !!session,
+      isActive: id === activeChatId,
+      working: streamingChatIds?.has(id) ?? false,
+      hasMessages: (session?.messageCount ?? 0) > 0,
+      workspace: session?.workspace ?? currentWorkspace ?? null,
+      worktree: !!session?.worktree,
+      pinned: marks.pinned.includes(id),
+      unread: marks.unread.includes(id),
+      sectionId: marks.sections.find((s) => s.ids.includes(id))?.id ?? null,
+    };
+  };
+
+  const askDelete = (id: string) => {
+    const target = deleteTargetOf(id, [...sessions, ...archivedSessions], chats);
+    setPendingDelete(target);
+    if (target.isSession && uncommittedFilesOf) {
+      void uncommittedFilesOf(id).then((dirty) => {
+        if (dirty.length) setPendingDelete((p) => (p?.id === id ? { ...p, dirty } : p));
+      });
+    }
+  };
+
+  const runMenuAction = (id: string, a: SessionMenuAction) => {
+    if (typeof a === "object") {
+      if ("copy" in a) onCopySession?.(id, a.copy);
+      else if ("moveTo" in a) onMoveSession?.(id, a.moveTo);
+      else moveToSection([id], a.section);
+      return;
+    }
+    switch (a) {
+      case "split": onOpenToSide?.(id); break;
+      case "sideChat": onNewSideChat?.(id); break;
+      case "fork": onForkSession?.(id); break;
+      case "schedule": onScheduleSession?.(id); break;
+      case "select": setSelected(new Set([id])); break;
+      case "rename": startRename(id); break;
+      case "rewind": onRewindSession?.(id); break;
+      case "pin": setPinned(id, true); break;
+      case "unpin": setPinned(id, false); break;
+      case "markUnread": setUnread(id, true); break;
+      case "markRead": setUnread(id, false); break;
+      case "archive": onArchiveSession?.(id); break;
+      case "delete": askDelete(id); break;
+      case "newSection": setNewSection({ ids: [id], name: "" }); break;
+    }
+  };
+
+  /** The row's menu at the pointer, on a right click. */
+  const contextMenuAt = (e: React.MouseEvent, id: string) => {
+    if (selected) return;
+    e.preventDefault();
+    setChatMenu({ id, x: e.clientX, y: e.clientY, above: e.clientY });
+  };
+
   const [langOpen, setLangOpen] = useState(false);
   const [language, setLanguage] = useState<string>(() => localStorage.getItem(LANG_KEY) || "en-US");
   const accountRef = useRef<HTMLDivElement>(null);
@@ -541,12 +650,69 @@ export function Sidebar({
 
         {recentTotal > 0 || (byProject && recentGroups.length > 0) ? (
           recentGroups.map((group, gi) => {
-            const folded = byProject && collapsed.has(group.key);
-            const current = byProject && !!group.workspace && group.workspace === currentWorkspace;
+            const folded = foldable(group) && collapsed.has(group.key);
+            const current = byProject && !group.kind && !!group.workspace && group.workspace === currentWorkspace;
             const FolderIcon = folded ? Folder : FolderOpen;
+            const sectionId = group.sectionId;
+            const renamingThis = sectionId && renamingSection?.id === sectionId ? renamingSection : null;
             return (
-            <div key={group.key} className={cn(byProject && gi > 0 && "pt-1.5")}>
-              {byProject ? (
+            <div key={group.key} className={cn(foldable(group) && gi > 0 && "pt-1.5")}>
+              {group.kind ? (
+                <div className="group/project relative flex items-center">
+                  {renamingThis ? (
+                    <input
+                      autoFocus
+                      value={renamingThis.name}
+                      onChange={(e) => setRenamingSection({ id: renamingThis.id, name: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !isComposingKey(e)) e.currentTarget.blur();
+                        if (e.key === "Escape") {
+                          sectionRenameCancelled.current = true;
+                          setRenamingSection(null);
+                        }
+                      }}
+                      onBlur={() => {
+                        // Escape already ended the rename; a blur after it keeps the old name.
+                        if (!sectionRenameCancelled.current) renameSection(renamingThis.id, stripKeyChars(renamingThis.name));
+                        sectionRenameCancelled.current = false;
+                        setRenamingSection(null);
+                      }}
+                      className="w-full bg-bg-0 border border-accent rounded-[5px] px-2 py-[3px] text-[13px] leading-5 text-text-100 outline-none"
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => toggleCollapsed(group.key)}
+                      aria-expanded={!folded}
+                      className="flex-1 min-w-0 flex items-center gap-2 px-2 py-1 rounded-[5px] text-[13px] leading-5 text-left text-text-300 transition-colors hover:bg-bg-200"
+                    >
+                      {group.kind === "pinned" ? <Pin className="w-4 h-4 shrink-0 text-text-400" /> : <Layers className="w-4 h-4 shrink-0 text-text-400" />}
+                      <span className="min-w-0 truncate">{group.label}</span>
+                      <ChevronDown className={cn("w-3 h-3 shrink-0 text-text-500 transition-transform", folded && "-rotate-90")} />
+                    </button>
+                  )}
+                  {sectionId && !renamingThis && (
+                    <div
+                      className={cn(
+                        "absolute right-1 flex items-center transition-opacity",
+                        sectionMenu?.id === sectionId ? "opacity-100" : "opacity-0 group-hover/project:opacity-100",
+                      )}
+                    >
+                      <button
+                        type="button"
+                        aria-label={tm.sectionOptions}
+                        onClick={(e) => {
+                          const r = e.currentTarget.getBoundingClientRect();
+                          setSectionMenu({ id: sectionId, x: r.left, y: r.bottom + 4 });
+                        }}
+                        className="p-0.5 rounded text-text-400 hover:text-text-100 hover:bg-bg-300"
+                      >
+                        <EllipsisVertical className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : byProject ? (
                 <div className="group/project relative flex items-center">
                   <button
                     type="button"
@@ -597,8 +763,8 @@ export function Sidebar({
               ) : group.label && (
                 <p className="px-2 pt-3 pb-0.5 text-[13px] leading-5 text-text-500">{group.label}</p>
               )}
-              {byProject && !folded && group.items.length === 0 && sessionsLoaded && (
-                <p className="px-2 py-1 text-[13px] text-text-500">{t.noConversationsYet}</p>
+              {!folded && group.items.length === 0 && sessionsLoaded && (byProject || group.kind === "section") && (
+                <p className="px-2 py-1 text-[13px] text-text-500">{group.kind === "section" ? tm.emptySection : t.noConversationsYet}</p>
               )}
               {!folded && nestSessions(group.items, foldedParents).map(({ item: session, depth, descendants, last }) => {
             const isActive = session.id === activeChatId;
@@ -625,11 +791,14 @@ export function Sidebar({
             }
             const pr = sessionPrs[session.id];
             const nestedFolded = foldedParents.has(session.id);
+            const unread = !isActive && marks.unread.includes(session.id);
+            const isSelected = selected ? selected.has(session.id) : undefined;
             return (
               <div
                 key={session.id}
                 className="group relative"
                 style={depth ? { paddingLeft: depth * NEST_INDENT } : undefined}
+                onContextMenu={(e) => contextMenuAt(e, session.id)}
                 {...titleTooltip(session.title, menuOpen)}
               >
                 {depth > 0 && (
@@ -652,12 +821,19 @@ export function Sidebar({
                   />
                 )}
                 <button
-                  onClick={() => onSelectSession?.(session.id)}
-                  draggable={!!onOpenToSide && !isActive}
+                  onClick={() => (selected ? toggleSelected(session.id) : onSelectSession?.(session.id))}
+                  aria-pressed={isSelected}
+                  draggable={!!onOpenToSide && !isActive && !selected}
                   onDragStart={(e) => dragToSide(e, session.id)}
                   className={cn(
                     "w-full flex items-center gap-1.5 px-2 py-1 rounded-[5px] text-sm leading-5 text-left transition-colors",
-                    isActive ? "bg-bg-200 text-text-100" : "text-text-300 hover:bg-bg-200 hover:text-text-200",
+                    isSelected
+                      ? "bg-accent/10 text-text-100"
+                      : isActive && !selected
+                        ? "bg-bg-200 text-text-100"
+                        : unread
+                          ? "text-text-100 font-medium hover:bg-bg-200"
+                          : "text-text-300 hover:bg-bg-200 hover:text-text-200",
                   )}
                 >
                   <ChatStatus
@@ -668,6 +844,9 @@ export function Sidebar({
                     pr={pr}
                     prLabel={pr ? prLabels[pr.status] : undefined}
                     prProblem={pr?.status === "unknown" ? ghProblemText(pr.problem, tGit) : undefined}
+                    unread={unread}
+                    unreadLabel={tm.unread}
+                    selected={isSelected}
                   />
                   {sessionStates?.[session.id] && (
                     <span
@@ -726,20 +905,23 @@ export function Sidebar({
                   )}
                 </button>
 
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                    setChatMenu({ id: session.id, x: r.left, y: r.bottom + 4, above: r.top - 4 });
-                  }}
-                  data-tooltip-clip-cover
-                  className={cn(
-                    "absolute right-1 top-1/2 -translate-y-1/2 p-0.5 rounded text-text-300 hover:bg-bg-300 transition-opacity",
-                    menuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100",
-                  )}
-                >
-                  <EllipsisVertical className="w-4 h-4" />
-                </button>
+                {!selected && (
+                  <button
+                    aria-label={tm.sessionOptions}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                      setChatMenu({ id: session.id, x: r.left, y: r.bottom + 4, above: r.top - 4 });
+                    }}
+                    data-tooltip-clip-cover
+                    className={cn(
+                      "absolute right-1 top-1/2 -translate-y-1/2 p-0.5 rounded text-text-300 hover:bg-bg-300 transition-opacity",
+                      menuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+                    )}
+                  >
+                    <EllipsisVertical className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             );
               })}
@@ -781,7 +963,7 @@ export function Sidebar({
             const chatWorking = streamingChatIds?.has(chat.id) ?? false;
             const chatAttention = (awaitingPermissionChatIds?.has(chat.id) ?? false) || (awaitingQuestionChatIds?.has(chat.id) ?? false);
             return (
-              <div key={chat.id} className="group relative" {...titleTooltip(chat.title, menuOpen)}>
+              <div key={chat.id} className="group relative" onContextMenu={(e) => contextMenuAt(e, chat.id)} {...titleTooltip(chat.title, menuOpen)}>
                 <button
                   onClick={() => onSelectChat(chat.id)}
                   draggable={!!onOpenToSide && !isActive}
@@ -826,6 +1008,39 @@ export function Sidebar({
           <p className="px-2 text-xs text-text-400">{t.noChats}</p>
         )}
       </div>
+      {selected && (
+        // Selection mode's actions, under the list: what to do with the rows picked.
+        <div role="toolbar" aria-label={tm.selection} className="mx-2 mb-1 flex items-center gap-1 rounded-[6px] border border-bg-300 bg-bg-100 px-2 py-1.5">
+          <span className="flex-1 min-w-0 truncate text-[12.5px] text-text-300">{tm.selectedCount.replace("{count}", String(selected.size))}</span>
+          <button
+            type="button"
+            disabled={!selected.size}
+            onClick={() => {
+              onArchiveSessions?.([...selected]);
+              setSelected(null);
+            }}
+            className="px-2 py-0.5 rounded-[5px] text-[12.5px] text-text-200 hover:bg-bg-200 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
+          >
+            {tm.archive}
+          </button>
+          <button
+            type="button"
+            disabled={!selected.size}
+            onClick={() => setPendingBulkDelete([...selected])}
+            className="px-2 py-0.5 rounded-[5px] text-[12.5px] text-red-400 hover:bg-red-500/10 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
+          >
+            {tm.delete}
+          </button>
+          <button
+            type="button"
+            aria-label={tm.cancelSelection}
+            onClick={() => setSelected(null)}
+            className="p-1 rounded-[5px] text-text-400 hover:text-text-100 hover:bg-bg-200 transition-colors"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
       </>
       )}
 
@@ -899,49 +1114,104 @@ export function Sidebar({
       </div>
 
       {chatMenu && (
+        <SessionMenu
+          key={`${chatMenu.id}:${chatMenu.x}:${chatMenu.y}`}
+          target={menuTarget(chatMenu.id)}
+          x={chatMenu.x}
+          y={chatMenu.y}
+          above={chatMenu.above}
+          canSplit={!!onOpenToSide && chatMenu.id !== activeChatId}
+          canRewind={!!onRewindSession}
+          projects={projects}
+          sections={marks.sections}
+          onAction={(a) => runMenuAction(chatMenu.id, a)}
+          onClose={() => setChatMenu(null)}
+        />
+      )}
+
+      {sectionMenu && (
         <>
-          <div className="fixed inset-0 z-[69]" onClick={() => setChatMenu(null)} />
+          <div className="fixed inset-0 z-[69]" onClick={() => setSectionMenu(null)} />
           <div
-            ref={chatMenuRef}
+            role="menu"
             data-webview-hole
-            className="fixed z-[70] w-56 bg-bg-100 border border-bg-300 rounded-[5px] shadow-2xl p-1.5"
-            style={{ left: chatMenu.x, top: chatMenuTop ?? chatMenu.y }}
+            className="fixed z-[70] w-52 bg-bg-100 border border-bg-300 rounded-[6px] shadow-2xl p-1.5"
+            style={{ left: sectionMenu.x, top: sectionMenu.y }}
           >
-            {CHAT_MENU.filter((row) => "sep" in row || row.action !== "side" || (onOpenToSide && chatMenu.id !== activeChatId)).map((row, i) =>
-              "sep" in row ? (
-                <div key={i} className="h-px bg-bg-300 my-1" />
-              ) : (
-                <button
-                  key={i}
-                  onClick={() => {
-                    if (row.action === "delete") {
-                      const target = deleteTargetOf(chatMenu.id, [...sessions, ...archivedSessions], chats);
-                      const id = target.id;
-                      setPendingDelete(target);
-                      if (target.isSession && uncommittedFilesOf) {
-                        void uncommittedFilesOf(id).then((dirty) => {
-                          if (dirty.length) setPendingDelete((p) => (p?.id === id ? { ...p, dirty } : p));
-                        });
-                      }
-                    } else if (row.action === "rename") startRename(chatMenu.id);
-                    else if (row.action === "rewind") onRewindSession?.(chatMenu.id);
-                    else if (row.action === "archive") onArchiveSession?.(chatMenu.id);
-                    else if (row.action === "side") onOpenToSide?.(chatMenu.id);
-                    setChatMenu(null);
-                  }}
-                  className={cn(
-                    "w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-[5px] text-[13px] transition-colors",
-                    row.danger ? "text-red-400 hover:bg-red-500/10" : "text-text-100 hover:bg-bg-200",
-                  )}
-                >
-                  <span>{tm[row.tkey]}</span>
-                  {row.key && <span className="text-[11px] text-text-500">{row.key}</span>}
-                  {row.arrow && <ChevronRight className="w-3.5 h-3.5 text-text-400" />}
-                </button>
-              ),
-            )}
+            <button
+              role="menuitem"
+              onClick={() => {
+                const s = marks.sections.find((x) => x.id === sectionMenu.id);
+                sectionRenameCancelled.current = false;
+                if (s) setRenamingSection({ id: s.id, name: s.name });
+                setSectionMenu(null);
+              }}
+              className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-[5px] text-[13px] text-text-100 hover:bg-bg-200 transition-colors"
+            >
+              <Pencil className="w-4 h-4 text-text-300 shrink-0" />
+              {tm.renameSection}
+            </button>
+            <button
+              role="menuitem"
+              onClick={() => {
+                deleteSection(sectionMenu.id);
+                setSectionMenu(null);
+              }}
+              className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-[5px] text-[13px] text-red-400 hover:bg-red-500/10 transition-colors"
+            >
+              <Trash2 className="w-4 h-4 shrink-0" />
+              {tm.deleteSection}
+            </button>
           </div>
         </>
+      )}
+
+      <Dialog open={!!newSection} onClose={() => setNewSection(null)} className="max-w-sm">
+        <DialogHeader>
+          <Layers className="w-4 h-4 text-accent" />
+          <DialogTitle>{tm.newSectionTitle}</DialogTitle>
+        </DialogHeader>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const name = stripKeyChars(newSection?.name ?? "").trim();
+            if (!newSection || !name) return;
+            createSection(name, newSection.ids);
+            setNewSection(null);
+          }}
+        >
+          <div className="px-4">
+            <input
+              autoFocus
+              aria-label={tm.sectionName}
+              value={newSection?.name ?? ""}
+              onChange={(e) => setNewSection((s) => (s ? { ...s, name: e.target.value } : s))}
+              placeholder={tm.sectionName}
+              maxLength={60}
+              className="w-full bg-bg-0 border border-bg-300 rounded-[6px] px-2.5 py-1.5 text-[13px] text-text-100 outline-none focus:border-accent"
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setNewSection(null)}>{tm.cancelSelection}</Button>
+            <Button type="submit" variant="primary" disabled={!newSection?.name.trim()}>{tm.createSection}</Button>
+          </DialogFooter>
+        </form>
+      </Dialog>
+
+      {pendingBulkDelete && (
+        <ConfirmDialog
+          title={tm.deleteSelectedTitle.replace("{count}", String(pendingBulkDelete.length))}
+          message={tm.deleteSelectedDesc}
+          cancelLabel={t.deleteSessionCancel}
+          confirmLabel={t.deleteSessionConfirm}
+          danger
+          onCancel={() => setPendingBulkDelete(null)}
+          onConfirm={() => {
+            onDeleteSessions?.(pendingBulkDelete);
+            setPendingBulkDelete(null);
+            setSelected(null);
+          }}
+        />
       )}
 
       {projectMenu && (

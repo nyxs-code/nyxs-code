@@ -1411,6 +1411,7 @@ export interface Translations {
   };
   recentsGroups: {
     noFolder: string;
+    pinned: string;
     today: string;
     yesterday: string;
     previous7Days: string;
@@ -1426,6 +1427,7 @@ export interface Translations {
   };
   routinesPanel: {
     title: string;
+    project: string;
     subtitle: string;
     empty: string;
     emptyDesc: string;
@@ -1498,6 +1500,40 @@ export interface Translations {
     untitled: string;
     noFilterMatches: string;
     showAllSessions: string;
+    sessionOptions: string;
+    openInSplit: string;
+    newSideChat: string;
+    addScheduledTask: string;
+    copy: string;
+    copyForModel: string;
+    copyMarkdown: string;
+    copySessionId: string;
+    copyWorkingDir: string;
+    moveToProject: string;
+    noOtherProjects: string;
+    moveToSection: string;
+    newSection: string;
+    removeFromSection: string;
+    select: string;
+    unpin: string;
+    markRead: string;
+    unread: string;
+    sectionOptions: string;
+    emptySection: string;
+    renameSection: string;
+    deleteSection: string;
+    newSectionTitle: string;
+    sectionName: string;
+    createSection: string;
+    selection: string;
+    selectedCount: string;
+    cancelSelection: string;
+    deleteSelectedTitle: string;
+    deleteSelectedDesc: string;
+    mdUser: string;
+    mdAssistant: string;
+    handoffIntro: string;
+    handoffProject: string;
   };
   messageExtra: {
     attachedImage: string;

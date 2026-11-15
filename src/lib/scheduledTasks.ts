@@ -27,6 +27,40 @@ export interface ScheduledTask {
   createdAt: number;
   lastRunAt?: number;
   nextRunAt?: number;
+  /** The project folder the task runs in; the open one when unset. */
+  workspace?: string;
+}
+
+/** A task to fill the Routines form with (from a session's menu in the sidebar). */
+export interface RoutineDraft {
+  name: string;
+  prompt: string;
+  workspace?: string;
+}
+
+const DRAFT_EVENT = "nyxs:routine-draft";
+let draft: RoutineDraft | null = null;
+
+/** Opens the Routines form with this task filled in, now if the panel is open or when it opens. */
+export function startRoutineDraft(d: RoutineDraft): void {
+  draft = d;
+  window.dispatchEvent(new Event(DRAFT_EVENT));
+}
+
+/** The draft waiting for the form, left in place (a render may read it twice). */
+export const peekRoutineDraft = (): RoutineDraft | null => draft;
+
+/** The draft waiting for the form, once. */
+export function takeRoutineDraft(): RoutineDraft | null {
+  const d = draft;
+  draft = null;
+  return d;
+}
+
+/** Calls `fn` whenever a draft arrives while the panel is open. */
+export function onRoutineDraft(fn: () => void): () => void {
+  window.addEventListener(DRAFT_EVENT, fn);
+  return () => window.removeEventListener(DRAFT_EVENT, fn);
 }
 
 export interface RoutinesData {
