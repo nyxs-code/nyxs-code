@@ -1,4 +1,4 @@
-# optimicer
+# Nyxs
 
 ## Overview
 

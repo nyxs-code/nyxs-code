@@ -55,8 +55,8 @@ Everything is in English (project convention — see the `i18n` skill).
   never be signed again. It is also stored as the CI secret
   `TAURI_SIGNING_PRIVATE_KEY`.
 - Do NOT reuse a tag for different content. To re-run a release for the same
-  version: delete the GitHub release and the tag (in both the repo you tagged and
-  the public `nyxs-code/nyxs-code`), then re-create the tag.
+  version: delete the GitHub release and the tag in `nyxs-code/nyxs-code`, then
+  re-create the tag.
 - The public repo (`nyxs-code/nyxs-code`) must stay public: the auto-updater can't
   download assets from a private repo. Keep it public.
 - The build only runs if the GitHub account's Actions are enabled (a billing lock

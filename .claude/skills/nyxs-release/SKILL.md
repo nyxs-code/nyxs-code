@@ -93,3 +93,18 @@ All must pass. Fix failures before releasing.
   otherwise release the next patch.
 
 Afterwards switch gh back if it was on another account (`gh auth switch -u <that account>`).
+
+## The website
+
+A release isn't finished until nyxs.dev shows it. Once the Release workflow has published the
+assets, maintainers update the website in its ten languages (it lives in its own repo, with its
+own `nyxs-website` skill, outside this one):
+
+- the changelog page;
+- the landing's version chip and its news line;
+- the docs pages whose features changed;
+- the code-drawn pictures if the UI changed;
+- a blog post if the release is notable;
+- the legal pages if what the app collects changed.
+
+Then deploy the website from its repo.
