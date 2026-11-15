@@ -466,11 +466,14 @@ jobs:
           retention-days: 1
 
   # ── Merge every platform's fragment into one latest.json and publish all
-  #    installers + the manifest to the public releases repo. Requires every
+  #    installers + the manifest to this repo's Releases. Requires every
   #    build to succeed so the manifest never ships missing a platform.
   publish:
     needs: build
     runs-on: ubuntu-latest
+    # The workflow's own token creates the release in this same repo.
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -537,17 +540,17 @@ jobs:
           echo "Manifest:"; cat dist-release/latest.json
           echo "Release files:"; ls -la dist-release
 
-      - name: Publish to the public repo's Releases
+      - name: Publish to Releases
         env:
-          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -e
           gh release create "${GITHUB_REF_NAME}" \
-            --repo nyxs-code/nyxs-code \
+            --repo "${GITHUB_REPOSITORY}" \
             --title "Nyxs ${VERSION}" \
             --notes "${NOTES}" \
             dist-release/* \
             || gh release upload "${GITHUB_REF_NAME}" \
-                 --repo nyxs-code/nyxs-code \
+                 --repo "${GITHUB_REPOSITORY}" \
                  --clobber dist-release/*

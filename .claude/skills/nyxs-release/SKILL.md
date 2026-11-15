@@ -21,9 +21,9 @@ the repo didn't match.
 1. **Git in this checkout needs** `git -c safe.directory=<checkout path> …` (owner SID differs).
 2. **Other Claude sessions share the checkout.** Run `ListAgents`; if a peer is busy, ask it
    (SendMessage) before committing. Check `git status`, `git stash list`.
-3. **GitHub account:** releases are tagged in the repo that holds the signing secrets (your
-   `origin`), not in a fork. Push with an account that has write access to it and to
-   `nyxs-code/nyxs-code`: `gh auth status`, and `gh auth switch -u <that account>` if
+3. **GitHub account:** releases are tagged in `nyxs-code/nyxs-code` (`origin`), whose `release`
+   environment holds the signing secrets; a fork can't release. Push with an account that has
+   write access to it: `gh auth status`, and `gh auth switch -u <that account>` if
    another one is active.
 4. `git fetch origin` and make sure `main` isn't behind (`git rev-list --left-right --count origin/main...HEAD`).
 

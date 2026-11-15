@@ -6,8 +6,8 @@ when_to_use: When the user wants to release or publish a new version of the Nyxs
 
 # Publish a new Nyxs release
 
-Nyxs ships signed auto-updates. A GitHub Action in the repo that holds the
-signing secrets (your `origin`) builds the Windows installer, signs
+Nyxs ships signed auto-updates. A GitHub Action in `nyxs-code/nyxs-code`
+(its `release` environment holds the signing secrets) builds the Windows installer, signs
 it with the updater key, and publishes the installer + `latest.json` to the
 Releases of the PUBLIC repo `nyxs-code/nyxs-code`. Installed apps read that manifest and
 show the "Update available" alert in the sidebar; the changelog modal shows
