@@ -12,7 +12,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter};
 
-use super::{env, project, render, runtime};
+use super::{env, player, project, render, runtime};
 
 /// Small enough to render fast and to sit in a card: a third of the composition's size.
 const SCALE: f64 = 0.34;
@@ -134,6 +134,10 @@ fn enqueue(app: &AppHandle, workspace: &str, slug: &str) {
 /// Renders the poster. The key is written even when it fails, so a broken timeline isn't
 /// retried on every listing, only after its next change.
 fn make(app: &AppHandle, workspace: &str, slug: &str) -> Result<PathBuf, String> {
+    // A render reads the project's files, which would hold the folder a delete is moving.
+    if player::is_moving(workspace, slug) {
+        return Err("the project is being moved or deleted".into());
+    }
     let dir = project::project_dir(workspace, slug)?;
     let key = timeline_key(&dir).ok_or("no timeline.json")?;
     let result = runtime::ready_dir(app).and_then(|rt| render_poster(&rt, workspace, slug, &dir));

@@ -3,7 +3,7 @@
 //! closing a project only marks its server idle, at most `MAX_SERVERS` keep running, idle ones
 //! stop after `IDLE_TTL`, and all of them die with the app.
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Stdio};
@@ -36,7 +36,7 @@ struct Server {
     _stdin: Option<ChildStdin>,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerInfo {
     pub url: String,
@@ -58,6 +58,34 @@ fn start_lock(key: &str) -> Arc<Mutex<()>> {
         .entry(key.to_string())
         .or_default()
         .clone()
+}
+
+/// Projects whose folder is being trashed or renamed. No server starts on them meanwhile: the
+/// picker lists on every change on disk, and its warm-up used to start the player again right
+/// after `kill`, whose file watcher then held the folder and failed the move on Windows.
+fn moving() -> &'static Mutex<HashSet<String>> {
+    static M: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
+    M.get_or_init(|| Mutex::new(HashSet::new()))
+}
+
+/// Keeps servers off a project until dropped; see `stop_for_move`.
+pub struct MoveGuard(String);
+
+impl Drop for MoveGuard {
+    fn drop(&mut self) {
+        moving()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(&self.0);
+    }
+}
+
+/// Whether the project's folder is being moved (nothing should start working in it).
+pub fn is_moving(workspace: &str, slug: &str) -> bool {
+    moving()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .contains(&server_key(workspace, slug))
 }
 
 /// Which servers to stop, given how long each has been idle (`None` = in use): the ones idle
@@ -160,6 +188,13 @@ pub(super) fn start_server(
     let key = dir.to_string_lossy().into_owned();
     let lock = start_lock(&key);
     let _start = lock.lock().unwrap_or_else(|e| e.into_inner());
+    if moving()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .contains(&key)
+    {
+        return Err("The project is being moved or deleted.".into());
+    }
     {
         let mut map = servers().lock().unwrap_or_else(|e| e.into_inner());
         if let Some(s) = map.get_mut(&key) {
@@ -282,21 +317,41 @@ pub fn release(workspace: &str, slug: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Stops the project's server now and waits for it: a Retry, or something about to move its
-/// folder.
+/// Stops the project's server now and waits for it (a Retry, a conversion).
 pub fn kill(workspace: &str, slug: &str) -> Result<(), String> {
     project::check_slug(slug)?;
     let key = server_key(workspace, slug);
     let lock = start_lock(&key);
     let _start = lock.lock().unwrap_or_else(|e| e.into_inner());
+    kill_server(&key);
+    Ok(())
+}
+
+/// Stops the project's server and keeps new ones (a listing's warm-up, a panel) from starting
+/// until the guard drops: hold it while the folder is trashed or renamed.
+pub fn stop_for_move(workspace: &str, slug: &str) -> Result<MoveGuard, String> {
+    project::check_slug(slug)?;
+    let key = server_key(workspace, slug);
+    let lock = start_lock(&key);
+    let _start = lock.lock().unwrap_or_else(|e| e.into_inner());
+    // Marked under the start lock: a start waiting on it sees the mark once it gets in.
+    moving()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .insert(key.clone());
+    let guard = MoveGuard(key.clone());
+    kill_server(&key);
+    Ok(guard)
+}
+
+fn kill_server(key: &str) {
     let server = servers()
         .lock()
         .unwrap_or_else(|e| e.into_inner())
-        .remove(&key);
+        .remove(key);
     if let Some(mut s) = server {
         env::kill_tree(&mut s.child);
     }
-    Ok(())
 }
 
 fn server_key(workspace: &str, slug: &str) -> String {

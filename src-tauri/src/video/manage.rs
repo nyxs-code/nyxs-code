@@ -2,6 +2,7 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use super::project::{self, VideoProjectInfo};
 use super::{export, player};
@@ -25,13 +26,31 @@ fn remove_cache(workspace: &str, slug: &str) {
     }
 }
 
+/// Windows frees the handles of a killed process (and of its children, like esbuild) a moment
+/// after it exits, and an antivirus or the indexer can hold a file briefly: a sharing violation
+/// right after stopping the player is retried a few times before it's reported.
+fn trash_with_retries(dir: &Path) -> Result<(), trash::Error> {
+    let mut result = trash::delete(dir);
+    for wait_ms in [250, 500, 1000, 2000] {
+        if result.is_ok() || !dir.exists() {
+            return Ok(());
+        }
+        std::thread::sleep(Duration::from_millis(wait_ms));
+        result = trash::delete(dir);
+    }
+    if !dir.exists() {
+        return Ok(());
+    }
+    result
+}
+
 /// A project under `videos/` goes to the OS trash (recoverable); an adopted Remotion project is
 /// only forgotten (its folder stays as it is). Its player stops and its cache goes.
 pub fn delete(workspace: &str, slug: &str) -> Result<(), String> {
     let dir = project::project_dir(workspace, slug)?;
-    player::kill(workspace, slug)?;
+    let _moving = player::stop_for_move(workspace, slug)?;
     if under_videos(workspace, slug, &dir) {
-        trash::delete(&dir).map_err(|e| {
+        trash_with_retries(&dir).map_err(|e| {
             format!(
                 "Couldn't move {} to the trash: {e}. Close anything using its files and try again.",
                 dir.display()
@@ -67,7 +86,7 @@ pub fn rename(workspace: &str, slug: &str, name: &str) -> Result<VideoProjectInf
         return Ok(project::project_info(workspace, slug, &dir));
     }
     // The player holds files open (and is keyed by the folder): it restarts on the new one.
-    player::kill(workspace, slug)?;
+    let _moving = player::stop_for_move(workspace, slug)?;
     let new_dir = root.join(&wanted);
     if let Err(e) = fs::rename(&dir, &new_dir) {
         log::info!("video: kept the folder of {slug}: {e}");
@@ -186,6 +205,22 @@ mod tests {
         // A name whose slug is taken keeps the folder.
         let info = rename(&w, "launch-teaser-copy", "Launch teaser (copia)").unwrap();
         assert_eq!(info.slug, "launch-teaser-copy");
+        let _ = fs::remove_dir_all(&ws);
+    }
+
+    #[test]
+    fn no_player_starts_while_the_folder_moves() {
+        let ws = workspace("moving");
+        let w = ws.to_string_lossy().into_owned();
+        let no_runtime = || Err::<PathBuf, String>("no runtime here".into());
+        let guard = player::stop_for_move(&w, "intro").unwrap();
+        assert!(player::is_moving(&w, "intro"));
+        let err = player::start_server(&no_runtime, &w, "intro", true).unwrap_err();
+        assert!(err.contains("being moved"), "{err}");
+        drop(guard);
+        assert!(!player::is_moving(&w, "intro"));
+        let err = player::start_server(&no_runtime, &w, "intro", true).unwrap_err();
+        assert_eq!(err, "no runtime here");
         let _ = fs::remove_dir_all(&ws);
     }
 
