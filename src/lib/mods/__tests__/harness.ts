@@ -61,8 +61,11 @@ export interface Harness {
   info: SessionInfo;
 }
 
-/** A host over in-memory files (`files`: absolute path → text) or the disk, with these mods. */
-export function makeHost(o: { mods: ModRef[]; devMods?: ModRef[]; files?: Record<string, string>; info?: Partial<SessionInfo>; exists?: (p: string) => boolean }): Harness {
+/**
+ * A host over in-memory files (`files`: absolute path → text) or the disk, with these mods.
+ * `infoFor` tells sessions apart where a test opens more than one.
+ */
+export function makeHost(o: { mods: ModRef[]; devMods?: ModRef[]; files?: Record<string, string>; info?: Partial<SessionInfo>; infoFor?: (key: string) => Partial<SessionInfo>; exists?: (p: string) => boolean }): Harness {
   installNodeWorker();
   const stores = new Map<string, Record<string, unknown>>();
   const info: SessionInfo = { chatId: "chat-1", workspace: "/proj", cwd: "/proj", model: "m", turns: 1, ...o.info };
@@ -90,5 +93,5 @@ export function makeHost(o: { mods: ModRef[]; devMods?: ModRef[]; files?: Record
     loadConsent: () => ({}),
     saveConsent: () => {},
   };
-  return { host: new ModHost(io, () => info), stores, info };
+  return { host: new ModHost(io, (key) => (o.infoFor ? { ...info, ...o.infoFor(key) } : info)), stores, info };
 }

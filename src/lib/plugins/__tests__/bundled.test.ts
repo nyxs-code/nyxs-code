@@ -27,6 +27,7 @@ vi.mock("@/lib/secureStore", () => ({ getSecret: async () => null, setSecret: as
 import { createFakeBackend } from "./fakeBackend";
 import { bundledFiles, installBundledPlugins } from "../bundled";
 import { readInstalled, uninstallPlugin } from "../install";
+import { installedPluginsPath, writeJsonFile } from "../paths";
 import { loadPluginComponents } from "../pluginLoader";
 
 describe("plugins Nyxs ships installed", () => {
@@ -48,6 +49,21 @@ describe("plugins Nyxs ships installed", () => {
     expect(state.enabled).toContain("theme-examples@claude-plugins-official");
     const { mods } = await loadPluginComponents();
     expect(mods.map((m) => m.plugin)).toEqual(["theme-examples"]);
+  });
+
+  it("brings a copy an earlier release shipped up to this one's, and leaves one the user updated", async () => {
+    const setVersion = async (version: string) => {
+      const file = await readInstalled();
+      file.plugins[0].version = version;
+      await writeJsonFile(await installedPluginsPath(), file);
+      vi.resetModules();
+      await (await import("../bundled")).installBundledPlugins();
+      return (await readInstalled()).plugins[0];
+    };
+    const shipped = await setVersion("0.4.3");
+    expect(shipped.version).toMatch(/\+nyxs\.\d+$/);
+    expect(fs.readFileSync(`${shipped.installLocation}/hooks/register.tsx`, "utf8")).toContain("ends with the card");
+    expect((await setVersion("0.5.0")).version).toBe("0.5.0");
   });
 
   it("doesn't come back once the user uninstalled it", async () => {

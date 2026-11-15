@@ -61,6 +61,8 @@ interface LoadedMod {
   ref: ModRef;
   worker: ModWorkerLike | null;
   hash: string;
+  /** The compiled module, kept to start it again without compiling. */
+  script?: string;
   error?: string;
 }
 
@@ -86,6 +88,14 @@ interface Ctx {
   devAsk: boolean;
   /** Said to the agent at its next turn: what became of the mods it wrote. */
   notice: string | null;
+  /** Each mod's `$.store` as this session last saw it (at its start or its own last write). One
+   *  that another session changed starts again when this session is opened: Nyxs keeps sessions
+   *  open side by side, where Claude Code would start the session afresh and read the store anew. */
+  storeSeen: Map<string, string>;
+  /** While a restart runs, the theme kept on screen, so the window doesn't flash bare. */
+  held?: StandingTheme | null;
+  /** What `$.session.id()` answers before the session has an id of its own. */
+  draftId: string;
 }
 
 export interface ModCommand {
@@ -144,6 +154,7 @@ export class ModHost {
   private ctxs = new Map<string, Ctx>();
   private listeners = new Set<() => void>();
   private toastSeq = 0;
+  private draftSeq = 0;
   private consent: Record<string, "on" | "off">;
   /** Bumped on every change a drawing may read: subscribers compare it. */
   version = 0;
@@ -174,7 +185,21 @@ export class ModHost {
   private ctx(key: string): Ctx {
     let c = this.ctxs.get(key);
     if (!c) {
-      c = { key, mods: [], theme: null, commands: new Map(), state: new Map(), status: new Map(), loading: null, loaded: false, lastUsed: Date.now(), devAsk: false, notice: null };
+      c = {
+        key,
+        mods: [],
+        theme: null,
+        commands: new Map(),
+        state: new Map(),
+        status: new Map(),
+        loading: null,
+        loaded: false,
+        lastUsed: Date.now(),
+        devAsk: false,
+        notice: null,
+        storeSeen: new Map(),
+        draftId: `draft-${Date.now().toString(36)}-${++this.draftSeq}`,
+      };
       this.ctxs.set(key, c);
     }
     return c;
@@ -187,17 +212,52 @@ export class ModHost {
     c.lastUsed = Date.now();
     this.emit();
     await this.ensureLoaded(c);
+    await this.restartStale(c);
     this.trim();
   }
 
   private ensureLoaded(c: Ctx): Promise<void> {
     if (c.loaded) return Promise.resolve();
-    c.loading ??= this.loadAll(c).finally(() => {
+    // A session whose Workers were stopped starts as a new process would: no theme until its mods set one.
+    c.loading ??= this.afresh(c, null, () => this.loadAll(c)).finally(() => {
       c.loading = null;
       c.loaded = true;
       this.emit();
     });
     return c.loading;
+  }
+
+  private storeText(plugin: string): string {
+    return JSON.stringify(this.io.loadStore(plugin));
+  }
+
+  /** Starts again the mods of this session whose store another session changed meanwhile. */
+  private async restartStale(c: Ctx): Promise<void> {
+    const stale = c.mods.filter((m) => m.worker && c.storeSeen.get(m.ref.plugin) !== this.storeText(m.ref.plugin));
+    if (!stale.length) return;
+    const plugins = new Set(stale.map((m) => m.ref.plugin));
+    await this.afresh(c, plugins, async () => {
+      for (const m of stale) await this.startMod(c, m.ref, m.script ? { script: m.script, hash: m.hash } : undefined);
+    });
+  }
+
+  /**
+   * Runs a start of these mods (all with null) with the theme they set taken away first, as in a
+   * new process: their `session.start` sets it again, and a look left from before (a preview
+   * whose timer died with the old Worker) doesn't stay. What stood is drawn until they're done.
+   */
+  private async afresh(c: Ctx, plugins: Set<string> | null, run: () => Promise<void>): Promise<void> {
+    const shown = c.theme;
+    if (shown && (!plugins || plugins.has(shown.plugin))) {
+      c.held = shown;
+      c.theme = null;
+    }
+    try {
+      await run();
+    } finally {
+      c.held = undefined;
+      this.emit();
+    }
   }
 
   private async loadAll(c: Ctx): Promise<void> {
@@ -219,7 +279,7 @@ export class ModHost {
       const out = compiled ?? (await compileMod(ref, this.io.readText));
       const worker = this.io.makeWorker(ref.plugin, out.script, (path, args) => this.call(c, ref, path, args));
       await worker.ready;
-      mod = { ref, worker, hash: out.hash };
+      mod = { ref, worker, hash: out.hash, script: out.script };
     } catch (e) {
       mod = { ref, worker: null, hash: compiled?.hash ?? "", error: errorText(e) };
       console.warn(`[mod ${ref.plugin}] not loaded: ${mod.error}`);
@@ -234,6 +294,7 @@ export class ModHost {
       c.mods.push(mod);
     }
     if (mod.worker) {
+      c.storeSeen.set(ref.plugin, this.storeText(ref.plugin));
       try {
         const info = this.infoOf(c.key);
         await mod.worker.dispatch("session.start", { cwd: info.cwd ?? info.workspace ?? "", surface: "desktop", isInteractive: true }, async () => ({}), { timeoutMs: WAIT_MS.command });
@@ -422,7 +483,9 @@ export class ModHost {
   }
 
   theme(key: string | null): StandingTheme | null {
-    return (key && this.ctxs.get(key)?.theme) || null;
+    const c = key ? this.ctxs.get(key) : undefined;
+    if (!c) return null;
+    return c.held !== undefined ? c.held : c.theme;
   }
 
   status(key: string | null): { plugin: string; text: string }[] {
@@ -538,12 +601,14 @@ export class ModHost {
         delete data[k];
         data[k] = args[1];
         this.io.saveStore(plugin, data);
+        c.storeSeen.set(plugin, this.storeText(plugin));
         return undefined;
       }
       case "store.delete": {
         const data = this.io.loadStore(plugin);
         delete data[String(args[0])];
         this.io.saveStore(plugin, data);
+        c.storeSeen.set(plugin, this.storeText(plugin));
         return undefined;
       }
       case "store.keys":
@@ -566,7 +631,9 @@ export class ModHost {
         return { isSet: true, version: version + 1 };
       }
       case "session.id":
-        return this.infoOf(c.key).chatId ?? c.key;
+        // Every new session of a folder shares the draft's key until its first message, so the key
+        // can't be the id: a choice kept "for this session" would follow every later new session.
+        return this.infoOf(c.key).chatId ?? c.draftId;
       case "session.cwd": {
         const i = this.infoOf(c.key);
         return i.cwd ?? i.workspace ?? "";

@@ -59,6 +59,73 @@ describe("theme-examples, the official plugin", () => {
     expect(await host.renderBand("chat-1", false)).toEqual([]);
   }, 30_000);
 
+  // Nyxs keeps sessions open side by side; Claude Code only reads the project's choice at a session's start and at a turn.
+  const twoSessions = () => makeHost({ mods: [mod()], exists: (p) => p === "/proj", infoFor: (key) => ({ chatId: key.startsWith("draft:") ? null : key }) });
+
+  it("shows the project's new theme in a session that was already open, without a message", async () => {
+    const { host } = twoSessions();
+    await host.activate("chat-1");
+    await host.activate("chat-2");
+    await host.runCommand("chat-2", "custom-theme", "night-reef");
+    expect(sceneOf(host.theme("chat-1"))).toBeUndefined();
+
+    await host.activate("chat-1");
+    expect(sceneOf(host.theme("chat-1"))).toBe("night-reef");
+
+    // A session's own choice stays its own.
+    await host.runCommand("chat-1", "custom-theme", "koi-mosaic session");
+    await host.activate("chat-2");
+    expect(sceneOf(host.theme("chat-2"))).toBe("night-reef");
+    await host.activate("chat-1");
+    expect(sceneOf(host.theme("chat-1"))).toBe("koi-mosaic");
+  }, 30_000);
+
+  it("drops a preview left in a session that starts again", async () => {
+    const { host } = twoSessions();
+    await host.activate("chat-2");
+    await host.activate("chat-1");
+    await host.runCommand("chat-1", "custom-theme", "");
+    const [row] = await host.renderBand("chat-1", false);
+    const preview = find(row.tree, "Button", (b) => b.props.key === "preview-honu-lagoon");
+    host.press("chat-1", "theme-examples", (preview!.props.onPress as { $fn: number }).$fn);
+    for (let i = 0; i < 100 && sceneOf(host.theme("chat-1")) !== "honu-lagoon"; i++) await new Promise((r) => setTimeout(r, 10));
+    expect(sceneOf(host.theme("chat-1"))).toBe("honu-lagoon");
+
+    await host.activate("chat-2");
+    await host.runCommand("chat-2", "custom-theme", "night-reef");
+    await host.activate("chat-1");
+    expect(sceneOf(host.theme("chat-1"))).toBe("night-reef");
+  }, 30_000);
+
+  it("ends a preview when the card is closed without a pick (Nyxs' change)", async () => {
+    const { host } = makeHost({ mods: [mod()], exists: (p) => p === "/proj" });
+    await host.activate("chat-1");
+    await host.runCommand("chat-1", "custom-theme", "night-reef");
+    await host.runCommand("chat-1", "custom-theme", "");
+    const press = async (key: string) => {
+      const [row] = await host.renderBand("chat-1", false);
+      const button = find(row.tree, "Button", (b) => b.props.key === key);
+      host.press("chat-1", "theme-examples", (button!.props.onPress as { $fn: number }).$fn);
+    };
+    await press("preview-honu-lagoon");
+    for (let i = 0; i < 100 && sceneOf(host.theme("chat-1")) !== "honu-lagoon"; i++) await new Promise((r) => setTimeout(r, 10));
+    expect(sceneOf(host.theme("chat-1"))).toBe("honu-lagoon");
+
+    await press("close");
+    for (let i = 0; i < 100 && sceneOf(host.theme("chat-1")) !== "night-reef"; i++) await new Promise((r) => setTimeout(r, 10));
+    expect(sceneOf(host.theme("chat-1"))).toBe("night-reef");
+    expect(await host.renderBand("chat-1", false)).toEqual([]);
+  }, 30_000);
+
+  it("keeps a new session's own choice out of the next new session", async () => {
+    const { host } = twoSessions();
+    await host.activate("draft:/proj");
+    await host.runCommand("draft:/proj", "custom-theme", "koi-mosaic session");
+    host.adopt("draft:/proj", "chat-1");
+    await host.activate("draft:/proj");
+    expect(host.theme("draft:/proj")).toBeNull();
+  }, 30_000);
+
   it("brings the project's theme back in a new session, and clears it", async () => {
     const h1 = makeHost({ mods: [mod()], exists: (p) => p === "/proj" });
     await h1.host.activate("chat-1");

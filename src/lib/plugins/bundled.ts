@@ -16,6 +16,11 @@ import { pluginId } from "./schema";
 const MARKETPLACE = DEFAULT_MARKETPLACES[0].name;
 const BUNDLED = ["theme-examples"] as const;
 const SEEDED_FILE = "bundled-seeded.json";
+/**
+ * Versions earlier releases shipped. A copy still at one of them gets the one this release ships
+ * (which carries Nyxs' changes, `+nyxs.N`); one the user updated from the marketplace stays.
+ */
+const SHIPPED_BEFORE: Record<string, string[]> = { "theme-examples": ["0.4.3"] };
 
 // Loaded only when a plugin is installed: they never reach the app's start.
 const FILES = import.meta.glob("/resources/plugins/**/*", { query: "?raw", import: "default" }) as Record<string, () => Promise<string>>;
@@ -38,7 +43,22 @@ async function seededList(): Promise<string[]> {
 
 let running: Promise<void> | null = null;
 
-/** Installs the bundled plugins this machine never had. Safe to call at every start. */
+/** Writes a bundled plugin into the cache; its version and folder. */
+async function writeBundled(name: string): Promise<{ version: string; dest: string }> {
+  const files = bundledFiles(name);
+  const manifest = JSON.parse(await files[".claude-plugin/plugin.json"]()) as { version?: string };
+  const version = manifest.version ?? "0.0.0";
+  const dest = await pluginInstallDir(MARKETPLACE, name, version);
+  for (const [rel, load] of Object.entries(files)) {
+    await invoke("agent_write_file", { path: `${dest}/${rel}`, content: await load() });
+  }
+  return { version, dest };
+}
+
+/**
+ * Installs the bundled plugins this machine never had, and brings a copy an earlier release
+ * shipped up to this release's. Safe to call at every start.
+ */
 export function installBundledPlugins(): Promise<void> {
   if (!isTauri) return Promise.resolve();
   running ??= (async () => {
@@ -46,16 +66,23 @@ export function installBundledPlugins(): Promise<void> {
     let changed = false;
     for (const name of BUNDLED) {
       const id = pluginId(name, MARKETPLACE);
-      if (seeded.includes(id)) continue;
+      if (seeded.includes(id)) {
+        const entry = (await readInstalled()).plugins.find((p) => p.id === id);
+        if (!entry || !SHIPPED_BEFORE[name]?.includes(entry.version ?? "")) continue;
+        const { version, dest } = await writeBundled(name);
+        const file = await readInstalled();
+        const now = file.plugins.find((p) => p.id === id);
+        if (now && now.version !== version) {
+          now.version = version;
+          now.installLocation = dest;
+          await writeJsonFile(await installedPluginsPath(), file);
+          changed = true;
+        }
+        continue;
+      }
       const installed = await readInstalled();
       if (!installed.plugins.some((p) => p.id === id)) {
-        const files = bundledFiles(name);
-        const manifest = JSON.parse(await files[".claude-plugin/plugin.json"]()) as { version?: string };
-        const version = manifest.version ?? "0.0.0";
-        const dest = await pluginInstallDir(MARKETPLACE, name, version);
-        for (const [rel, load] of Object.entries(files)) {
-          await invoke("agent_write_file", { path: `${dest}/${rel}`, content: await load() });
-        }
+        const { version, dest } = await writeBundled(name);
         // Read again: another window may have written the list meanwhile.
         const file = await readInstalled();
         if (!file.plugins.some((p) => p.id === id)) {

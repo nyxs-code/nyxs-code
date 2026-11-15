@@ -753,8 +753,23 @@ type CardElements = Pick<
   'Box' | 'Text' | 'Button'
 >
 
-/** Puts the card away, placed or above the prompt, until the command shows it again. */
+/**
+ * Puts the card away, placed or above the prompt, until the command shows it again.
+ * NYXS: a look still running ends with the card. Closing the card without a pick is a no to what was looked at, so
+ * the window goes back to what the session shows instead of keeping the look for the rest of its seconds.
+ */
 async function putCardAway($: EngineInterface): Promise<void> {
+  const now = await read($, choice)
+
+  if (now.preview !== undefined) {
+    previewEnding?.cancel()
+    previewEnding = undefined
+    // An end that fails must not keep the card up: it is told like the timer's own end.
+    await quietly($, async () => {
+      await showThenKeep($, now.applied, () => update($, choice, was => ({ ...was, preview: undefined })))
+    })
+  }
+
   await update($, choice, was => ({ ...was, cardInBand: false, cardAway: true }))
 }
 
