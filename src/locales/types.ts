@@ -38,6 +38,13 @@ export interface Translations {
     getHelp: string;
     upgradePlan: string;
     viewChangelog: string;
+    learnMore: string;
+    linkDocs: string;
+    linkQuickstart: string;
+    linkShortcuts: string;
+    linkBlog: string;
+    linkPrivacy: string;
+    linkTerms: string;
     about: string;
     logOut: string;
     language: string;

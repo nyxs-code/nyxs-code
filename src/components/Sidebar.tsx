@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type DragEvent } from "react";
 import { useCloseOnBlur } from "@/lib/useCloseOnBlur";
 import { createPortal } from "react-dom";
 import { Plus, Search, Settings, Code2, Zap, SlidersHorizontal, Briefcase, ChevronDown, ChevronRight, Check, Languages, LifeBuoy, History, LogOut, EllipsisVertical, MessageSquareHeart, GitPullRequest, GitPullRequestDraft, GitPullRequestClosed, GitMerge, Folder, FolderOpen, Layers, Pin, Pencil, Trash2, X } from "lucide-react";
+import { LearnMoreMenu } from "@/components/sidebar/LearnMoreMenu";
 import { SessionMenu, type SessionCopy, type SessionMenuAction, type SessionMenuTarget } from "@/components/sidebar/SessionMenu";
 import { createSection, deleteSection, moveToSection, renameSection, setPinned, setUnread, useSessionMarks } from "@/lib/sessionMarks";
 import { shortAge } from "@/lib/time";
@@ -1107,6 +1108,7 @@ export function Sidebar({
             <MenuItem icon={LifeBuoy} label={t.getHelp} onClick={onOpenHelp} close={() => setAccountOpen(false)} />
             <MenuItem icon={MessageSquareHeart} label={t.feedback} onClick={() => setFeedbackOpen(true)} close={() => setAccountOpen(false)} />
             <MenuItem icon={History} label={t.viewChangelog} onClick={() => setChangelogOpen(true)} close={() => setAccountOpen(false)} />
+            <LearnMoreMenu language={language} close={() => setAccountOpen(false)} />
             <div className="h-px bg-bg-300 my-1" />
             <MenuItem icon={LogOut} label={t.logOut} onClick={() => void handleSignOut()} close={() => setAccountOpen(false)} />
           </div>
