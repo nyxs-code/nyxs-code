@@ -498,3 +498,30 @@ input::-ms-clear {
   background-color: color-mix(in srgb, var(--mod-glass-tint, var(--bg-0)) calc(var(--mod-glass-opacity, 0.6) * 100%), transparent);
   backdrop-filter: blur(var(--mod-glass-blur, 16px));
 }
+
+/* Menus, dropdowns and popovers get the same glass, as a layer for the same reason. They float over
+   messages, so their tint is never thinner than the default 60 %, to keep their items readable.
+   `isolation` gives the menu its own stacking context: the layer stays inside it, under its items. */
+.mod-glass [data-mod-menu] {
+  isolation: isolate;
+  background-color: transparent;
+}
+.mod-glass [data-mod-menu]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: inherit;
+  background-color: color-mix(in srgb, var(--mod-glass-tint, var(--bg-100)) calc(max(var(--mod-glass-opacity, 0.6), 0.6) * 100%), transparent);
+  backdrop-filter: blur(var(--mod-glass-blur, 16px));
+}
+/* A layer in a list that scrolls would scroll away with the items: those lists hold nothing fixed
+   and no submenu, so they carry the glass themselves. */
+.mod-glass [data-mod-menu]:is(.overflow-y-auto, .overflow-auto) {
+  background-color: color-mix(in srgb, var(--mod-glass-tint, var(--bg-100)) calc(max(var(--mod-glass-opacity, 0.6), 0.6) * 100%), transparent);
+  backdrop-filter: blur(var(--mod-glass-blur, 16px));
+}
+.mod-glass [data-mod-menu]:is(.overflow-y-auto, .overflow-auto)::before {
+  content: none;
+}

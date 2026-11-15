@@ -126,6 +126,7 @@ export function AddressBar({
         {suggest.open && (
           // Over the page: a hole in the native webview lets it show.
           <div
+            data-mod-menu
             id={listId}
             role="listbox"
             aria-label={t.addressSuggestions}

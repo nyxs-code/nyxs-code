@@ -89,6 +89,7 @@ function PathMenu({ at, pathRef, kind, onClose }: { at: { x: number; y: number }
     <>
       <div className="fixed inset-0 z-[90]" onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose(); }} aria-hidden />
       <div
+        data-mod-menu
         ref={box}
         role="menu"
         data-webview-hole

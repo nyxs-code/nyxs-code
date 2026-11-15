@@ -501,7 +501,7 @@ export function GitBar({
             <ChevronDown className="h-3.5 w-3.5 text-text-400" />
           </button>
           {ciOpen && (
-            <div role="menu" className="absolute bottom-full right-0 z-30 mb-1 w-56 rounded-[8px] border border-bg-300 bg-bg-100 p-1 shadow-lg">
+            <div data-mod-menu role="menu" className="absolute bottom-full right-0 z-30 mb-1 w-56 rounded-[8px] border border-bg-300 bg-bg-100 p-1 shadow-lg">
               <p className="px-2 pt-1 pb-1.5 text-[12px] text-text-400">{t.ciMonitoring}</p>
               {ciRows.map((r) => (
                 <button
@@ -540,7 +540,7 @@ export function GitBar({
               {merging ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MoreVertical className="h-3.5 w-3.5" />}
             </button>
             {menuOpen && (
-              <div role="menu" className="absolute bottom-full right-0 z-30 mb-1 w-72 rounded-[8px] border border-bg-300 bg-bg-100 p-1 shadow-lg">
+              <div data-mod-menu role="menu" className="absolute bottom-full right-0 z-30 mb-1 w-72 rounded-[8px] border border-bg-300 bg-bg-100 p-1 shadow-lg">
                 <MenuToggle checked={prOpen.autoMerge} busy={merging} onClick={() => void toggleAutoMerge()} title={t.mergeWhenReady} desc={t.mergeWhenReadyDesc} />
                 <MenuToggle
                   checked={autoFix}

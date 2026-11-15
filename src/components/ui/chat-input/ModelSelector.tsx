@@ -145,7 +145,7 @@ export const ModelSelector: React.FC<{
             </button>
 
             {isOpen && (
-                <div data-composer-menu role="menu" className="absolute bottom-full right-0 mb-2 w-[320px] bg-bg-100 border border-bg-300 rounded-[5px] shadow-2xl z-50 flex flex-col p-1">
+                <div data-mod-menu data-composer-menu role="menu" className="absolute bottom-full right-0 mb-2 w-[320px] bg-bg-100 border border-bg-300 rounded-[5px] shadow-2xl z-50 flex flex-col p-1">
                     <div className="flex items-center gap-0.5 border-b border-bg-300">
                         {tabsOverflow && (
                             <button

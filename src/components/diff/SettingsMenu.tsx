@@ -51,7 +51,7 @@ export function SettingsMenu({
         <MoreVertical className="w-4 h-4" />
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 top-full mt-1 z-30 w-80 rounded-[5px] border border-bg-300 bg-bg-100 shadow-2xl p-1">
+        <div data-mod-menu role="menu" className="absolute right-0 top-full mt-1 z-30 w-80 rounded-[5px] border border-bg-300 bg-bg-100 shadow-2xl p-1">
           {sections.map((items, si) => (
             <div key={si} className={cn(si > 0 && "mt-1 pt-1 border-t border-bg-300")}>
               {items.map((it) => (

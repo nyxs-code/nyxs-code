@@ -86,6 +86,7 @@ function BarButton({
 function MenuPanel({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div
+      data-mod-menu
       role="menu"
       data-webview-hole
       className={cn("absolute bottom-full mb-2 z-50 rounded-lg border border-bg-300 bg-bg-100 shadow-lg p-1", className)}

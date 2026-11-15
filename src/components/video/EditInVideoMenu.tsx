@@ -24,7 +24,7 @@ export function EditInVideoMenu({ x, y, path, onClose }: { x: number; y: number;
     };
   }, [onClose]);
   return (
-    <div ref={ref} role="menu" data-webview-hole className="fixed z-[70] w-48 rounded-[5px] border border-bg-300 bg-bg-100 p-1 shadow-lg" style={{ left: x, top: y }}>
+    <div data-mod-menu ref={ref} role="menu" data-webview-hole className="fixed z-[70] w-48 rounded-[5px] border border-bg-300 bg-bg-100 p-1 shadow-lg" style={{ left: x, top: y }}>
       <button
         type="button"
         role="menuitem"

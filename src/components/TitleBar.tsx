@@ -224,7 +224,7 @@ export function TitleBar({
               <MoreVertical className="w-4 h-4" />
             </button>
             {optionsOpen && (
-              <div role="menu" aria-label={t.viewOptions} data-webview-hole className="absolute right-0 top-full mt-1 z-[70] w-60 rounded-[5px] border border-bg-300 bg-bg-100 shadow-lg p-1">
+              <div data-mod-menu role="menu" aria-label={t.viewOptions} data-webview-hole className="absolute right-0 top-full mt-1 z-[70] w-60 rounded-[5px] border border-bg-300 bg-bg-100 shadow-lg p-1">
                 {menuViews.map((v) => (
                   <button
                     key={v.id}

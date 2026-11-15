@@ -32,7 +32,7 @@ export function RenderQueue({ workspace, slug, onClose, anchorRef }: { workspace
   const finished = jobs.some((j) => !isRenderActive(j));
 
   return (
-    <div ref={boxRef} role="dialog" aria-label={t.renderQueue} data-webview-hole className="absolute right-0 top-full z-40 mt-1 w-80 rounded-[8px] border border-bg-300 bg-bg-100 shadow-lg">
+    <div data-mod-menu ref={boxRef} role="dialog" aria-label={t.renderQueue} data-webview-hole className="absolute right-0 top-full z-40 mt-1 w-80 rounded-[8px] border border-bg-300 bg-bg-100 shadow-lg">
       <div className="flex h-9 items-center justify-between border-b border-bg-300/70 pl-3 pr-1.5">
         <span className="text-[12.5px] font-medium text-text-100">{t.renderQueue}</span>
         {finished && (

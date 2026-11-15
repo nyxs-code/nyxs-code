@@ -431,7 +431,7 @@ function FilterDropdown({
         <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="absolute right-0 z-20 mt-1 min-w-[200px] max-h-[60vh] overflow-y-auto custom-scrollbar rounded-[8px] border border-bg-300 bg-bg-100 p-1.5 shadow-xl">
+        <div data-mod-menu className="absolute right-0 z-20 mt-1 min-w-[200px] max-h-[60vh] overflow-y-auto custom-scrollbar rounded-[8px] border border-bg-300 bg-bg-100 p-1.5 shadow-xl">
           {children(() => setOpen(false))}
         </div>
       )}

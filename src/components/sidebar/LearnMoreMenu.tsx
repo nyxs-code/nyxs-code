@@ -67,6 +67,7 @@ export function LearnMoreMenu({ language, close }: { language: string; close: ()
       </button>
       {open && (
         <div
+          data-mod-menu
           role="menu"
           onMouseEnter={show}
           onMouseLeave={hide}

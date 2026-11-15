@@ -44,6 +44,7 @@ export function ContextMenu({ x, y, items, onClose }: { x: number; y: number; it
         aria-hidden
       />
       <div
+        data-mod-menu
         ref={ref}
         role="menu"
         data-webview-hole
@@ -143,6 +144,7 @@ export function ShortcutsPopover({ t, open, onOpenChange }: { t: Translations["v
         <>
           <div className="fixed inset-0 z-[90]" onPointerDown={() => onOpenChange(false)} aria-hidden />
           <div
+            data-mod-menu
             data-webview-hole
             className="absolute bottom-full right-0 z-[91] mb-1 w-[300px] rounded-[8px] border border-bg-300 bg-bg-100 p-2 shadow-lg"
           >

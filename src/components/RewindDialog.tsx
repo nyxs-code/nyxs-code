@@ -81,6 +81,7 @@ export function RewindDialog({
               </button>
               {menuOpen && (
                 <div
+                  data-mod-menu
                   role="listbox"
                   className="absolute left-0 right-0 top-full z-10 mt-1 rounded-[8px] border border-bg-300 bg-bg-100 p-1 shadow-xl"
                 >

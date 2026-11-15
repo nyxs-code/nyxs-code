@@ -173,7 +173,7 @@ export function InlinePreview({ html, closed }: { html: string; closed: boolean 
               <MoreHorizontal className="h-4 w-4" />
             </button>
             {menuOpen && (
-              <div role="menu" className="absolute right-0 top-full z-30 mt-1 w-52 rounded-[8px] border border-bg-300 bg-bg-100 p-1 shadow-lg">
+              <div data-mod-menu role="menu" className="absolute right-0 top-full z-30 mt-1 w-52 rounded-[8px] border border-bg-300 bg-bg-100 p-1 shadow-lg">
                 <button type="button" role="menuitem" onClick={() => void copyImage()} className="flex w-full items-center gap-2.5 rounded-[6px] px-2 py-1.5 text-left text-[13px] text-text-200 hover:bg-bg-200">
                   <Copy className="h-4 w-4 text-text-400" />
                   {t.copyImage}

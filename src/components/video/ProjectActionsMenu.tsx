@@ -66,6 +66,7 @@ export function ProjectActionsMenu({ project, actions, at, onClose, extra }: Pro
 
   return (
     <div
+      data-mod-menu
       ref={ref}
       role="menu"
       aria-label={t.projectMenu}

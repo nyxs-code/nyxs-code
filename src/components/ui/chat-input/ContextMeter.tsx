@@ -240,7 +240,7 @@ export const ContextMeter: React.FC<{
                 )}
             </button>
             {open && (
-                <div data-composer-menu role="dialog" className="absolute bottom-full right-0 mb-2 w-[24rem] bg-bg-100 border border-bg-300 rounded-[5px] shadow-2xl z-50 py-1">
+                <div data-mod-menu data-composer-menu role="dialog" className="absolute bottom-full right-0 mb-2 w-[24rem] bg-bg-100 border border-bg-300 rounded-[5px] shadow-2xl z-50 py-1">
                     <button
                         type="button"
                         disabled={detailRows.length === 0}

@@ -266,7 +266,7 @@ export function SelectionReply({
         style={{ left, top: toolbarTop }}
         onMouseDown={(e) => e.preventDefault()}
       >
-        <div className="relative flex items-center gap-0.5 rounded-[8px] border border-bg-300 bg-bg-100 p-0.5 shadow-lg">
+        <div data-mod-menu className="relative flex items-center gap-0.5 rounded-[8px] border border-bg-300 bg-bg-100 p-0.5 shadow-lg">
           <button
             type="button"
             onClick={() => setReplying(true)}
@@ -292,6 +292,7 @@ export function SelectionReply({
               </button>
               {colorMenu && (
                 <div
+                  data-mod-menu
                   role="menu"
                   className={`absolute right-0 z-50 w-40 rounded-[8px] border border-bg-300 bg-bg-100 p-1 shadow-lg ${menuBelow ? "top-full mt-2" : "bottom-full mb-2"}`}
                 >

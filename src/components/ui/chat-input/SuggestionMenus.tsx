@@ -33,6 +33,7 @@ export const SlashMenu: React.FC<{
     return (
         <div ref={slashWrapRef} data-composer-menu className="absolute bottom-full left-0 mb-1.5 z-30">
             <div
+                data-mod-menu
                 ref={listRef}
                 className="relative w-56 max-h-72 overflow-y-auto custom-scrollbar rounded-[8px] border border-bg-300 bg-bg-100 shadow-lg py-1"
                 onMouseLeave={() => setSlashHovering(false)}
@@ -52,6 +53,7 @@ export const SlashMenu: React.FC<{
             </div>
             {showTip && (
                 <div
+                    data-mod-menu
                     ref={tipRef}
                     className="absolute left-[14.25rem] w-64 max-h-72 overflow-y-auto custom-scrollbar rounded-[8px] border border-bg-300 bg-bg-100 shadow-lg px-3 py-2 text-[12px] leading-snug text-text-300"
                     style={{ top: slashTipTop }}
@@ -70,7 +72,7 @@ export const MentionMenu: React.FC<{
     setMentionIndex: (i: number) => void;
     selectMention: (path: string) => void;
 }> = ({ mentionItems, mentionIndex, setMentionIndex, selectMention }) => (
-    <div className="absolute bottom-full left-0 right-0 mb-1.5 z-30 max-h-72 overflow-y-auto custom-scrollbar rounded-[8px] border border-bg-300 bg-bg-100 shadow-lg py-1">
+    <div data-mod-menu className="absolute bottom-full left-0 right-0 mb-1.5 z-30 max-h-72 overflow-y-auto custom-scrollbar rounded-[8px] border border-bg-300 bg-bg-100 shadow-lg py-1">
         {mentionItems.map((path, i) => (
             <button
                 key={path}

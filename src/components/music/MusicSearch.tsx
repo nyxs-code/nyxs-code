@@ -174,7 +174,7 @@ export function MusicSearch() {
         <Music className="w-4 h-4" />
       </button>
       {open && (
-        <div data-webview-hole className="absolute right-0 top-full z-[70] mt-1 w-[400px] max-w-[calc(100vw-1rem)] overflow-hidden rounded-[8px] border border-bg-300 bg-bg-100 shadow-lg">
+        <div data-mod-menu data-webview-hole className="absolute right-0 top-full z-[70] mt-1 w-[400px] max-w-[calc(100vw-1rem)] overflow-hidden rounded-[8px] border border-bg-300 bg-bg-100 shadow-lg">
           <div className="flex h-10 items-center gap-2 px-3">
             <Search className="w-4 h-4 shrink-0 text-text-400" aria-hidden />
             <input

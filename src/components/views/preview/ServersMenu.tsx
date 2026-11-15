@@ -90,7 +90,7 @@ export function ServersMenu({
         <Server className="w-3.5 h-3.5" />
       </button>
       {serversOpen && (
-        <div role="menu" data-webview-hole className="absolute right-0 top-full mt-1 z-30 w-56 rounded-[5px] border border-bg-300 bg-bg-100 shadow-lg p-1">
+        <div data-mod-menu role="menu" data-webview-hole className="absolute right-0 top-full mt-1 z-30 w-56 rounded-[5px] border border-bg-300 bg-bg-100 shadow-lg p-1">
           <p className="px-2 pt-0.5 pb-1 text-[11px] font-medium text-text-400">{t.servers}</p>
           {launch.map((e) => {
             const shell = runningShellOf(e);

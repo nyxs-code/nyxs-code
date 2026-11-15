@@ -192,6 +192,7 @@ export function SessionMenu({
   const submenu = (which: Sub, body: ReactNode) =>
     sub?.which === which && (
       <div
+        data-mod-menu
         role="menu"
         onMouseEnter={keepSub}
         onMouseLeave={leaveSub}
@@ -205,6 +206,7 @@ export function SessionMenu({
     <>
       <div className="fixed inset-0 z-[69]" onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose(); }} />
       <div
+        data-mod-menu
         ref={ref}
         role="menu"
         data-webview-hole

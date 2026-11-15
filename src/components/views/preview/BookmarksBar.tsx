@@ -34,7 +34,7 @@ export function BookmarksBar({ bookmarks, onOpen }: { bookmarks: Bookmark[]; onO
       {menu && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setMenu(null)} onContextMenu={(e) => { e.preventDefault(); setMenu(null); }} aria-hidden />
-          <div role="menu" data-webview-hole className="absolute top-full z-50 mt-0.5 min-w-[10rem] rounded-[8px] border border-bg-300 bg-bg-100 p-1 shadow-lg" style={{ left: menu.x }}>
+          <div data-mod-menu role="menu" data-webview-hole className="absolute top-full z-50 mt-0.5 min-w-[10rem] rounded-[8px] border border-bg-300 bg-bg-100 p-1 shadow-lg" style={{ left: menu.x }}>
             <button
               type="button"
               role="menuitem"

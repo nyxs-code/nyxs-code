@@ -36,7 +36,7 @@ export const MicButton: React.FC<{ voice: VoiceInput }> = ({ voice }) => {
             {micMenuOpen && (
                 <>
                     <div className="fixed inset-0 z-40" onClick={() => setMicMenuOpen(false)} onContextMenu={(e) => { e.preventDefault(); setMicMenuOpen(false); }} />
-                    <div data-webview-hole className="absolute bottom-full right-0 mb-2 z-50 w-64 bg-bg-200 border border-bg-300 rounded-[8px] shadow-2xl p-1.5" role="menu" aria-label={t.voiceSelectMic}>
+                    <div data-mod-menu data-webview-hole className="absolute bottom-full right-0 mb-2 z-50 w-64 bg-bg-200 border border-bg-300 rounded-[8px] shadow-2xl p-1.5" role="menu" aria-label={t.voiceSelectMic}>
                         <div className="px-2 pt-1 pb-1.5 text-[11px] font-medium text-text-400">{t.voiceSelectMic}</div>
                         {[{ deviceId: "", label: t.voiceDefaultMic }, ...mics.filter((m) => m.deviceId && m.deviceId !== "default")].map((m, i) => (
                             <button

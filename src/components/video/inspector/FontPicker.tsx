@@ -59,7 +59,7 @@ export function FontPicker({ value, onChange, projectFonts, label, searchLabel }
         <ChevronDown className="h-3.5 w-3.5 shrink-0 text-text-400" />
       </button>
       {open && (
-        <div className="absolute left-0 right-0 top-full z-30 mt-1 rounded-[8px] border border-bg-300 bg-bg-100 p-1 shadow-lg">
+        <div data-mod-menu className="absolute left-0 right-0 top-full z-30 mt-1 rounded-[8px] border border-bg-300 bg-bg-100 p-1 shadow-lg">
           <div className="relative mb-1">
             <Search className="pointer-events-none absolute left-1.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-400" />
             <input

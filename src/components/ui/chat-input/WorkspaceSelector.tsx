@@ -71,7 +71,7 @@ export const WorkspaceSelector: React.FC<{
                 <span className="truncate">{current ? current.name : workspace ? workspaceName(workspace) : t.chooseFolder}</span>
             </button>
             {open && (
-                <div data-composer-menu role="menu" className="absolute bottom-full left-0 mb-2 w-72 bg-bg-100 border border-bg-300 rounded-[5px] shadow-2xl z-50 p-1">
+                <div data-mod-menu data-composer-menu role="menu" className="absolute bottom-full left-0 mb-2 w-72 bg-bg-100 border border-bg-300 rounded-[5px] shadow-2xl z-50 p-1">
                     {environments.length > 0 && (
                         <>
                             <div className="px-2 pt-0.5 pb-1 text-[12px] text-text-400">{te.title}</div>

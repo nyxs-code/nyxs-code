@@ -61,6 +61,7 @@ export function SettingSelect<T extends string>({
       </button>
       {open && (
         <div
+          data-mod-menu
           role="menu"
           className={`absolute ${align === "left" ? "left-0" : "right-0"} top-full mt-1.5 z-50 p-1.5 rounded-[8px] border border-bg-300 bg-bg-100 shadow-2xl ${wide ? "w-80" : "min-w-[11rem]"}`}
         >

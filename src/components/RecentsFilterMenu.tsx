@@ -135,6 +135,7 @@ export function RecentsFilterMenu({
       {open && createPortal(
         <div ref={panelRef} className="fixed inset-0 z-[200] pointer-events-none">
           <div
+            data-mod-menu
             className="absolute pointer-events-auto bg-bg-100 border border-bg-300 rounded-[5px] shadow-2xl p-1"
             style={{ top, left: mainLeft, width: MAIN_W }}
           >
@@ -160,6 +161,7 @@ export function RecentsFilterMenu({
 
           {activeRow && (
             <div
+              data-mod-menu
               className="absolute pointer-events-auto max-h-72 overflow-y-auto custom-scrollbar bg-bg-100 border border-bg-300 rounded-[5px] shadow-2xl p-1"
               style={{
                 top: Math.max(8, Math.min(subTop, window.innerHeight - Math.min(activeRow.opts.length * 38 + 16, 296) - 8)),

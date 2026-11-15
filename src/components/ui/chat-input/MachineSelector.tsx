@@ -65,7 +65,7 @@ export const MachineSelector: React.FC<{
                 {host && <StatusMark host={host} />}
             </button>
             {open && (
-                <div data-composer-menu role="menu" className="absolute bottom-full left-0 mb-2 w-64 bg-bg-100 border border-bg-300 rounded-[5px] shadow-2xl z-50 p-1">
+                <div data-mod-menu data-composer-menu role="menu" className="absolute bottom-full left-0 mb-2 w-64 bg-bg-100 border border-bg-300 rounded-[5px] shadow-2xl z-50 p-1">
                     <div className="px-2 pt-0.5 pb-1 text-[12px] text-text-400">{t.where}</div>
                     <button type="button" onClick={pickLocal} className={`${row} pr-2`}>
                         <Laptop className={`w-3.5 h-3.5 shrink-0 ${host ? "text-text-400" : "text-accent"}`} />

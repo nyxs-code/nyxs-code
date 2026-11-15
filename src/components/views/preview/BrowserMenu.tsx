@@ -137,7 +137,7 @@ export function BrowserMenu({
   );
 
   return (
-    <div ref={menuRef} role="menu" aria-label={t.browserSettings} data-webview-hole className="absolute top-9 right-2 z-30 w-72 rounded-[5px] border border-bg-300 bg-bg-100 shadow-lg p-1">
+    <div data-mod-menu ref={menuRef} role="menu" aria-label={t.browserSettings} data-webview-hole className="absolute top-9 right-2 z-30 w-72 rounded-[5px] border border-bg-300 bg-bg-100 shadow-lg p-1">
       <MenuItem onClick={openExternal} disabled={!isHttp} onHover={() => setSub(null)}>{openInLabel}</MenuItem>
       <MenuItem onClick={copyUrl} disabled={!hasPage} onHover={() => setSub(null)}>{t.copyUrl}</MenuItem>
       <MenuItem onClick={() => void saveScreenshot()} disabled={!hasPage} onHover={() => setSub(null)}>{t.saveScreenshot}</MenuItem>
@@ -157,7 +157,7 @@ export function BrowserMenu({
           {t.viewport}
         </MenuItem>
         {sub === "viewport" && (
-          <div role="menu" aria-label={t.viewport} data-webview-hole className={subClass}>
+          <div data-mod-menu role="menu" aria-label={t.viewport} data-webview-hole className={subClass}>
             {(["responsive", "mobile", "tablet", "desktop"] as const).map((v) => (
               <MenuItem
                 key={v}
@@ -202,7 +202,7 @@ export function BrowserMenu({
           {t.keepCookies}
         </MenuItem>
         {sub === "cookies" && (
-          <div role="menu" aria-label={t.keepCookies} data-webview-hole className={subClass}>
+          <div data-mod-menu role="menu" aria-label={t.keepCookies} data-webview-hole className={subClass}>
             {(["shared", "project", "private"] as const).map((c) => (
               <MenuItem key={c} checked={prefs.cookies === c} onClick={() => { setBrowserPrefs({ cookies: c }); setMenuOpen(false); }}>
                 {cookieLabel[c]}

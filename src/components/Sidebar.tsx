@@ -1066,7 +1066,7 @@ export function Sidebar({
         </button>
 
         {accountOpen && (
-          <div className="absolute bottom-full left-2 mb-2 w-72 bg-bg-100 border border-bg-300 rounded-[5px] shadow-2xl z-[70] p-1.5">
+          <div data-mod-menu className="absolute bottom-full left-2 mb-2 w-72 bg-bg-100 border border-bg-300 rounded-[5px] shadow-2xl z-[70] p-1.5">
             <div className="px-2 py-1.5 text-[12px] text-text-400 truncate" data-tooltip={user?.email ?? t.accountEmail}>
               {user?.email ?? t.accountEmail}
             </div>
@@ -1087,6 +1087,7 @@ export function Sidebar({
               </button>
               {langOpen && (
                 <div
+                  data-mod-menu
                   onMouseEnter={openLang}
                   onMouseLeave={closeLang}
                   className="absolute left-full bottom-0 ml-1 w-56 max-h-[70vh] overflow-y-auto custom-scrollbar bg-bg-100 border border-bg-300 rounded-[5px] shadow-2xl z-[70] p-1.5"
@@ -1135,6 +1136,7 @@ export function Sidebar({
         <>
           <div className="fixed inset-0 z-[69]" onClick={() => setSectionMenu(null)} />
           <div
+            data-mod-menu
             role="menu"
             data-webview-hole
             className="fixed z-[70] w-52 bg-bg-100 border border-bg-300 rounded-[6px] shadow-2xl p-1.5"
@@ -1220,6 +1222,7 @@ export function Sidebar({
         <>
           <div className="fixed inset-0 z-[69]" onClick={() => setProjectMenu(null)} />
           <div
+            data-mod-menu
             data-webview-hole
             className="fixed z-[70] w-56 bg-bg-100 border border-bg-300 rounded-[5px] shadow-2xl p-1.5"
             style={{ left: projectMenu.x, top: projectMenu.y }}

@@ -180,7 +180,7 @@ export function VisualCanvas({
               <MoreVertical className="w-4 h-4" />
             </button>
             {menuOpen && (
-              <div role="menu" aria-label={ti.more} data-webview-hole className="absolute right-0 top-full z-50 mt-1 w-60 rounded-[8px] border border-bg-300 bg-bg-100 p-1 shadow-lg">
+              <div data-mod-menu role="menu" aria-label={ti.more} data-webview-hole className="absolute right-0 top-full z-50 mt-1 w-60 rounded-[8px] border border-bg-300 bg-bg-100 p-1 shadow-lg">
                 <button type="button" role="menuitem" onClick={() => void copyImage()} className={menuRow}>
                   <Copy className="h-4 w-4 shrink-0 text-text-400" />
                   {ti.copyImage}

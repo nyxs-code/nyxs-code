@@ -62,6 +62,7 @@ function SessionRow({ session, onFinish }: { session: AuthSession; onFinish: (id
         </button>
         {menuOpen && (
           <div
+            data-mod-menu
             className="fixed z-50 min-w-[120px] rounded-lg border border-bg-300 bg-bg-0 shadow-lg py-1"
             style={{ top: menuPos.top, right: menuPos.right }}
           >
