@@ -97,8 +97,17 @@ Afterwards switch gh back if it was on another account (`gh auth switch -u <that
 ## The website (last step, don't skip it)
 
 A release isn't finished until nyxs.dev shows it: its changelog entry in every language, the
-landing's version and news line, and any docs or pictures the release changed. Do it right after
-the Release workflow publishes, in the same session:
+landing's version and news line, and any docs or pictures the release changed. It is part of
+"sacar la release": never ask whether to do it, and never stop before it's live.
+
+- **Prepare it while CI and the Release workflow run** (the changelog entry is already in
+  `changelog.ts`): translate, build, check and commit in `E:\nyxs-backend`.
+- **Push it as soon as the release is published** (`gh release view vX.Y.Z -R nyxs-code/nyxs-code`
+  lists the assets): not earlier, because the hero links to the new version's changelog page and
+  the download buttons read the latest release; not later, and never left for the user to ask.
+- Then check `https://nyxs.dev/` answers 200 and shows the new version.
+
+How to update it:
 
 - If a `nyxs-website` skill is available to you, follow it now, all of it.
 - If it isn't, tell the user in your final summary that the website still has to be updated
