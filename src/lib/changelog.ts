@@ -13,6 +13,143 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.8.58",
+    date: "November 15, 2026",
+    added: [
+      "The account menu has a Learn more submenu with the docs, quickstart, keyboard shortcuts, blog and GitHub, opened in your language.",
+    ],
+    improved: [
+      "When dictation fails, the message box says why: no microphone access, not signed in, or nothing heard.",
+      "A theme with a scene now frosts menus, dropdowns and popovers too, not only the title bar and the sidebar.",
+      "Design mockups the agent shows in chat look like the finished result, with your product's real colors, fonts and content.",
+      "The sign-in screen shows the real error when signing in fails.",
+    ],
+    fixed: [
+      "The video player and the previews load on macOS.",
+      "Switching sessions no longer flashes the app's own colors or drops a theme's scene for a moment.",
+      "With the built-in browser open, computer use shrinks Nyxs to the corner again and the quick-launch window hands its prompt over.",
+    ],
+    card: {
+      v: 1,
+      slides: [
+        {
+          title: {
+            "en-US": "Dictation tells you why", "es-ES": "El dictado te dice por qué", "fr-FR": "La dictée dit pourquoi",
+            "de-DE": "Diktat nennt den Grund", "it-IT": "La dettatura dice perché", "pt-BR": "O ditado diz o motivo",
+            "id-ID": "Dikte kini beri alasan", "ja-JP": "音声入力が理由を表示", "ko-KR": "음성 입력이 이유를 알려줘요", "hi-IN": "डिक्टेशन अब वजह बताता है",
+          },
+          desc: {
+            "en-US": "No mic, signed out or nothing heard: the message box now says so.",
+            "es-ES": "Sin micrófono, sin sesión o sin oírte: el cuadro de mensaje te lo dice.",
+            "fr-FR": "Pas de micro, pas connecté ou rien entendu : la zone de message le dit.",
+            "de-DE": "Kein Mikro, abgemeldet oder nichts gehört: Das Eingabefeld sagt es.",
+            "it-IT": "Niente microfono, accesso o voce: la casella del messaggio lo dice.",
+            "pt-BR": "Sem microfone, sem login ou sem ouvir nada: a caixa de mensagem avisa.",
+            "id-ID": "Tanpa mikrofon, belum masuk, atau tak terdengar: kotak pesan memberi tahu.",
+            "ja-JP": "マイクがない、未サインイン、聞き取れないときは入力欄に表示されます。",
+            "ko-KR": "마이크가 없거나 로그인하지 않았거나 못 들었으면 입력창에 알려줘요.",
+            "hi-IN": "माइक न हो, साइन इन न हो या कुछ सुनाई न दे, तो मैसेज बॉक्स बताता है।",
+          },
+          scene: {
+            kind: "reply",
+            quote: {
+              "en-US": "Fix the pay button on mobile", "es-ES": "Arregla el botón de pago en móvil", "fr-FR": "Répare le bouton payer sur mobile",
+              "de-DE": "Repariere den Bezahlknopf mobil", "it-IT": "Sistema il tasto paga su mobile", "pt-BR": "Corrija o botão de pagar no celular",
+              "id-ID": "Perbaiki tombol bayar di ponsel", "ja-JP": "モバイルの支払いボタンを直して", "ko-KR": "모바일 결제 버튼 고쳐 줘", "hi-IN": "मोबाइल पर पे बटन ठीक करो",
+            },
+            voice: true,
+          },
+        },
+        {
+          title: {
+            "en-US": "Frosted menus in themes", "es-ES": "Menús de cristal en temas", "fr-FR": "Menus en verre dépoli",
+            "de-DE": "Menüs aus Milchglas", "it-IT": "Menu in vetro smerigliato", "pt-BR": "Menus de vidro fosco",
+            "id-ID": "Menu kaca buram di tema", "ja-JP": "メニューもすりガラスに", "ko-KR": "테마 메뉴도 반투명 유리로", "hi-IN": "थीम में कांच जैसे मेनू",
+          },
+          desc: {
+            "en-US": "Themes with a scene now frost menus and dropdowns too, not only the sidebar.",
+            "es-ES": "Los temas con escena difuminan también menús y desplegables, no solo la barra lateral.",
+            "fr-FR": "Les thèmes avec décor givrent aussi menus et listes, pas seulement la barre latérale.",
+            "de-DE": "Themes mit Szene legen Milchglas auch über Menüs, nicht nur die Seitenleiste.",
+            "it-IT": "I temi con scena smerigliano anche menu e tendine, non solo la barra laterale.",
+            "pt-BR": "Temas com cena deixam menus e listas foscos também, não só a barra lateral.",
+            "id-ID": "Tema dengan latar kini juga memburamkan menu dan dropdown, bukan cuma sidebar.",
+            "ja-JP": "背景のあるテーマで、サイドバーだけでなくメニューもすりガラスになります。",
+            "ko-KR": "배경이 있는 테마에서 사이드바뿐 아니라 메뉴도 반투명해져요.",
+            "hi-IN": "सीन वाली थीम में अब मेनू भी कांच जैसे धुंधले दिखते हैं।",
+          },
+          scene: { kind: "icon", icon: "palette" },
+        },
+        {
+          title: {
+            "en-US": "Help one click away", "es-ES": "Ayuda a un clic", "fr-FR": "L'aide en un clic",
+            "de-DE": "Hilfe mit einem Klick", "it-IT": "Guide a portata di clic", "pt-BR": "Ajuda a um clique",
+            "id-ID": "Bantuan sekali klik", "ja-JP": "ヘルプにすぐアクセス", "ko-KR": "도움말을 한 번에", "hi-IN": "मदद बस एक क्लिक पर",
+          },
+          desc: {
+            "en-US": "The account menu links to the docs, shortcuts, blog and GitHub, in your language.",
+            "es-ES": "El menú de tu cuenta enlaza a la documentación, atajos, blog y GitHub, en tu idioma.",
+            "fr-FR": "Le menu du compte mène à la doc, aux raccourcis, au blog et à GitHub, dans ta langue.",
+            "de-DE": "Das Kontomenü führt zu Doku, Shortcuts, Blog und GitHub, in deiner Sprache.",
+            "it-IT": "Il menu dell'account porta a guide, scorciatoie, blog e GitHub, nella tua lingua.",
+            "pt-BR": "O menu da conta leva à documentação, atalhos, blog e GitHub, no seu idioma.",
+            "id-ID": "Menu akun kini menautkan dokumentasi, pintasan, blog, dan GitHub dalam bahasamu.",
+            "ja-JP": "アカウントメニューから、ドキュメント、ショートカット、ブログ、GitHubへ。",
+            "ko-KR": "계정 메뉴에서 문서, 단축키, 블로그, GitHub로 바로 갈 수 있어요.",
+            "hi-IN": "अकाउंट मेनू से डॉक्स, शॉर्टकट, ब्लॉग और GitHub आपकी भाषा में खुलते हैं।",
+          },
+          scene: { kind: "icon", icon: "globe" },
+        },
+        {
+          title: {
+            "en-US": "And also", "es-ES": "Y además", "fr-FR": "Et aussi", "de-DE": "Außerdem", "it-IT": "E inoltre",
+            "pt-BR": "E também", "id-ID": "Selain itu", "ja-JP": "そのほか", "ko-KR": "그 밖에", "hi-IN": "और भी",
+          },
+          desc: {
+            "en-US": "2 more fixes in this version.", "es-ES": "2 arreglos más en esta versión.", "fr-FR": "2 autres corrections dans cette version.",
+            "de-DE": "2 weitere Korrekturen in dieser Version.", "it-IT": "Altre 2 correzioni in questa versione.", "pt-BR": "Mais 2 correções nesta versão.",
+            "id-ID": "2 perbaikan lain di versi ini.", "ja-JP": "このバージョンのその他の修正2つ。", "ko-KR": "이번 버전의 다른 수정 사항 2가지.", "hi-IN": "इस संस्करण में 2 और सुधार।",
+          },
+          scene: {
+            kind: "list",
+            items: [
+              {
+                tag: "fixed",
+                text: {
+                  "en-US": "The video player and previews now load on macOS.",
+                  "es-ES": "El reproductor de vídeo y las vistas previas cargan en macOS.",
+                  "fr-FR": "Le lecteur vidéo et les aperçus se chargent sur macOS.",
+                  "de-DE": "Videoplayer und Vorschauen laden jetzt auch auf macOS.",
+                  "it-IT": "Il player video e le anteprime si caricano su macOS.",
+                  "pt-BR": "O player de vídeo e as prévias carregam no macOS.",
+                  "id-ID": "Pemutar video dan pratinjau kini termuat di macOS.",
+                  "ja-JP": "macOSで動画プレーヤーとプレビューが表示されます。",
+                  "ko-KR": "macOS에서 동영상 플레이어와 미리보기가 열려요.",
+                  "hi-IN": "macOS पर वीडियो प्लेयर और प्रीव्यू अब खुलते हैं।",
+                },
+              },
+              {
+                tag: "fixed",
+                text: {
+                  "en-US": "Switching sessions no longer makes the theme flicker.",
+                  "es-ES": "Cambiar de sesión ya no hace parpadear el tema.",
+                  "fr-FR": "Changer de session ne fait plus clignoter le thème.",
+                  "de-DE": "Beim Sitzungswechsel flackert das Theme nicht mehr.",
+                  "it-IT": "Cambiare sessione non fa più lampeggiare il tema.",
+                  "pt-BR": "Trocar de sessão não faz mais o tema piscar.",
+                  "id-ID": "Berpindah sesi tak lagi membuat tema berkedip.",
+                  "ja-JP": "セッション切り替えでテーマがちらつきません。",
+                  "ko-KR": "세션을 바꿔도 테마가 깜빡이지 않아요.",
+                  "hi-IN": "सत्र बदलने पर थीम अब नहीं झिलमिलाती।",
+                },
+              },
+            ],
+          },
+        },
+      ],
+    },
+  },
+  {
     version: "0.8.57",
     date: "November 14, 2026",
     added: [
