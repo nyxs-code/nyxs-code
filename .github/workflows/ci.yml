@@ -1,10 +1,14 @@
 name: CI
 
 on:
+  # Agent skills, internal docs and top-level Markdown don't reach the build: a push that only
+  # touches them shouldn't spend a full run. `*.md` matches the repository root only.
   push:
     branches: ["**"]
     tags-ignore: ["v*"]
+    paths-ignore: [".claude/**", "docs/**", "*.md"]
   pull_request:
+    paths-ignore: [".claude/**", "docs/**", "*.md"]
 
 permissions:
   contents: read
