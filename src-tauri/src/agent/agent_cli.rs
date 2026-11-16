@@ -1183,7 +1183,7 @@ mod tests {
         let started = Instant::now();
         let (ok, out, _) = run_streams(&bin, &args, PROBE_TIMEOUT).unwrap();
         assert!(
-            started.elapsed() < Duration::from_secs(4),
+            started.elapsed() < super::super::cli_process::GRANDCHILD_LIMIT,
             "waited for the grandchild"
         );
         assert!(ok);

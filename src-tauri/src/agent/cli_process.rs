@@ -263,18 +263,24 @@ pub(super) fn spawn_exit_waiter(
 }
 
 /// A program that prints "hi" and exits at once, leaving a grandchild that holds its stdout and
-/// stderr open for about five seconds: what a CLI that starts a daemon, or an installer that
+/// stderr open for about 30 seconds: what a CLI that starts a daemon, or an installer that
 /// leaves a helper running, looks like to its pipes.
 #[cfg(test)]
 pub(super) fn exits_leaving_a_grandchild() -> (PathBuf, [&'static str; 2]) {
     #[cfg(target_os = "windows")]
     return (
         PathBuf::from("cmd.exe"),
-        ["/c", "start /b ping -n 6 127.0.0.1 >nul & echo hi"],
+        ["/c", "start /b ping -n 31 127.0.0.1 >nul & echo hi"],
     );
     #[cfg(not(target_os = "windows"))]
-    return (PathBuf::from("sh"), ["-c", "sleep 5 & echo hi"]);
+    return (PathBuf::from("sh"), ["-c", "sleep 30 & echo hi"]);
 }
+
+/// How long a run of `exits_leaving_a_grandchild` may take without having waited for the
+/// grandchild. Far below its 30 seconds and the 20-second probe timeout, yet far above a normal
+/// run: with the grandchild living 5 seconds and a 4-second limit, a busy CI runner failed it.
+#[cfg(test)]
+pub(super) const GRANDCHILD_LIMIT: std::time::Duration = std::time::Duration::from_secs(12);
 
 #[cfg(test)]
 mod tests {

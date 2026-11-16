@@ -207,6 +207,15 @@ mod tests {
         out
     }
 
+    /// Whether the port's listener was released, which closes it. Connecting to the port can't
+    /// tell: tests run in parallel, and another one may already have been given the freed port.
+    fn released(port: u16) -> bool {
+        !oauth_listeners()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .contains_key(&port)
+    }
+
     fn wait_in_background(
         port: u16,
         state: Option<&str>,
@@ -228,7 +237,7 @@ mod tests {
         drop(silent);
         assert_eq!(wait.join().unwrap().unwrap(), "token=good&state=s3cret");
         // The port is closed once the callback came.
-        assert!(TcpStream::connect(("127.0.0.1", port)).is_err());
+        assert!(released(port));
     }
 
     #[test]
@@ -277,7 +286,8 @@ mod tests {
     #[test]
     fn a_zero_wait_closes_a_reserved_port() {
         let port = oauth_reserve().unwrap();
+        assert!(!released(port));
         assert!(oauth_wait_blocking(port, 0, None, None).is_err());
-        assert!(TcpStream::connect(("127.0.0.1", port)).is_err());
+        assert!(released(port));
     }
 }

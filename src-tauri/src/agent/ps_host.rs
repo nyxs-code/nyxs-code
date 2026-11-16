@@ -136,6 +136,7 @@ impl Drop for Host {
     }
 }
 
+#[derive(Debug)]
 pub(crate) enum HostOutcome {
     Done(i32),
     Exited(i32),
@@ -780,12 +781,15 @@ mod tests {
         cwd: &str,
     ) -> (String, Vec<super::super::window_watch::Shown>) {
         let cancel = AtomicBool::new(false);
+        // Generous: this checks windows, not speed, and a nested Windows PowerShell on a busy CI
+        // runner can take longer than 30 seconds to start. A failure names the outcome.
         let (r, shown) = super::super::window_watch::console_windows_shown_during(|| {
-            run(host, command, cwd, Duration::from_secs(30), &cancel, None).unwrap()
+            run(host, command, cwd, Duration::from_secs(120), &cancel, None).unwrap()
         });
         assert!(
             matches!(r.outcome, HostOutcome::Done(0)),
-            "{command}: {}",
+            "{command}: {:?} {}",
+            r.outcome,
             r.captured.stderr
         );
         eprintln!("{command}: windows {shown:?}");

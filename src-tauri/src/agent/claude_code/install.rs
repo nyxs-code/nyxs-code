@@ -298,7 +298,7 @@ mod tests {
             .unwrap()
             .contains("hi"));
         assert!(
-            started.elapsed() < Duration::from_secs(6),
+            started.elapsed() < super::super::super::cli_process::GRANDCHILD_LIMIT,
             "waited for the grandchild"
         );
     }
