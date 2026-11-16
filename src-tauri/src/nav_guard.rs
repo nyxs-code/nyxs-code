@@ -47,6 +47,34 @@ pub(crate) fn main_may_open(url: &Url, app: &Url) -> bool {
     unwrap_blob(url).is_some_and(|u| same_origin(&u, app))
 }
 
+/// What the app's iframes load, the CSP's `frame-src` (`tauri.conf.json`) minus `'self'`: the
+/// preview and asset protocols and local servers (the video player, the user's HTTPS dev
+/// servers).
+fn frame_may_open(url: &Url) -> bool {
+    let Some(url) = unwrap_blob(url) else {
+        return false;
+    };
+    let host = url.host_str().unwrap_or_default().to_ascii_lowercase();
+    match url.scheme() {
+        "nyxspreview" | "asset" => true,
+        "http" => matches!(
+            host.as_str(),
+            "nyxspreview.localhost" | "asset.localhost" | "127.0.0.1"
+        ),
+        "https" => matches!(host.as_str(), "localhost" | "127.0.0.1"),
+        _ => false,
+    }
+}
+
+/// Whether a navigation the main window's guard sees is one of the app's iframes loading. On
+/// macOS wry asks the guard about every frame's navigations, iframes included, without saying
+/// which frame (WebView2 only asks about the window's own), so those have to be let through. The
+/// window itself still can't be taken over that way: no iframe's sandbox has
+/// `allow-top-navigation`.
+pub(crate) fn main_iframe_may_open(url: &Url) -> bool {
+    cfg!(target_os = "macos") && frame_may_open(url)
+}
+
 /// A browser tab may go anywhere but the app's own protocols.
 pub(crate) fn site_may_open(url: &Url) -> bool {
     let Some(url) = unwrap_blob(url) else {
@@ -105,6 +133,38 @@ mod tests {
             &url("http://localhost:1420/"),
             &url("http://tauri.localhost/")
         ));
+    }
+
+    #[test]
+    fn iframes_load_only_what_the_csp_frames() {
+        for allowed in [
+            "http://127.0.0.1:60698/",
+            "https://127.0.0.1:8443/",
+            "https://localhost:5173/",
+            "nyxspreview://localhost/__nyxs/mockup/abc",
+            "http://nyxspreview.localhost:23817/index.html",
+            "asset://localhost/x.pdf",
+            "http://asset.localhost/C%3A/x.pdf",
+            "blob:nyxspreview://localhost/abc",
+        ] {
+            assert!(frame_may_open(&url(allowed)), "{allowed}");
+        }
+        for blocked in [
+            "http://localhost:5173/",
+            "https://example.com/",
+            "http://127.0.0.1.example.com/",
+            "tauri://localhost/",
+            "ipc://localhost/x",
+            "http://ipc.localhost/agent_run",
+            "file:///Users/x/a.html",
+            "data:text/html,hi",
+        ] {
+            assert!(!frame_may_open(&url(blocked)), "{blocked}");
+        }
+        assert_eq!(
+            main_iframe_may_open(&url("http://127.0.0.1:60698/")),
+            cfg!(target_os = "macos")
+        );
     }
 
     #[test]

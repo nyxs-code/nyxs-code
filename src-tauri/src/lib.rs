@@ -113,7 +113,15 @@ pub fn run() {
                         return true;
                     }
                     let app_url = nav_guard::app_url(tauri::Manager::config(webview));
-                    if !app_url.is_some_and(|app| nav_guard::main_may_open(url, &app)) {
+                    if !app_url
+                        .as_ref()
+                        .is_some_and(|app| nav_guard::main_may_open(url, app))
+                    {
+                        // macOS also asks about iframes (see `main_iframe_may_open`); those
+                        // aren't a reload, so the websites stay where they are.
+                        if nav_guard::main_iframe_may_open(url) {
+                            return true;
+                        }
                         log::warn!("blocked the main window from navigating to {url}");
                         return false;
                     }
