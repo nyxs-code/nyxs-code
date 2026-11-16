@@ -2,7 +2,6 @@ import { useState, useRef } from "react";
 import { TitleBar } from "./TitleBar";
 import { signInWithGoogle, type AuthUser } from "@/lib/auth";
 import { localizedError, useTranslations } from "@/lib/i18n";
-import { BackendError } from "@/lib/ipc";
 
 function GoogleIcon() {
   return (
@@ -31,7 +30,9 @@ export function LoginScreen({ onSignedIn }: { onSignedIn: (user: AuthUser) => vo
       onSignedIn(user);
     } catch (e) {
       if (attempt !== attemptRef.current) return;
-      setError((e instanceof BackendError ? localizedError(e) : (e as Error).message) || t.signInError);
+      // Tauri rejects with a plain string for its own errors (an ACL denial, a command's
+      // `Result<_, String>`); localizedError shows those too instead of the generic text.
+      setError(localizedError(e) || t.signInError);
     } finally {
       if (attempt === attemptRef.current) setBusy(false);
     }
