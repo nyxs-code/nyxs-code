@@ -1,18 +1,24 @@
 // @vitest-environment jsdom
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import type { TranscribeErrorReason } from "@/lib/transcribe";
 
 let finish: (text: string) => void = () => {};
+let fail: (reason: unknown) => void = () => {};
+let micError: TranscribeErrorReason | null = null;
 vi.mock("@/lib/transcribe", () => ({
   MAX_SECONDS: 60,
-  TranscribeError: class extends Error {},
+  TranscribeError: class extends Error {
+    reason: string;
+    constructor(reason: string, message?: string) { super(message ?? reason); this.reason = reason; }
+  },
   VoiceRecorder: class {
-    async start() {}
+    async start() { if (micError) throw new TranscribeError(micError); }
     async stop() { return new Blob(); }
     level() { return 0; }
     cancel() {}
   },
-  transcribeBlob: () => new Promise<string>((resolve) => { finish = resolve; }),
+  transcribeBlob: () => new Promise<string>((resolve, reject) => { finish = resolve; fail = reject; }),
   listMicrophones: async () => [],
   ensureMicPermission: async () => {},
 }));
@@ -35,6 +41,7 @@ vi.mock("@/lib/transcribeStream", () => {
 vi.mock("@/lib/filePaths", () => ({ currentWorkspace: () => "C:/proj/optimicer" }));
 
 const { useVoiceInput } = await import("@/components/ui/chat-input/useVoiceInput");
+const { TranscribeError } = await import("@/lib/transcribe");
 
 describe("dictation", () => {
   it("hands the transcript to the chat box as it is when it arrives, not as it was when dictation stopped", async () => {
@@ -49,6 +56,37 @@ describe("dictation", () => {
     await act(async () => finish("y algo más"));
     expect(after).toHaveBeenCalledWith("y algo más", "send");
     expect(before).not.toHaveBeenCalled();
+  });
+
+  it("says why the dictation failed instead of failing silently", async () => {
+    live.available = false;
+    const onError = vi.fn();
+    const { result } = renderHook(() => useVoiceInput({ textareaRef: { current: null }, onTranscript: vi.fn(), onError }));
+    await act(async () => { result.current.onMicClick({ detail: 0 } as never); });
+    await act(async () => { void result.current.stopVoice(false); });
+    await act(async () => { fail(new TranscribeError("not-signed-in")); });
+    expect(onError).toHaveBeenCalledWith("not-signed-in");
+  });
+
+  it("says it heard nothing when the transcript comes back empty", async () => {
+    live.available = false;
+    const onError = vi.fn();
+    const { result } = renderHook(() => useVoiceInput({ textareaRef: { current: null }, onTranscript: vi.fn(), onError }));
+    await act(async () => { result.current.onMicClick({ detail: 0 } as never); });
+    await act(async () => { void result.current.stopVoice(false); });
+    await act(async () => { finish("   "); });
+    expect(onError).toHaveBeenCalledWith("empty");
+  });
+
+  it("says when the microphone cannot be opened", async () => {
+    live.available = false;
+    micError = "no-mic";
+    const onError = vi.fn();
+    const { result } = renderHook(() => useVoiceInput({ textareaRef: { current: null }, onTranscript: vi.fn(), onError }));
+    await act(async () => { result.current.onMicClick({ detail: 0 } as never); });
+    expect(onError).toHaveBeenCalledWith("no-mic");
+    expect(result.current.voiceState).toBe("idle");
+    micError = null;
   });
 
   it("shows the words while the user speaks and hands over the final text when live dictation is there", async () => {

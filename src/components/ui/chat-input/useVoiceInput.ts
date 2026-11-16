@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { VoiceRecorder, TranscribeError, transcribeBlob, MAX_SECONDS, listMicrophones, ensureMicPermission, type MicDevice } from "@/lib/transcribe";
+import { VoiceRecorder, TranscribeError, transcribeBlob, MAX_SECONDS, listMicrophones, ensureMicPermission, type MicDevice, type TranscribeErrorReason } from "@/lib/transcribe";
 import { StreamingDictation, StreamUnavailable } from "@/lib/transcribeStream";
 import { currentWorkspace } from "@/lib/filePaths";
 import { loadMicId, saveMicId } from "./storage";
@@ -20,6 +20,8 @@ interface VoiceInputOptions {
     onTranscript: (text: string, send: VoiceSend) => void;
     /** The transcript so far while the user speaks (live dictation only). */
     onLiveText?: (text: string) => void;
+    /** Why the dictation failed, so the box can say it instead of staying silent. */
+    onError?: (reason: TranscribeErrorReason) => void;
 }
 
 /** A dictation in progress: live (streamed) or a recorded clip transcribed at the end. */
@@ -35,6 +37,11 @@ function recordedClip(recorder: VoiceRecorder): Dictation {
         stop: async () => transcribeBlob(await recorder.stop()),
         cancel: () => recorder.cancel(),
     };
+}
+
+/** Why a dictation failed, for the box to tell the user. */
+function reasonOf(e: unknown): TranscribeErrorReason {
+    return e instanceof TranscribeError ? e.reason : "failed";
 }
 
 /** Words the transcriber should spell right: the app's name and the open project's. */
@@ -62,7 +69,7 @@ async function openDictation(micId: string, onLiveText?: (text: string) => void)
 
 /** Dictation: the recorder, hold-to-record on the mic button, and the microphone menu. It works
  *  while the session is busy too, to dictate the next prompt or one to queue. */
-export function useVoiceInput({ textareaRef, onTranscript, onLiveText }: VoiceInputOptions) {
+export function useVoiceInput({ textareaRef, onTranscript, onLiveText, onError }: VoiceInputOptions) {
     const [voiceState, setVoiceState] = useState<"idle" | "recording" | "transcribing">("idle");
     const recorderRef = useRef<Dictation | null>(null);
     const startingVoiceRef = useRef(false);
@@ -78,9 +85,11 @@ export function useVoiceInput({ textareaRef, onTranscript, onLiveText }: VoiceIn
     // is in the newer one, not in the one of the render where dictation stopped.
     const onTranscriptRef = useRef(onTranscript);
     const onLiveTextRef = useRef(onLiveText);
+    const onErrorRef = useRef(onError);
     useEffect(() => {
         onTranscriptRef.current = onTranscript;
         onLiveTextRef.current = onLiveText;
+        onErrorRef.current = onError;
     });
 
     const startVoice = async () => {
@@ -94,8 +103,9 @@ export function useVoiceInput({ textareaRef, onTranscript, onLiveText }: VoiceIn
         let recorder: Dictation;
         try {
             recorder = await openDictation(micId, (text) => onLiveTextRef.current?.(text));
-        } catch {
+        } catch (e) {
             setVoiceState("idle");
+            onErrorRef.current?.(reasonOf(e));
             return;
         } finally {
             startingVoiceRef.current = false;
@@ -126,14 +136,18 @@ export function useVoiceInput({ textareaRef, onTranscript, onLiveText }: VoiceIn
         if (autoStopRef.current) { clearTimeout(autoStopRef.current); autoStopRef.current = null; }
         setVoiceState("transcribing");
         let text = "";
+        let reason: TranscribeErrorReason | null = null;
         try {
             text = await recorder.stop();
-        } catch {
-            // Transcription failed / empty / not signed in — fail silently (no alert).
+        } catch (e) {
+            reason = reasonOf(e);
         } finally {
             setVoiceState("idle");
         }
+        // Nothing came back: the mic heard no speech, or the backend had nothing to say.
+        if (!text.trim() && !reason) reason = "empty";
         onTranscriptRef.current(text, send);
+        if (reason) onErrorRef.current?.(reason);
     };
 
     /** Drops a recording in progress without transcribing it, for a box that closes mid-dictation. */

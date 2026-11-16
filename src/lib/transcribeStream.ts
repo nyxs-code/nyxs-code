@@ -114,6 +114,11 @@ export class PcmFramer {
 
 const streamUrl = () => `${AUTH_BASE.replace(/^http/, "ws")}/api/transcribe/stream`;
 
+/** The server's error codes that mean the session token was rejected. */
+function isAuthError(code: string): boolean {
+  return /unauth|token|forbidden|expired|sign/i.test(code);
+}
+
 type ServerEvent =
   | ({ type: "partial" } & PartialEvent)
   | { type: "ready" }
@@ -143,7 +148,9 @@ export class StreamingDictation {
    *  live dictation, or a `TranscribeError` ("no-mic") when there is no microphone. */
   async start(deviceId?: string, keyterms: string[] = []): Promise<void> {
     const token = await getToken();
-    if (!token) throw new StreamUnavailable("not signed in");
+    // Without a session there is no transcription at all: say so, instead of falling back to a
+    // clip that would fail the same way.
+    if (!token) throw new TranscribeError("not-signed-in", "not signed in");
     const ready = this.connect(token, keyterms);
     // If the microphone fails first, nobody awaits this one.
     ready.catch(() => {});
@@ -190,7 +197,8 @@ export class StreamingDictation {
           this.finished?.();
         } else if (ev.type === "error") {
           clearTimeout(timer);
-          reject(new StreamUnavailable(ev.code ?? "error"));
+          const code = ev.code ?? "error";
+          reject(isAuthError(code) ? new TranscribeError("not-signed-in", code) : new StreamUnavailable(code));
           this.finished?.();
         }
       };

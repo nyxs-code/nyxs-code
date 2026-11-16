@@ -21,6 +21,7 @@ import { useInputDraft } from "./chat-input/useInputDraft";
 import { useComposerSuggestions } from "./chat-input/useComposerSuggestions";
 import { useComposerAttachments } from "./chat-input/useComposerAttachments";
 import { useVoiceInput, type VoiceSend } from "./chat-input/useVoiceInput";
+import type { TranscribeErrorReason } from "@/lib/transcribe";
 import { livePreview } from "@/lib/attachmentPreviews";
 import { isComposingKey } from "@/lib/imeKeys";
 
@@ -237,6 +238,19 @@ export const ClaudeChatInput: React.FC<ClaudeChatInputProps> = ({
     useEffect(() => { messageRef.current = message; }, [message]);
     const joinDraft = (base: string, text: string) => (text ? base + (base && !/\s$/.test(base) ? " " : "") + text : base);
 
+    // Why the last dictation failed, so the box says it instead of pretending nothing happened.
+    const [voiceError, setVoiceError] = useState<TranscribeErrorReason | null>(null);
+    const voiceErrorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const handleVoiceError = useCallback((reason: TranscribeErrorReason) => {
+        setVoiceError(reason);
+        if (voiceErrorTimer.current) clearTimeout(voiceErrorTimer.current);
+        voiceErrorTimer.current = setTimeout(() => setVoiceError(null), 5000);
+    }, []);
+    useEffect(() => () => { if (voiceErrorTimer.current) clearTimeout(voiceErrorTimer.current); }, []);
+    const voiceErrorText = voiceError
+        ? { "no-mic": t.voiceNoMic, "not-signed-in": t.voiceSignIn, empty: t.voiceEmpty, failed: t.voiceFailed }[voiceError]
+        : "";
+
     const handleLiveText = (text: string) => {
         const current = messageRef.current;
         const live = liveRef.current ?? (liveRef.current = { base: current, shown: current, off: false });
@@ -251,6 +265,7 @@ export const ClaudeChatInput: React.FC<ClaudeChatInputProps> = ({
 
     // `send` (Enter while listening) sends the draft plus the transcript once it arrives.
     const handleTranscript = (text: string, send: VoiceSend) => {
+        setVoiceError(null);
         const live = liveRef.current;
         liveRef.current = null;
         // The final transcript replaces the live words; text the user typed over them stays as is.
@@ -280,7 +295,7 @@ export const ClaudeChatInput: React.FC<ClaudeChatInputProps> = ({
         clearAfterSend();
     };
 
-    const voice = useVoiceInput({ textareaRef, onTranscript: handleTranscript, onLiveText: handleLiveText });
+    const voice = useVoiceInput({ textareaRef, onTranscript: handleTranscript, onLiveText: handleLiveText, onError: handleVoiceError });
     const { voiceState, stopVoice, getVoiceLevel } = voice;
 
     const handleSend = () => {
@@ -425,6 +440,13 @@ export const ClaudeChatInput: React.FC<ClaudeChatInputProps> = ({
                         )}
                         <MicButton voice={voice} />
                     </div>
+
+                    {voiceError && (
+                        <div role="status" aria-live="polite" className="flex items-center gap-1.5 text-[12px] text-danger">
+                            <Icons.AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                            <span>{voiceErrorText}</span>
+                        </div>
+                    )}
                 </div>
             </div>
             <div className="flex items-center justify-between gap-1.5 mx-2 md:mx-0 px-1 pt-1.5">

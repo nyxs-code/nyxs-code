@@ -1,5 +1,5 @@
 import React from "react";
-import { Plus, ChevronDown, ArrowUp, X, FileText, Loader2, Check, Archive, Square, CornerDownLeft, Mic, Lock } from "lucide-react";
+import { Plus, ChevronDown, ArrowUp, X, FileText, Loader2, Check, Archive, Square, CornerDownLeft, Mic, Lock, AlertTriangle } from "lucide-react";
 
 export const Icons = {
     Plus: Plus,
@@ -15,4 +15,5 @@ export const Icons = {
     Archive: Archive,
     Mic: Mic,
     Lock: Lock,
+    AlertTriangle: AlertTriangle,
 };
