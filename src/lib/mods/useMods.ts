@@ -68,9 +68,12 @@ export function useMods(o: { activeId: string | null; workspace: string | null; 
 
   const version = useSyncExternalStore(modHost.subscribe, modHost.getVersion);
   const theme = modHost.theme(key);
+  // A session whose mods haven't loaded yet has no known look: painting "none" meanwhile flashed
+  // the app's own colors for a moment on every first switch to it.
+  const known = theme !== null || modHost.isSettled(key);
   useEffect(() => {
-    paintModTheme(theme);
-  }, [theme]);
+    if (known) paintModTheme(theme);
+  }, [theme, known]);
 
   const commands = useMemo(
     () => modHost.commands(key).map((c) => ({ name: c.name, description: c.description })),

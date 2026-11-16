@@ -91,6 +91,12 @@ function groundStyle(t: StandingTheme): CSSProperties | null {
   return null;
 }
 
+/** The scene a theme's `Backdrop` hook draws, if it asks for one. */
+function sceneOf(t: StandingTheme | null): string | null {
+  const b = t?.args.backdrop;
+  return b ? (b.scene ?? b.id ?? null) : null;
+}
+
 /** The Svg a Backdrop hook answered, found anywhere in its tree. */
 function sceneSvg(tree: RenderNode | null): { source: string; alt: string } | null {
   if (!tree || !isElement(tree)) return null;
@@ -111,30 +117,37 @@ export function ModBackdrop() {
   useSyncExternalStore(modHost.subscribe, modHost.getVersion);
   const key = modHost.activeKey;
   const theme = modHost.theme(key);
-  const scene = theme?.args.backdrop ? (theme.args.backdrop.scene ?? theme.args.backdrop.id ?? null) : null;
-  const [svg, setSvg] = useState<{ source: string; alt: string; for: string } | null>(null);
-  const sceneKey = key && theme && scene ? `${key}\n${theme.plugin}\n${scene}` : null;
+  const settled = modHost.isSettled(key);
+  // Switching sessions used to drop the drawing until the new session's hook answered: a blank
+  // frame on every switch. The theme shown now changes only once the session's mods have loaded,
+  // and a scene's picture stays until the new one is in (the same scene is the same picture).
+  const [shown, setShown] = useState(theme);
+  const [svg, setSvg] = useState<{ source: string; alt: string } | null>(null);
+  if (settled && theme !== shown) {
+    setShown(theme);
+    if (!sceneOf(theme)) setSvg(null);
+  }
 
   useEffect(() => {
-    // Without a scene nothing is asked; a drawing for another scene is never shown (`svg.for`).
-    if (!sceneKey || !key) return;
+    if (!settled || !key || !sceneOf(theme)) return;
     let live = true;
     void modHost.renderBackdrop(key).then((tree) => {
       if (!live) return;
       const found = sceneSvg(tree);
-      setSvg(found && found.source.length <= 131_072 ? { ...found, for: sceneKey } : null);
+      setSvg(found && found.source.length <= 131_072 ? found : null);
     });
     return () => {
       live = false;
     };
-  }, [sceneKey, key]);
+  }, [key, theme, settled]);
 
-  if (!theme) return null;
-  const ground = scene ? null : groundStyle(theme);
-  if (!ground && !(svg && svg.for === sceneKey)) return null;
+  if (!shown) return null;
+  const scene = sceneOf(shown);
+  const ground = scene ? null : groundStyle(shown);
+  if (!ground && !(scene && svg)) return null;
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden" style={ground ?? undefined}>
-      {svg && svg.for === sceneKey && <img src={svgSource(svg.source)} alt={svg.alt} draggable={false} className="h-full w-full select-none object-cover" />}
+      {scene && svg && <img src={svgSource(svg.source)} alt={svg.alt} draggable={false} className="h-full w-full select-none object-cover" />}
     </div>
   );
 }

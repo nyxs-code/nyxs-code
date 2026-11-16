@@ -488,6 +488,15 @@ export class ModHost {
     return c.held !== undefined ? c.held : c.theme;
   }
 
+  /**
+   * Whether the session's mods have said what its look is: loaded, and not in a restart that holds
+   * the old look. Until then the window keeps the look on screen instead of flashing the app's own.
+   */
+  isSettled(key: string | null): boolean {
+    const c = key ? this.ctxs.get(key) : undefined;
+    return !!c && c.loaded && c.held === undefined;
+  }
+
   status(key: string | null): { plugin: string; text: string }[] {
     const c = key ? this.ctxs.get(key) : undefined;
     return c ? [...c.status].map(([plugin, text]) => ({ plugin, text })) : [];
