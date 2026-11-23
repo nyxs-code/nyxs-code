@@ -525,3 +525,83 @@ input::-ms-clear {
 .mod-glass [data-mod-menu]:is(.overflow-y-auto, .overflow-auto)::before {
   content: none;
 }
+
+/* The veil behind the chat's column over a theme's backdrop (ChatPane), the way Claude's desktop app
+   draws it: the theme's glass tint covers the column and eases out over up to 180px to each side,
+   and the blur stops 48px past the column, so the text reads on a calm ground while the picture
+   stays sharp around it. With under 96px to a side (a narrow window) there is no fade: the veil
+   covers the whole pane. It is a sibling of the content, never its parent, for the same
+   `position: fixed` reason as the panels' glass; z-index -1 puts it above the backdrop and below
+   the messages. The lengths below hold `100%`, which each mask resolves against the pane's width. */
+.mod-chat-veil {
+  display: none;
+}
+.mod-glass .mod-chat-veil {
+  --veil-column: min(var(--chat-column, 48rem), 100% - 4rem);
+  --veil-side: max(0px, (100% - var(--veil-column)) / 2);
+  --veil-fade: min(var(--veil-side), max(0px, (var(--veil-side) - 96px) * 1000));
+  --veil-ramp: min(var(--veil-fade), 180px);
+  --veil-edge: min(48px, var(--veil-fade));
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  display: block;
+  pointer-events: none;
+}
+.mod-glass .mod-chat-veil::before,
+.mod-glass .mod-chat-veil::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.mod-glass .mod-chat-veil::before {
+  --veil-band: linear-gradient(
+    to right,
+    transparent calc(var(--veil-fade) - var(--veil-edge)),
+    rgb(0 0 0 / 0.1) calc(var(--veil-fade) - var(--veil-edge) * 0.8),
+    rgb(0 0 0 / 0.35) calc(var(--veil-fade) - var(--veil-edge) * 0.6),
+    rgb(0 0 0 / 0.65) calc(var(--veil-fade) - var(--veil-edge) * 0.4),
+    rgb(0 0 0 / 0.9) calc(var(--veil-fade) - var(--veil-edge) * 0.2),
+    #000 var(--veil-fade),
+    #000 calc(100% - var(--veil-fade)),
+    rgb(0 0 0 / 0.9) calc(100% - var(--veil-fade) + var(--veil-edge) * 0.2),
+    rgb(0 0 0 / 0.65) calc(100% - var(--veil-fade) + var(--veil-edge) * 0.4),
+    rgb(0 0 0 / 0.35) calc(100% - var(--veil-fade) + var(--veil-edge) * 0.6),
+    rgb(0 0 0 / 0.1) calc(100% - var(--veil-fade) + var(--veil-edge) * 0.8),
+    transparent calc(100% - var(--veil-fade) + var(--veil-edge))
+  );
+  backdrop-filter: blur(var(--mod-glass-blur, 16px));
+  -webkit-mask-image: var(--veil-band);
+  mask-image: var(--veil-band);
+}
+.mod-glass .mod-chat-veil::after {
+  --veil-sides: linear-gradient(
+    to right,
+    transparent calc(var(--veil-fade) - var(--veil-ramp)),
+    rgb(0 0 0 / 0.1) calc(var(--veil-fade) - var(--veil-ramp) * 0.8),
+    rgb(0 0 0 / 0.35) calc(var(--veil-fade) - var(--veil-ramp) * 0.6),
+    rgb(0 0 0 / 0.65) calc(var(--veil-fade) - var(--veil-ramp) * 0.4),
+    rgb(0 0 0 / 0.9) calc(var(--veil-fade) - var(--veil-ramp) * 0.2),
+    #000 var(--veil-fade),
+    #000 calc(100% - var(--veil-fade)),
+    rgb(0 0 0 / 0.9) calc(100% - var(--veil-fade) + var(--veil-ramp) * 0.2),
+    rgb(0 0 0 / 0.65) calc(100% - var(--veil-fade) + var(--veil-ramp) * 0.4),
+    rgb(0 0 0 / 0.35) calc(100% - var(--veil-fade) + var(--veil-ramp) * 0.6),
+    rgb(0 0 0 / 0.1) calc(100% - var(--veil-fade) + var(--veil-ramp) * 0.8),
+    transparent calc(100% - var(--veil-fade) + var(--veil-ramp))
+  );
+  background-color: color-mix(in srgb, var(--mod-glass-tint, var(--bg-0)) calc(var(--mod-glass-opacity, 0.6) * 100%), transparent);
+  -webkit-mask-image: var(--veil-sides);
+  mask-image: var(--veil-sides);
+}
+/* Like Claude's: whoever asks the system for less transparency or more contrast gets a solid ground. */
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .mod-glass .mod-chat-veil::before {
+    content: none;
+  }
+  .mod-glass .mod-chat-veil::after {
+    background-color: var(--mod-glass-tint, var(--bg-0));
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}

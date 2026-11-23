@@ -1,4 +1,4 @@
-import { useState, type ComponentProps, type DragEvent, type ReactNode } from "react";
+import { useState, type ComponentProps, type CSSProperties, type DragEvent, type ReactNode } from "react";
 import { Loader2, X } from "lucide-react";
 import FindBar from "@/components/FindBar";
 import { ChatTranscript } from "@/components/ChatTranscript";
@@ -12,6 +12,7 @@ import { messagesToShowFor, useChatScroll } from "@/lib/useChatScroll";
 import { useMascotMood } from "@/lib/mascotMood";
 import { SESSION_DRAG_TYPE } from "@/lib/useSplitView";
 import { useTranslations } from "@/lib/i18n";
+import { chatColumnMeasure } from "@/lib/appearance";
 import { cn } from "@/lib/utils";
 
 /** What both panes share: the open chat's handlers. The per-chat state comes as ChatPane props. */
@@ -95,11 +96,15 @@ export function ChatPane({
       onFocusCapture={focused ? undefined : onFocus}
       data-mod-panel={split || undefined}
       className={cn(
-        "flex-1 flex flex-col min-w-0 min-h-0",
+        "relative flex-1 flex flex-col min-w-0 min-h-0",
         split && "rounded-[8px] border bg-bg-0 transition-colors",
         split && (focused ? "border-text-500" : "border-bg-300"),
       )}
     >
+      {/* Over a theme's backdrop the single view has no panel of its own, so the text sat right on
+          the picture: a veil behind the conversation's column keeps it readable (index.css). Split
+          panes are already frosted as panels. */}
+      {!split && <div aria-hidden className="mod-chat-veil" style={{ "--chat-column": chatColumnMeasure(transcript.widthClass) } as CSSProperties} />}
       {split && (
         <header className="flex items-center gap-2 h-9 px-3 border-b border-bg-300 shrink-0">
           {streaming && <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin text-text-400" aria-hidden />}

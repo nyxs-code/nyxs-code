@@ -156,6 +156,11 @@ export function chatWidthClass(width: ChatWidth): string {
   return width === "narrow" ? "max-w-2xl" : width === "wide" ? "max-w-6xl" : "max-w-3xl";
 }
 
+/** The CSS length of a `chatWidthClass` column, for styles that must line up with it. */
+export function chatColumnMeasure(widthClass: string): string {
+  return widthClass === "max-w-2xl" ? "42rem" : widthClass === "max-w-6xl" ? "72rem" : "48rem";
+}
+
 export function getAppearance(): AppearancePrefs {
   try {
     const raw = localStorage.getItem(APPEARANCE_KEY);
