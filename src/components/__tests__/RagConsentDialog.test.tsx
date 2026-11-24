@@ -21,6 +21,7 @@ vi.mock("@/lib/rag", () => ({ ragConfig: () => ({ provider: "backend" }) }));
 
 import { RagConsentDialog } from "@/components/RagConsentDialog";
 import { setLanguage } from "@/lib/i18n";
+import { askRagConsent } from "@/lib/ragConsentAsk";
 
 const WS = "E:/Proyectos/tienda";
 
@@ -75,5 +76,24 @@ describe("the semantic search consent", () => {
     fake.consent = "declined";
     await open();
     expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it("asks again when Settings asks for a project left out with «Ahora no»", async () => {
+    fake.consent = "declined";
+    const onIndex = await open();
+    await act(async () => {
+      askRagConsent(WS);
+    });
+    expect(screen.getByRole("alertdialog")).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Indexar" }));
+    });
+    expect(fake.saved).toEqual([[WS, "granted"]]);
+    expect(onIndex).toHaveBeenCalledWith(WS);
+  });
+
+  it("shows above Settings", async () => {
+    await open();
+    expect(document.querySelector(".z-\\[60\\]")).toBeTruthy();
   });
 });

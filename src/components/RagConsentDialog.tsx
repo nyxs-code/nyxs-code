@@ -5,6 +5,7 @@ import { Dialog, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui
 import { getRagConsent, setRagConsent } from "@/lib/globalConfig";
 import { useTranslations } from "@/lib/i18n";
 import { ragConfig } from "@/lib/rag";
+import { notifyRagConsentChanged, onRagConsentAsk } from "@/lib/ragConsentAsk";
 import { useSettings } from "@/lib/useSettings";
 
 /**
@@ -31,17 +32,23 @@ export function RagConsentDialog({ workspace, onIndex }: { workspace: string | n
     };
   }, [workspace, wanted]);
 
-  const asking = wanted && pending === workspace ? pending : null;
+  // Settings asks again for a project answered "Not now" before.
+  useEffect(() => onRagConsentAsk((ws) => setPending(ws)), []);
+
+  // Asked from Settings, the switch may have just been turned on: `wanted` can lag a render.
+  const asking = pending && pending === workspace ? pending : null;
   if (!asking) return null;
   const answer = (granted: boolean) => {
     setPending(null);
     void setRagConsent(asking, granted ? "granted" : "declined").then(() => {
+      notifyRagConsentChanged();
       if (granted) onIndex(asking);
     });
   };
 
   return (
-    <Dialog open onClose={() => setPending(null)} role="alertdialog" describedBy="rag-consent-body">
+    // Stacked: it's often asked for from Settings, and must show above it.
+    <Dialog open onClose={() => setPending(null)} stacked role="alertdialog" describedBy="rag-consent-body">
       <DialogHeader close={false}>
         <CloudUpload className="w-4 h-4 text-accent" />
         <DialogTitle>{t.title}</DialogTitle>

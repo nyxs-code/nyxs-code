@@ -98,6 +98,7 @@ export function ChatTranscript({
   }, [messages]);
   const turnColors = useMemo(() => turnHighlightColors(messages, isMinimapTurn), [messages]);
   const shown = messages.slice(-visibleCount);
+  const runEnv = useMemo(() => ({ ...commandRunEnv, chatId: chat.id }), [commandRunEnv, chat.id]);
   const compactionsAfter = useMemo(() => {
     const out = new Map<string, CompactionMark[]>();
     for (const mark of chat.compactions ?? []) out.set(mark.afterId, [...(out.get(mark.afterId) ?? []), mark]);
@@ -110,7 +111,7 @@ export function ChatTranscript({
         {/* px-8: room for the message minimap on the right (and the same on the left, so the
             text stays centered over the composer) when the window is narrower than the chat. */}
         <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-y-auto custom-scrollbar px-8 py-4" style={{ zoom }}>
-          <CommandRunContext.Provider value={commandRunEnv}>
+          <CommandRunContext.Provider value={runEnv}>
             <div className={cn(widthClass, "mx-auto")}>
               {messages.length > visibleCount && (
                 <div className="flex justify-center mb-2">

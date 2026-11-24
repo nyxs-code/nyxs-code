@@ -81,7 +81,7 @@ export function SettingsPanel({
         return <AccountSection title={t.account} />;
 
       case "privacidad":
-        return <PrivacySection title={t.privacy} />;
+        return <PrivacySection title={t.privacy} workspace={workspace} />;
 
       case "conectores":
         return <McpServersSection />;

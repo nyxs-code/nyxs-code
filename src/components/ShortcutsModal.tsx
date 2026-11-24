@@ -1,6 +1,7 @@
 import { Keyboard } from "lucide-react";
 import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useTranslations } from "@/lib/i18n";
+import { useSettings } from "@/lib/useSettings";
 
 interface Shortcut {
   label: string;
@@ -23,6 +24,7 @@ function Kbd({ children }: { children: React.ReactNode }) {
 export function ShortcutsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const translations = useTranslations();
   const t = translations.shortcutsModal;
+  const enterNewline = (useSettings().settings as { enterNewline?: boolean }).enterNewline ?? false;
 
   if (!open) return null;
 
@@ -64,10 +66,12 @@ export function ShortcutsModal({ open, onClose }: { open: boolean; onClose: () =
     {
       title: t.groupComposer,
       shortcuts: [
-        { label: t.sendMessage, chords: [["Enter"]] },
-        { label: t.newLine, chords: [["⇧", "Enter"]] },
-        { label: translations.queue.shortcutQueue, chords: [["Enter"]] },
-        { label: translations.queue.shortcutSteer, chords: [["Ctrl", "Enter"]] },
+        // Settings › General › "Enter starts a new line" moves sending to Ctrl+Enter.
+        { label: t.sendMessage, chords: enterNewline ? [["Ctrl", "Enter"]] : [["Enter"]] },
+        { label: t.newLine, chords: enterNewline ? [["Enter"], ["⇧", "Enter"]] : [["⇧", "Enter"]] },
+        { label: translations.queue.shortcutQueue, chords: enterNewline ? [["Ctrl", "Enter"]] : [["Enter"]] },
+        { label: translations.queue.shortcutSteer, chords: enterNewline ? [["Ctrl", "⇧", "Enter"]] : [["Ctrl", "Enter"]] },
+        { label: translations.commandBackground.shortcut, chords: [["Ctrl", "B"]] },
         { label: t.navigateSuggestions, chords: [["↑"], ["↓"]] },
         { label: t.acceptSuggestion, chords: [["Enter"], ["Tab"]] },
         { label: t.closeMenu, chords: [["Esc"]] },

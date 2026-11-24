@@ -200,6 +200,9 @@ export const SETTINGS_FIELDS = {
 
   promptSuggestions: z.boolean().default(true),
 
+  // The composer's Enter writes a new line and Ctrl/⌘+Enter sends (Settings › General).
+  enterNewline: z.boolean().default(false),
+
   // What goes to the Nyxs service with the user's account (Settings › Privacy). Read from the
   // user's own settings only (privacySettings.ts).
   privacy: z

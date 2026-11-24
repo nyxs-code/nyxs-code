@@ -1,6 +1,8 @@
 import type { TextStreamPart, ToolSet } from "ai";
 import { createReasoningRouter } from "./reasoningStream";
 import { subscribeToolProgress } from "./toolProgress";
+import { memoryStopIn } from "./commandMemory";
+import { movedIn } from "./commandBackground";
 import {
   OUTPUT_PREVIEW_TOOLS,
   buildToolDetail,
@@ -355,7 +357,9 @@ export async function processTurnStream(
         if (call && OUTPUT_PREVIEW_TOOLS.has(call.name) && text.trim()) {
           const prev = state.toolDetails.get(part.toolCallId);
           if (prev) {
-            const next = { ...prev, ...previewToolOutput(text) };
+            const memoryStop = memoryStopIn(text);
+            const background = movedIn(text);
+            const next = { ...prev, ...previewToolOutput(text), ...(memoryStop && { memoryStop }), ...(background && { background }) };
             state.toolDetails.set(part.toolCallId, next);
             onTool?.(part.toolCallId, next);
           }

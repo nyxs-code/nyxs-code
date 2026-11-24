@@ -37,6 +37,7 @@ export function GeneralSettingsSection() {
   const { preference, resolved: resolvedTheme, setPreference } = useTheme();
   const { settings, update } = useSettings();
   const promptSuggestions = (settings as { promptSuggestions?: boolean }).promptSuggestions ?? true;
+  const enterNewline = (settings as { enterNewline?: boolean }).enterNewline ?? false;
   const [prefs, setPrefs] = useState<GeneralPreferences>({});
   // The text fields' values as last saved, to tell what is still unsaved when Settings closes.
   const stored = useRef<Pick<GeneralPreferences, "displayName" | "customInstructions">>({});
@@ -208,6 +209,17 @@ export function GeneralSettingsSection() {
               label={g.promptSuggestionsTitle}
               checked={promptSuggestions}
               onChange={(v) => update({ promptSuggestions: v } as Parameters<typeof update>[0], "user")}
+            />
+          </div>
+          <div className="flex items-start justify-between gap-4 py-4">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-text-100">{g.enterNewlineTitle}</p>
+              <p className="text-[12px] text-text-400 mt-0.5">{g.enterNewlineDesc}</p>
+            </div>
+            <SettingsToggle
+              label={g.enterNewlineTitle}
+              checked={enterNewline}
+              onChange={(v) => update({ enterNewline: v } as Parameters<typeof update>[0], "user")}
             />
           </div>
           <TitleGenerationRow />

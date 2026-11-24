@@ -72,6 +72,61 @@ fn profiles_dir(app: &AppHandle) -> Result<PathBuf, String> {
         .join("browser"))
 }
 
+/// The hidden webview of each cookie profile that imported cookies go into (cookie_import.rs).
+/// It stays open until Nyxs quits: the profile's browser process lives with it, so imported
+/// session cookies last exactly until then, whether or not a tab uses the profile.
+static KEEPERS: Mutex<Option<HashMap<String, String>>> = Mutex::new(None);
+
+pub(crate) fn cookie_keeper(
+    app: &AppHandle,
+    profile: Option<String>,
+) -> Result<tauri::Webview, String> {
+    let profile = profile_key(profile);
+    if profile == PRIVATE {
+        return Err("private".into());
+    }
+    let mut keepers = KEEPERS.lock().unwrap_or_else(|e| e.into_inner());
+    let keepers = keepers.get_or_insert_with(HashMap::new);
+    if let Some(wv) = keepers
+        .get(&profile)
+        .and_then(|label| app.get_webview(label))
+    {
+        return Ok(wv);
+    }
+    let window = app
+        .get_window("main")
+        .ok_or_else(|| "no main window".to_string())?;
+    let label = {
+        let mut seq = SEQ.lock().unwrap_or_else(|e| e.into_inner());
+        *seq += 1;
+        format!("preview-cookies-{}", *seq)
+    };
+    let dir = profiles_dir(app)?.join(&profile);
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let blank = Url::parse("about:blank").map_err(|e| e.to_string())?;
+    let builder = WebviewBuilder::new(&label, WebviewUrl::External(blank)).data_directory(dir);
+    let wv = window
+        .add_child(
+            builder,
+            LogicalPosition::new(-10_000.0, -10_000.0),
+            LogicalSize::new(1.0, 1.0),
+        )
+        .map_err(|e| e.to_string())?;
+    let _ = wv.hide();
+    keepers.insert(profile, label);
+    Ok(wv)
+}
+
+/// The keepers open now, as (profile, label); clearing browsing data empties and closes them.
+fn take_cookie_keepers() -> Vec<(String, String)> {
+    KEEPERS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .as_mut()
+        .map(|k| k.drain().collect())
+        .unwrap_or_default()
+}
+
 /// What pages in the browser see as `prefers-color-scheme`: "light" or "dark" from the app's
 /// theme, or None to follow the system.
 static SCHEME: Mutex<Option<String>> = Mutex::new(None);
@@ -1488,7 +1543,7 @@ fn clear_open_profile(wv: &tauri::Webview) -> Result<(), String> {
 /// in use alike. Saved passwords and autofill stay.
 #[tauri::command]
 pub async fn preview_clear_data(app: AppHandle) -> Result<(), String> {
-    let (labels, active): (Vec<String>, Vec<String>) = with_pages(|pages| {
+    let (labels, mut active): (Vec<String>, Vec<String>) = with_pages(|pages| {
         pages
             .values()
             .map(|p| (p.label.clone(), p.profile.clone()))
@@ -1498,6 +1553,15 @@ pub async fn preview_clear_data(app: AppHandle) -> Result<(), String> {
         if let Some(wv) = app.get_webview(&label) {
             clear_open_profile(&wv)?;
         }
+    }
+    // A profile with imported cookies holds its folder open through its keeper: cleared through
+    // it like an open tab's, then the keeper goes (imported session cookies with it).
+    for (profile, label) in take_cookie_keepers() {
+        if let Some(wv) = app.get_webview(&label) {
+            clear_open_profile(&wv)?;
+            let _ = wv.close();
+        }
+        active.push(profile);
     }
     let dir = profiles_dir(&app)?;
     if let Ok(entries) = std::fs::read_dir(&dir) {

@@ -125,6 +125,15 @@ pub(crate) struct Host {
     stream: Conn,
     rx: Receiver<Chunk>,
     seq: u64,
+    /// The end markers of the command running now, for `follow` once it moved to the background.
+    markers: (Vec<u8>, Vec<u8>),
+}
+
+impl Host {
+    /// The host's process: a command it runs is this process and what it starts.
+    pub(crate) fn pid(&self) -> u32 {
+        self.child.lock().unwrap_or_else(|e| e.into_inner()).id()
+    }
 }
 
 impl Drop for Host {
@@ -142,6 +151,9 @@ pub(crate) enum HostOutcome {
     Exited(i32),
     TimedOut,
     Cancelled,
+    /// Still running, moved to the background: by its time limit (true) or the user. The host
+    /// is in the middle of the command; `follow` reads the rest.
+    Moved(bool),
 }
 
 pub(crate) struct HostRun {
@@ -443,6 +455,7 @@ fn spawn_host() -> Result<Host, String> {
         stream,
         rx,
         seq: 0,
+        markers: (Vec::new(), Vec::new()),
     })
 }
 
@@ -551,6 +564,8 @@ impl Side {
     }
 }
 
+/// `to_background`: the flag the user raises to move the command to the background, and whether
+/// reaching the time limit moves it there too instead of stopping it.
 pub(crate) fn run(
     host: &mut Host,
     command: &str,
@@ -558,6 +573,7 @@ pub(crate) fn run(
     timeout: Duration,
     cancel: &AtomicBool,
     log: Option<&super::output_log::LogRequest>,
+    to_background: Option<(&AtomicBool, bool)>,
 ) -> Result<HostRun, String> {
     host.seq += 1;
     let tag = format!("{}_{}", host.id, host.seq);
@@ -566,6 +582,7 @@ pub(crate) fn run(
         .map_err(|e| format!("host: {e}"))?;
     let out_marker = format!("\u{1e}NYXS_DONE_{tag}_").into_bytes();
     let err_marker = format!("\u{1e}NYXS_DONE_{tag}").into_bytes();
+    host.markers = (out_marker.clone(), err_marker.clone());
     let mut out = Side::new(log, "stdout");
     let mut err = Side::new(log, "stderr");
     let mut code = 0i32;
@@ -574,7 +591,13 @@ pub(crate) fn run(
         if cancel.load(Ordering::Acquire) {
             break HostOutcome::Cancelled;
         }
-        if start.elapsed() >= timeout {
+        let late = start.elapsed() >= timeout;
+        if let Some((flag, on_timeout)) = to_background {
+            if flag.load(Ordering::Acquire) || (late && on_timeout) {
+                break HostOutcome::Moved(late && !flag.load(Ordering::Acquire));
+            }
+        }
+        if late {
             break HostOutcome::TimedOut;
         }
         match host.rx.recv_timeout(Duration::from_millis(20)) {
@@ -639,6 +662,66 @@ pub(crate) fn run(
     })
 }
 
+/// Reads the rest of a command that moved to the background (`run` ended with `Moved`): each
+/// line goes to `out` or `err`, until its end markers, the host's end, or `stop`.
+pub(crate) fn follow(
+    host: &mut Host,
+    out: &mut dyn FnMut(&[u8]),
+    err: &mut dyn FnMut(&[u8]),
+    stop: &AtomicBool,
+) -> HostOutcome {
+    let (out_marker, err_marker) = host.markers.clone();
+    let (mut out_done, mut err_done, mut out_eof, mut err_eof) = (false, false, false, false);
+    let mut code = 0i32;
+    loop {
+        if stop.load(Ordering::Acquire) {
+            return HostOutcome::Cancelled;
+        }
+        match host.rx.recv_timeout(Duration::from_millis(50)) {
+            Ok(Chunk::Out(line)) => {
+                if line.starts_with(&out_marker) {
+                    code = String::from_utf8_lossy(&line[out_marker.len()..])
+                        .trim()
+                        .parse()
+                        .unwrap_or(1);
+                    out_done = true;
+                } else {
+                    out(&line);
+                }
+            }
+            Ok(Chunk::Err(line)) => {
+                if line.starts_with(&err_marker)
+                    && line[err_marker.len()..].iter().all(u8::is_ascii_whitespace)
+                {
+                    err_done = true;
+                } else {
+                    err(&line);
+                }
+            }
+            Ok(Chunk::OutEof) => out_eof = true,
+            Ok(Chunk::ErrEof) => err_eof = true,
+            Err(RecvTimeoutError::Timeout) => {}
+            Err(RecvTimeoutError::Disconnected) => {
+                out_eof = true;
+                err_eof = true;
+            }
+        }
+        if out_done && err_done {
+            return HostOutcome::Done(code);
+        }
+        if out_eof && err_eof {
+            let status = host
+                .child
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .wait()
+                .ok()
+                .and_then(|s| s.code());
+            return HostOutcome::Exited(status.unwrap_or(-1));
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -700,6 +783,7 @@ mod tests {
             &cwd,
             Duration::from_secs(10),
             &cancel,
+            None,
             None,
         )
         .unwrap();
@@ -784,7 +868,16 @@ mod tests {
         // Generous: this checks windows, not speed, and a nested Windows PowerShell on a busy CI
         // runner can take longer than 30 seconds to start. A failure names the outcome.
         let (r, shown) = super::super::window_watch::console_windows_shown_during(|| {
-            run(host, command, cwd, Duration::from_secs(120), &cancel, None).unwrap()
+            run(
+                host,
+                command,
+                cwd,
+                Duration::from_secs(120),
+                &cancel,
+                None,
+                None,
+            )
+            .unwrap()
         });
         assert!(
             matches!(r.outcome, HostOutcome::Done(0)),
@@ -804,6 +897,7 @@ mod tests {
         fs::write(dir.join("x.bat"), "@exit /b 0\r\n").unwrap();
         fs::write(dir.join("notes.txt"), "x").unwrap();
         let cwd = dir.to_string_lossy().to_string();
+        let _hosts = super::super::shell::test_support::HostUser::enter();
         let mut host = spawn_host().unwrap();
 
         // A console program asked for by window style still gets its window. Where none shows

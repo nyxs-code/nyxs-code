@@ -29,9 +29,9 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { localizedError, useTranslations, type Translations } from "@/lib/i18n";
 
-type CustomPrefill = { name: string; url: string } | null;
+export type CustomPrefill = { name: string; url: string } | null;
 
-function CustomConnectorModal({
+export function CustomConnectorModal({
   prefill,
   existingNames,
   onAdd,

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { invoke } from "@/lib/ipc";
 import { useTranslations } from "@/lib/i18n";
 import {
   X,
@@ -23,7 +22,8 @@ import {
   validateUserConfig,
   hasUserConfig,
 } from "@/lib/plugins/userConfig";
-import { parsePluginManifest, type InstalledPlugin, type PluginManifest } from "@/lib/plugins/schema";
+import { type InstalledPlugin, type PluginManifest } from "@/lib/plugins/schema";
+import { readManifest } from "@/lib/plugins/manifestFile";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTitle } from "@/components/ui/dialog";
 import { useConfirm } from "@/lib/useConfirm";
@@ -33,22 +33,10 @@ interface PluginsModalProps {
   onClose: () => void;
 }
 
-interface Row {
+export interface PluginRowState {
   installed: InstalledPlugin;
   manifest: PluginManifest | null;
   enabled: boolean;
-}
-
-async function readManifest(installLocation: string): Promise<PluginManifest | null> {
-  for (const p of [`${installLocation}/.nyxs-plugin/plugin.json`, `${installLocation}/plugin.json`]) {
-    try {
-      const raw = await invoke<string>("nyxs_read_text", { path: p });
-      if (raw.trim()) return parsePluginManifest(JSON.parse(raw)).manifest;
-    } catch {
-      /* try next */
-    }
-  }
-  return null;
 }
 
 function contributionParts(m: PluginManifest | null): string[] {
@@ -66,12 +54,12 @@ function contributionParts(m: PluginManifest | null): string[] {
 export function PluginsModal({ open, onClose }: PluginsModalProps) {
   const tr = useTranslations();
   const t = tr.pluginsModal;
-  const [rows, setRows] = useState<Row[]>([]);
+  const [rows, setRows] = useState<PluginRowState[]>([]);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [reports, setReports] = useState<Record<string, ValidationReport>>({});
-  const [configFor, setConfigFor] = useState<Row | null>(null);
+  const [configFor, setConfigFor] = useState<PluginRowState | null>(null);
   // The settings were asked for to turn the plugin on: saving them turns it on.
   const [enableAfterConfig, setEnableAfterConfig] = useState(false);
   const [confirm, confirmElement] = useConfirm();
@@ -100,7 +88,7 @@ export function PluginsModal({ open, onClose }: PluginsModalProps) {
 
   if (!open) return null;
 
-  const toggle = async (row: Row) => {
+  const toggle = async (row: PluginRowState) => {
     if (!row.enabled) {
       const ok = await confirm({
         title: t.enableConfirmTitle.replace("{name}", row.manifest?.name ?? row.installed.plugin),
@@ -128,7 +116,7 @@ export function PluginsModal({ open, onClose }: PluginsModalProps) {
     }
   };
 
-  const remove = async (row: Row) => {
+  const remove = async (row: PluginRowState) => {
     const ok = await confirm({
       title: t.uninstallConfirm.replace("{name}", row.manifest?.name ?? row.installed.plugin),
       confirmLabel: t.uninstall,
@@ -146,7 +134,7 @@ export function PluginsModal({ open, onClose }: PluginsModalProps) {
     }
   };
 
-  const validate = async (row: Row) => {
+  const validate = async (row: PluginRowState) => {
     setBusy(row.installed.id);
     try {
       const report = await validatePlugin(row.installed.installLocation);
@@ -328,12 +316,12 @@ export function PluginsModal({ open, onClose }: PluginsModalProps) {
   );
 }
 
-function UserConfigDialog({
+export function UserConfigDialog({
   row,
   onClose,
   onSaved,
 }: {
-  row: Row;
+  row: PluginRowState;
   onClose: () => void;
   onSaved: () => void | Promise<void>;
 }) {

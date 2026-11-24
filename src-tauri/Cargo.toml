@@ -23,6 +23,10 @@ serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
 # The OS data folders, found before Tauri starts (`identifier::migrate_folders`).
 dirs = "7"
+# Reads other browsers' cookie databases for "Import cookies" (cookie_import.rs).
+rusqlite = { version = "0.37", features = ["bundled"] }
+# The cookie type Tauri's webview store takes (the version tauri uses).
+cookie = "0.18"
 tauri = { version = "2.11.2", features = ["macos-private-api", "protocol-asset", "unstable"] }
 tauri-plugin-log = "2"
 # `unsafe-headers` lets a request set `Origin: ""` so the plugin omits the Origin it
@@ -99,13 +103,19 @@ windows-core = "0.62"
 # Also the media sessions the music player reads other apps' songs from.
 windows = { version = "0.62", features = ["Foundation", "Foundation_Collections", "Media_Control", "Storage_Streams", "Win32_System_Com", "Win32_UI_Shell", "Win32_UI_Accessibility", "Win32_UI_WindowsAndMessaging"] }
 # Job object that takes the agent's PowerShell hosts down with Nyxs, even on a crash.
-windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Graphics_Dwm", "Win32_Graphics_Gdi", "Win32_Security", "Win32_Storage_FileSystem", "Win32_System_Console", "Win32_System_IO", "Win32_System_Diagnostics_ToolHelp", "Win32_System_JobObjects", "Win32_System_LibraryLoader", "Win32_System_Power", "Win32_System_Threading", "Win32_System_Pipes", "Win32_Security_Authorization", "Win32_UI_Accessibility", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Graphics_Dwm", "Win32_Graphics_Gdi", "Win32_Security", "Win32_Storage_FileSystem", "Win32_System_Console", "Win32_System_IO", "Win32_System_Diagnostics_ToolHelp", "Win32_System_JobObjects", "Win32_System_LibraryLoader", "Win32_System_Power", "Win32_System_ProcessStatus", "Win32_System_SystemInformation", "Win32_System_Threading", "Win32_System_Pipes", "Win32_Security_Authorization", "Win32_UI_Accessibility", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 keyring = { version = "3", features = ["apple-native"] }
+# Chrome, Edge and Brave keep cookie values encrypted with a key from the Keychain: AES-128-CBC
+# with a PBKDF2-SHA1 key (cookie_import.rs).
+aes = "0.8"
+cbc = "0.1"
+pbkdf2 = { version = "0.12", default-features = false, features = ["hmac"] }
+sha1 = "0.10"
 # Computer use on macOS: screenshots (ScreenCaptureKit), mouse and keyboard (CGEvent), windows'
 # controls (Accessibility) and the frame over the screen (AppKit). The versions tauri already uses.
 objc2 = "0.6"

@@ -70,6 +70,9 @@ import { setShownChats } from "@/lib/streamBuffer";
 import { setNotifyContext } from "@/lib/notify";
 import { OPEN_DIFF_EVENT } from "@/lib/diffComments";
 import { createSessionWorktree, worktreeSupported } from "@/lib/worktree";
+import { worktreeBaseOf } from "@/lib/worktreeBase";
+import { usePublishFolderSessions } from "@/lib/folderSessions";
+import { moveCommandsToBackground } from "@/lib/commandBackground";
 import { useSessionWorktrees } from "@/lib/useSessionWorktrees";
 import { setSessionEnvironments } from "@/lib/environments";
 import { allowWorkspaceAccess } from "@/lib/workspace";
@@ -82,6 +85,7 @@ import { BUILTIN_COMMANDS, BUILTIN_PROMPT_COMMANDS, parseBuiltinCommand, matchBu
 import { RoutinesPanel } from "@/components/RoutinesPanel";
 import { createScheduler } from "@/lib/scheduler";
 import { startRoutineDraft, type ScheduledTask } from "@/lib/scheduledTasks";
+import type { PermissionMode } from "@/lib/configSchema";
 import { matchCommand } from "@/lib/commands";
 import { readSession, saveSession, renameSession } from "@/lib/sessionStorage";
 import { markChatAsOnDisk, useSessionAutosave } from "@/lib/useSessionAutosave";
@@ -200,7 +204,7 @@ export default function App() {
   });
   const [section, setSection] = useState<Section>("code");
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  useComputerControlLayout(sidebarOpen, setSidebarOpen);
+  const computerControlled = useComputerControlLayout(sidebarOpen, setSidebarOpen);
   // Runnable command blocks in the chat read this; kept stable so memoized messages don't
   // re-render each time App does.
   const commandRunEnv = useMemo(() => ({ workspace, openView: (v: string) => openView(v as ViewId) }), [workspace, openView]);
@@ -301,6 +305,7 @@ export default function App() {
   /** Where the open session works: its own worktree when it has one, else the project. */
   const workDir = activeChat?.worktree?.path ?? workspace;
   useSessionWorktrees({ activeChat, workspace, archivedSessions, setChats });
+  usePublishFolderSessions(chats, sessions, busyIds, workspace);
   useLspFoldersInUse(workspace, chats, activeId, streamingIds);
   // Which saved environment each session's turns take their variables from.
   useEffect(() => { setSessionEnvironments(chats); }, [chats]);
@@ -380,7 +385,7 @@ export default function App() {
   const startSessionWorktree = async (ws: string | null, id: string) => {
     if (!ws || !(await worktreeSupported(ws))) return undefined;
     try {
-      const wt = await createSessionWorktree(ws, id);
+      const wt = await createSessionWorktree(ws, id, undefined, worktreeBaseOf(ws));
       await allowWorkspaceAccess(wt.path);
       return wt;
     } catch (e) {
@@ -478,19 +483,25 @@ export default function App() {
 
   const deleteChat = (id: string) => sessionActions.deleteChat(id, sessionActionsEnv());
 
-  const startChatWithPrompt = useCallback((title: string, prompt: string) => {
+  const startChatWithPrompt = useCallback((
+    title: string,
+    prompt: string,
+    // A scheduled task can pick its own model and permission mode.
+    opts: { model?: string; permissionMode?: PermissionMode } = {},
+  ) => {
     const id = newChatId(chats);
-    const chat: Chat = { id, title, workspace, messages: [], model: effectiveModel, permissionMode: modeRef.current };
+    const model = opts.model && modelOptions.some((m) => m.id === opts.model) ? opts.model : effectiveModel;
+    const chat: Chat = { id, title, workspace, messages: [], model, permissionMode: opts.permissionMode ?? modeRef.current };
     hydratedRef.current.add(id);
     setChats((prev) => [chat, ...prev]);
     setActiveId(id);
     setSection("code");
     // To this chat by id: the open one may have changed by the time it is sent.
     setTimeout(
-      () => handleSendRef.current?.({ message: prompt, files: [], pastedContent: [], model: effectiveModel, isThinkingEnabled: false }, undefined, id),
+      () => handleSendRef.current?.({ message: prompt, files: [], pastedContent: [], model, isThinkingEnabled: false }, undefined, id),
       0,
     );
-  }, [chats, workspace, effectiveModel, hydratedRef, modeRef, setChats, setActiveId]);
+  }, [chats, workspace, effectiveModel, modelOptions, hydratedRef, modeRef, setChats, setActiveId]);
 
   /** /resume: a Claude Code CLI session continues here as a saved chat of the project. */
   const importCliSession = (session: CliSessionSummary, messages: CliMessage[]) => {
@@ -516,7 +527,7 @@ export default function App() {
   const runRoutine = useCallback(
     (task: ScheduledTask) => {
       if (!task.workspace || task.workspace === workspace) {
-        startChatWithPrompt(task.name || "Routine", task.prompt);
+        startChatWithPrompt(task.name || "Routine", task.prompt, { model: task.model, permissionMode: task.permissionMode });
         return;
       }
       pendingRoutineRef.current = task;
@@ -530,7 +541,7 @@ export default function App() {
     const task = pendingRoutineRef.current;
     if (!task || task.workspace !== workspace) return;
     pendingRoutineRef.current = null;
-    startChatWithPrompt(task.name || "Routine", task.prompt);
+    startChatWithPrompt(task.name || "Routine", task.prompt, { model: task.model, permissionMode: task.permissionMode });
   }, [workspace, startChatWithPrompt]);
 
   const startChatRef = useRef(startChatWithPrompt);
@@ -771,8 +782,11 @@ export default function App() {
     const unlisten = listen<{ id: string; status: string; code: number | null }>("bg-shell-exit", (e) => {
       void waker.exited(e.payload.id, e.payload.status, e.payload.code);
     });
+    // A monitor's new lines wake its chat's agent (the Monitor tool).
+    const unlistenOutput = listen<{ id: string; line: string }>("bg-shell-output", (e) => waker.output(e.payload.id, e.payload.line));
     return () => {
       void unlisten.then((f) => f());
+      void unlistenOutput.then((f) => f());
       if (backgroundWakerRef.current === waker) backgroundWakerRef.current = null;
     };
   }, []);
@@ -958,6 +972,7 @@ export default function App() {
         const id = adjacentSession(activeId, step, orderedSessions.map((s) => s.id));
         if (id) void resumeSession(id, sessions.find((s) => s.id === id)?.workspace);
       },
+      moveToBackground: () => moveCommandsToBackground(activeId ?? undefined),
     };
   });
 
@@ -1235,15 +1250,21 @@ export default function App() {
         onUnarchive={(s) => { void sessionActions.unarchiveSession(s, { refreshSessions }); }}
       />
 
-      <main data-side-chat-area className={cn("flex-1 flex flex-col min-w-0", panelMaximized && viewsOpen && "hidden")}>
+      <main data-side-chat-area className={cn("flex-1 flex flex-col min-w-0", panelMaximized && viewsOpen && !computerControlled && "hidden")}>
         {section === "customize" ? (
-          <CustomizePanel workspace={workspace} />
+          <CustomizePanel workspace={workspace} onStartChat={startChatWithPrompt} />
         ) : section === "routines" ? (
-          <RoutinesPanel onRun={runRoutine} />
+          <RoutinesPanel
+            onRun={runRoutine}
+            onStartChat={startChatWithPrompt}
+            models={modelOptions}
+            defaultModel={effectiveModel}
+          />
         ) : section !== "code" ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center px-4">
             <h2 className="text-2xl font-serif font-light text-text-200 mb-2">
-              {sectionLabel(section)} <span className="text-accent">·</span> {tApp.comingSoon}
+              {(t.sidebarMenu as Record<string, string>)[section] ?? sectionLabel(section)}{" "}
+              <span className="text-accent">·</span> {tApp.comingSoon}
             </h2>
             <p className="text-sm text-text-400">{tApp.sectionReserved}</p>
           </div>
@@ -1317,7 +1338,7 @@ export default function App() {
       </main>
 
       <ViewsPanel
-        open={viewsOpen}
+        open={viewsOpen && !computerControlled}
         views={openViews}
         onCloseView={(v) => (v === "sidechat" ? closeSideChat() : patchViews((cur) => withoutView(cur, v)))}
         sideChat={(pane) => <SideChatPane key={sideKey(activeId)} {...sideChatProps} {...pane} />}

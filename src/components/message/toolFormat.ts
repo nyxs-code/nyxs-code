@@ -22,6 +22,7 @@ import {
   Captions,
   AudioLines,
   Scissors,
+  Eye,
 } from "lucide-react";
 
 export const TOOL_ICONS: Record<string, ComponentType<{ className?: string }>> = {
@@ -34,6 +35,7 @@ export const TOOL_ICONS: Record<string, ComponentType<{ className?: string }>> =
   Bash: Terminal,
   BashOutput: ScrollText,
   KillShell: Square,
+  Monitor: Eye,
   ListDir: FolderTree,
   Skill: Sparkles,
   WebSearch: Search,
@@ -75,6 +77,7 @@ const TOOL_TONES: Record<string, string> = {
   Bash: "text-amber-500",
   BashOutput: "text-amber-500",
   KillShell: "text-amber-500",
+  Monitor: "text-amber-500",
   GitStatus: "text-orange-500",
   GitDiff: "text-orange-500",
   GitLog: "text-orange-500",
@@ -145,6 +148,7 @@ export const TOOL_VERBS: Record<string, [string, string]> = {
   Bash: ["Running", "Ran"],
   BashOutput: ["Reading output", "Read output"],
   KillShell: ["Stopping", "Stopped"],
+  Monitor: ["Starting a monitor", "Watching"],
   ListDir: ["Listing", "Listed"],
   Skill: ["Running", "Ran"],
   WebSearch: ["Searching the web", "Web search"],

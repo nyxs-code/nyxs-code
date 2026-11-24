@@ -1,9 +1,11 @@
 //! Running a command to completion with its output captured, a timeout and cancelling.
 
-use super::capture::{capture, kill_tree};
+use super::background::{adopt, BgChild, BgInfo};
+use super::capture::{capture, kill_tree, Capture};
 use super::env::shell_command;
 #[cfg(target_os = "windows")]
 use super::host::{persistent_shell_enabled, run_on_host};
+use super::memory_guard::{self, MemoryStop};
 use crate::agent::output_log::LogRequest;
 use crate::agent::*;
 use std::sync::atomic::AtomicBool;
@@ -19,6 +21,109 @@ pub struct RunResult {
     stdout_log: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     stderr_log: Option<String>,
+    /// Stopped because one of its processes used far more memory than the computer has.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    memory_stop: Option<MemoryStop>,
+    /// Still running, moved to the background: what it printed so far is in stdout and stderr.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    background: Option<Moved>,
+}
+
+/// A command moved to the background: the shell it now is, and whether its time limit moved it
+/// (otherwise the user did, with Ctrl+B).
+#[derive(Serialize)]
+pub(super) struct Moved {
+    shell_id: String,
+    by_timeout: bool,
+}
+
+/// What only the agent's own commands get (the Bash tool): the memory watch, and being moved to
+/// the background (by the user, or by their time limit) instead of stopped.
+#[derive(Default)]
+pub(super) struct AgentOpts {
+    pub memory_guard: bool,
+    pub to_background: Option<ToBackground>,
+}
+
+pub(super) struct ToBackground {
+    /// Raised by `agent_run_to_background`.
+    pub flag: Arc<AtomicBool>,
+    pub info: BgInfo,
+}
+
+/// The result of a command that moved to the background.
+pub(super) fn moved_result(
+    stdout: String,
+    stderr: String,
+    shell_id: String,
+    by_timeout: bool,
+) -> RunResult {
+    RunResult {
+        stdout,
+        stderr,
+        code: -1,
+        timed_out: false,
+        cancelled: false,
+        stdout_log: None,
+        stderr_log: None,
+        memory_stop: None,
+        background: Some(Moved {
+            shell_id,
+            by_timeout,
+        }),
+    }
+}
+
+fn movable_runs() -> &'static Mutex<HashMap<String, Arc<AtomicBool>>> {
+    static RUNS: OnceLock<Mutex<HashMap<String, Arc<AtomicBool>>>> = OnceLock::new();
+    RUNS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Moves a running agent command to the background (the user's Ctrl+B): it keeps running as a
+/// background shell and its `agent_run` returns now. False when no such command runs.
+#[tauri::command]
+pub fn agent_run_to_background(run_id: String) -> bool {
+    match movable_runs()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get(&run_id)
+    {
+        Some(flag) => {
+            flag.store(true, Ordering::Release);
+            true
+        }
+        None => false,
+    }
+}
+
+/// Watches a running command's memory (see memory_guard) and, over the line, raises `cancel` so
+/// the run stops as if cancelled; `hit` then says why.
+pub(super) struct MemoryWatch {
+    hit: Arc<Mutex<Option<MemoryStop>>>,
+    _watch: Option<memory_guard::Watch>,
+}
+
+impl MemoryWatch {
+    pub(super) fn start(on: bool, root: u32, cancel: &Arc<AtomicBool>) -> Self {
+        let hit = Arc::new(Mutex::new(None));
+        let watch = on
+            .then(|| {
+                let (hit, cancel) = (hit.clone(), cancel.clone());
+                memory_guard::watch(root, move |stop| {
+                    *hit.lock().unwrap_or_else(|e| e.into_inner()) = Some(stop);
+                    cancel.store(true, Ordering::Release);
+                })
+            })
+            .flatten();
+        MemoryWatch { hit, _watch: watch }
+    }
+
+    /// Stops watching (the command ended, and a pooled host goes on to other commands) and says
+    /// whether it was stopped for its memory.
+    pub(super) fn finish(self) -> Option<MemoryStop> {
+        drop(self._watch);
+        *self.hit.lock().unwrap_or_else(|e| e.into_inner())
+    }
 }
 
 pub(super) fn active_runs() -> &'static Mutex<HashMap<String, Arc<AtomicBool>>> {
@@ -79,12 +184,18 @@ fn run_remote(
         res.timed_out,
         res.cancelled,
         timeout,
+        None,
     ))
 }
 
 /// `stdin` is written to the command's standard input, then closed (a hook reads its JSON
-/// input there); without it the command gets none.
+/// input there); without it the command gets none. For a command the agent started:
+/// `memory_guard` stops it if it uses far more memory than the computer has (off for the app's
+/// own commands and once the user allowed more for the session), and `to_background` lets it
+/// move to the background, by `agent_run_to_background` with its `run_id` or at its time limit,
+/// instead of being stopped there; `description` is then its title in Background tasks.
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn agent_run(
     command: String,
     cwd: Option<String>,
@@ -93,12 +204,37 @@ pub async fn agent_run(
     run_id: Option<String>,
     log_over_bytes: Option<usize>,
     stdin: Option<String>,
+    memory_guard: Option<bool>,
+    to_background: Option<bool>,
+    description: Option<String>,
 ) -> Result<RunResult, String> {
+    let request = AgentRequest {
+        memory_guard: memory_guard.unwrap_or(false),
+        to_background: to_background.unwrap_or(false),
+        description,
+    };
     tauri::async_runtime::spawn_blocking(move || {
-        run_command(command, cwd, timeout_ms, env, run_id, log_over_bytes, stdin)
+        run_command(
+            command,
+            cwd,
+            timeout_ms,
+            env,
+            run_id,
+            log_over_bytes,
+            stdin,
+            request,
+        )
     })
     .await
     .map_err(|e| format!("Couldn't run the command: {e}"))?
+}
+
+/// What the agent asked for its command, before it is known where it runs.
+#[derive(Default)]
+struct AgentRequest {
+    memory_guard: bool,
+    to_background: bool,
+    description: Option<String>,
 }
 
 /// `agent_run` without stdin, as most callers want it.
@@ -111,9 +247,19 @@ fn agent_run_blocking(
     run_id: Option<String>,
     log_over_bytes: Option<usize>,
 ) -> Result<RunResult, String> {
-    run_command(command, cwd, timeout_ms, env, run_id, log_over_bytes, None)
+    run_command(
+        command,
+        cwd,
+        timeout_ms,
+        env,
+        run_id,
+        log_over_bytes,
+        None,
+        AgentRequest::default(),
+    )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_command(
     command: String,
     cwd: Option<String>,
@@ -122,6 +268,7 @@ fn run_command(
     run_id: Option<String>,
     log_over_bytes: Option<usize>,
     stdin: Option<String>,
+    request: AgentRequest,
 ) -> Result<RunResult, String> {
     if let Some(r) = cwd.as_deref().and_then(crate::remote::parse) {
         return run_remote(
@@ -134,6 +281,58 @@ fn run_command(
             stdin.as_deref(),
         );
     }
+    // Movable only with an id to move it by, and with no input being written to it.
+    let movable = request.to_background && stdin.is_none();
+    let movable_id = run_id.clone().filter(|_| movable);
+    let to_background = movable_id.as_ref().map(|id| {
+        let flag = Arc::new(AtomicBool::new(false));
+        movable_runs()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(id.clone(), flag.clone());
+        ToBackground {
+            flag,
+            info: BgInfo {
+                command: command.clone(),
+                cwd: cwd.clone(),
+                description: request.description,
+            },
+        }
+    });
+    let opts = AgentOpts {
+        memory_guard: request.memory_guard,
+        to_background,
+    };
+    let result = run_local(
+        command,
+        cwd,
+        timeout_ms,
+        env,
+        run_id,
+        log_over_bytes,
+        stdin,
+        opts,
+    );
+    if let Some(id) = movable_id {
+        movable_runs()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(&id);
+    }
+    result
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_local(
+    command: String,
+    cwd: Option<String>,
+    timeout_ms: Option<u64>,
+    env: Option<HashMap<String, String>>,
+    run_id: Option<String>,
+    log_over_bytes: Option<usize>,
+    stdin: Option<String>,
+    opts: AgentOpts,
+) -> Result<RunResult, String> {
     let log = LogRequest::new(log_over_bytes);
     // The persistent host has one stdin for every command it runs: one that brings its own runs
     // in a shell of its own.
@@ -147,6 +346,7 @@ fn run_command(
                 timeout_ms,
                 run_id,
                 log.as_ref(),
+                opts,
             );
         }
     }
@@ -169,7 +369,7 @@ fn run_command(
         }
     }
     hide_console(&mut cmd);
-    run_to_completion(cmd, timeout_ms, run_id, log.as_ref(), stdin)
+    run_to_completion(cmd, timeout_ms, run_id, log.as_ref(), stdin, opts)
 }
 
 const EXEC_ALLOWED: [&str; 2] = ["git", "gh"];
@@ -233,7 +433,14 @@ fn exec_direct(
         cmd.env("GH_TOKEN", token.trim());
     }
     hide_console(&mut cmd);
-    run_to_completion(cmd, timeout_ms.or(Some(30_000)), None, None, None)
+    run_to_completion(
+        cmd,
+        timeout_ms.or(Some(30_000)),
+        None,
+        None,
+        None,
+        AgentOpts::default(),
+    )
 }
 
 #[tauri::command]
@@ -263,12 +470,42 @@ pub async fn agent_exec(
     .map_err(|e| format!("Couldn't run {name}: {e}"))?
 }
 
+/// A command running in a process of its own goes on as a background shell: its readers now
+/// write there, after what it printed so far, which is also what `agent_run` returns.
+fn move_to_background(
+    child: Child,
+    out: Capture,
+    err: Capture,
+    info: BgInfo,
+    memory_guard: bool,
+    by_timeout: bool,
+) -> RunResult {
+    let root = child.id();
+    let adoption = adopt(info, BgChild::Local(child), memory_guard.then_some(root));
+    let mut out_feed = adoption.feed("stdout");
+    let mut err_feed = adoption.feed("stderr");
+    out.hand_over(Box::new(move |d| out_feed.feed(d)));
+    err.hand_over(Box::new(move |d| err_feed.feed(d)));
+    // Handed over first: nothing read since is in these, and nothing in these is fed again.
+    let (stdout, stderr) = (out.text(), err.text());
+    adoption.prepend(&format!("{stdout}{stderr}"));
+    let shell_id = adoption.id.clone();
+    let (out_done, err_done) = (out.done_flag(), err.done_flag());
+    adoption.finish_when(move || {
+        while !(out_done.load(Ordering::Acquire) && err_done.load(Ordering::Acquire)) {
+            std::thread::sleep(Duration::from_millis(50));
+        }
+    });
+    moved_result(stdout, stderr, shell_id, by_timeout)
+}
+
 fn run_to_completion(
     mut cmd: Command,
     timeout_ms: Option<u64>,
     run_id: Option<String>,
     log: Option<&LogRequest>,
     stdin: Option<String>,
+    opts: AgentOpts,
 ) -> Result<RunResult, String> {
     cmd.stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -301,6 +538,15 @@ fn run_to_completion(
             .unwrap_or_else(|e| e.into_inner())
             .insert(id.clone(), cancel.clone());
     }
+    let memory = MemoryWatch::start(opts.memory_guard, child.id(), &cancel);
+    let forget_run = || {
+        if let Some(id) = &run_id {
+            active_runs()
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .remove(id);
+        }
+    };
 
     let timeout = Duration::from_millis(timeout_ms.unwrap_or(120_000));
     let start = Instant::now();
@@ -317,22 +563,35 @@ fn run_to_completion(
         } else if start.elapsed() >= timeout {
             timed_out = true;
         }
+        if !cancelled {
+            if let Some(to) = &opts.to_background {
+                let asked = to.flag.load(Ordering::Acquire);
+                if asked || timed_out {
+                    forget_run();
+                    memory.finish();
+                    let info = opts.to_background.unwrap().info;
+                    return Ok(move_to_background(
+                        child,
+                        out,
+                        err,
+                        info,
+                        opts.memory_guard,
+                        !asked,
+                    ));
+                }
+            }
+        }
         if cancelled || timed_out {
             kill_tree(&mut child);
             break child.wait().ok();
         }
         std::thread::sleep(Duration::from_millis(20));
     };
-
-    if let Some(id) = &run_id {
-        active_runs()
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .remove(id);
-    }
+    forget_run();
 
     out.settle();
     err.settle();
+    let memory_stop = memory.finish();
     Ok(finish_run(
         Captured {
             stdout: out.text(),
@@ -342,8 +601,9 @@ fn run_to_completion(
         },
         status.and_then(|s| s.code()).unwrap_or(-1),
         timed_out,
-        cancelled,
+        cancelled && memory_stop.is_none(),
         timeout,
+        memory_stop,
     ))
 }
 
@@ -360,6 +620,7 @@ pub(super) fn finish_run(
     timed_out: bool,
     cancelled: bool,
     timeout: Duration,
+    memory_stop: Option<MemoryStop>,
 ) -> RunResult {
     let Captured {
         stdout,
@@ -367,11 +628,16 @@ pub(super) fn finish_run(
         stdout_log,
         stderr_log,
     } = captured;
-    if timed_out || cancelled {
+    if timed_out || cancelled || memory_stop.is_some() {
         if !stderr.is_empty() && !stderr.ends_with('\n') {
             stderr.push('\n');
         }
-        stderr.push_str(&if timed_out {
+        stderr.push_str(&if let Some(m) = memory_stop {
+            format!(
+                "Command stopped by Nyxs: it was using {} GB of memory on this {} GB computer (partial output shown)",
+                m.used_gb, m.installed_gb
+            )
+        } else if timed_out {
             format!(
                 "Command stopped by the timeout after {} ms (partial output shown)",
                 timeout.as_millis()
@@ -388,6 +654,8 @@ pub(super) fn finish_run(
         cancelled,
         stdout_log,
         stderr_log,
+        memory_stop,
+        background: None,
     }
 }
 
@@ -451,6 +719,7 @@ mod tests {
             None,
             None,
             Some(input.to_string()),
+            AgentRequest::default(),
         )
         .unwrap()
     }
@@ -526,6 +795,157 @@ mod tests {
             quoted.stdout
         );
         assert!(exec_direct("powershell", &[], None, None, None).is_err());
+    }
+
+    #[test]
+    fn a_guarded_command_over_the_memory_line_is_stopped_and_says_why() {
+        let _hosts = HostUser::enter();
+        super::memory_guard::TEST_INSTALLED.store(1024, Ordering::Release);
+        // On Windows without variables the command runs on a pooled host; with them, on its own.
+        for env in [
+            None,
+            Some(HashMap::from([("NYXS_T".to_string(), "1".to_string())])),
+        ] {
+            let start = Instant::now();
+            let r = run_command(
+                SLOW.into(),
+                None,
+                Some(60_000),
+                env,
+                None,
+                None,
+                None,
+                AgentRequest {
+                    memory_guard: true,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+            let m = r.memory_stop.expect("not stopped for memory");
+            assert!(m.used_gb >= 1);
+            assert!(!r.cancelled && !r.timed_out);
+            assert!(r.stderr.contains("of memory on this"), "{}", r.stderr);
+            assert!(start.elapsed() < Duration::from_secs(20));
+        }
+        super::memory_guard::TEST_INSTALLED.store(0, Ordering::Release);
+        // Unguarded, nothing is stopped.
+        let r = run_command(
+            "echo hi".into(),
+            None,
+            Some(30_000),
+            None,
+            None,
+            None,
+            None,
+            AgentRequest::default(),
+        )
+        .unwrap();
+        assert!(r.memory_stop.is_none());
+    }
+
+    #[cfg(target_os = "windows")]
+    const TWO_PARTS: &str = "Write-Output first; Start-Sleep -Seconds 3; Write-Output second";
+    #[cfg(not(target_os = "windows"))]
+    const TWO_PARTS: &str = "echo first; sleep 3; echo second";
+
+    /// The background shell `id` once it ended: its status, code and output.
+    fn ended_shell(id: &str) -> (String, Option<i32>, String) {
+        let start = Instant::now();
+        loop {
+            let sh = super::super::background::bg_shells()
+                .lock()
+                .unwrap()
+                .get(id)
+                .cloned()
+                .expect("no such shell");
+            if sh.status != "running" {
+                return (sh.status, sh.code, sh.output);
+            }
+            assert!(start.elapsed() < Duration::from_secs(30), "never ended");
+            std::thread::sleep(Duration::from_millis(100));
+        }
+    }
+
+    #[test]
+    fn a_running_command_moves_to_the_background_and_goes_on_there() {
+        let _hosts = HostUser::enter();
+        // On Windows without variables the command runs on a pooled host; with them, on its own.
+        for (n, env) in [
+            None,
+            Some(HashMap::from([("NYXS_T".to_string(), "1".to_string())])),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let id = format!("test-move-{n}");
+            let run_id = id.clone();
+            let handle = std::thread::spawn(move || {
+                run_command(
+                    TWO_PARTS.into(),
+                    None,
+                    Some(60_000),
+                    env,
+                    Some(run_id),
+                    None,
+                    None,
+                    AgentRequest {
+                        to_background: true,
+                        description: Some("two parts".into()),
+                        ..Default::default()
+                    },
+                )
+                .unwrap()
+            });
+            let start = Instant::now();
+            // Moved once it has printed its first part.
+            std::thread::sleep(Duration::from_millis(1500));
+            while !agent_run_to_background(id.clone()) {
+                assert!(
+                    start.elapsed() < Duration::from_secs(20),
+                    "run never registered"
+                );
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            let r = handle.join().unwrap();
+            let moved = r.background.expect("not moved");
+            assert!(!moved.by_timeout);
+            assert!(
+                start.elapsed() < Duration::from_secs(3),
+                "waited for the command"
+            );
+            let (status, code, output) = ended_shell(&moved.shell_id);
+            assert_eq!((status.as_str(), code), ("done", Some(0)), "{output}");
+            assert!(
+                output.contains("first") && output.contains("second"),
+                "{output:?}"
+            );
+            assert!(!agent_run_to_background(id), "still movable after it moved");
+        }
+    }
+
+    #[test]
+    fn a_movable_command_at_its_time_limit_goes_on_in_the_background() {
+        let _hosts = HostUser::enter();
+        let r = run_command(
+            TWO_PARTS.into(),
+            None,
+            Some(1_000),
+            None,
+            Some("test-move-timeout".into()),
+            None,
+            None,
+            AgentRequest {
+                to_background: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert!(!r.timed_out);
+        let moved = r.background.expect("stopped instead of moved");
+        assert!(moved.by_timeout);
+        let (status, _, output) = ended_shell(&moved.shell_id);
+        assert_eq!(status, "done");
+        assert!(output.contains("second"), "{output:?}");
     }
 
     #[test]

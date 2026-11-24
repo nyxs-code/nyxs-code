@@ -1,4 +1,4 @@
-import { useState, type ComponentProps, type CSSProperties, type DragEvent, type ReactNode } from "react";
+import { useMemo, useState, type ComponentProps, type CSSProperties, type DragEvent, type ReactNode } from "react";
 import { Loader2, X } from "lucide-react";
 import FindBar from "@/components/FindBar";
 import { ChatTranscript } from "@/components/ChatTranscript";
@@ -87,6 +87,11 @@ export function ChatPane({
   const t = useTranslations().app;
   const { scrollRef, handleChatScroll, visibleCount, showEarlierMessages, showAtLeast, followOutput } = useChatScroll(chat.id, chat.messages);
   const mascot = useMascotMood({ messages: chat.messages, busy: streaming || compacting, waiting: pending.length > 0 || !!question });
+  // What the user wrote, for ↑ in the empty box: not the turns the app or another session sent.
+  const sentHistory = useMemo(
+    () => chat.messages.filter((m) => m.role === "user" && !m.notice && !m.fromSession && m.content.trim()).map((m) => m.content),
+    [chat.messages],
+  );
   return (
     <section
       aria-label={chat.title}
@@ -162,6 +167,7 @@ export function ChatPane({
           draftKey={chat.id}
           lockWorkspace={chat.messages.length > 0}
           mascot={mascot}
+          history={sentHistory}
         />
       </div>
     </section>

@@ -5,6 +5,9 @@ import { createContext, useContext } from "react";
 export interface CommandRunEnv {
   workspace: string | null;
   openView?: (view: string) => void;
+  /** The session the transcript belongs to, for what a message does to it (a stopped command's
+   *  "Allow in this session"). */
+  chatId?: string;
 }
 
 export const CommandRunContext = createContext<CommandRunEnv>({ workspace: null });

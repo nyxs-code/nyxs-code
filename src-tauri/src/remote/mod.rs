@@ -307,6 +307,9 @@ mod live {
             None,
             None,
             None,
+            None,
+            None,
+            None,
         ))
         .unwrap();
         let v = serde_json::to_value(&ran).unwrap();
@@ -337,6 +340,9 @@ mod live {
             None,
             None,
             Some("{\"hook\":\"añø ✓\"}".into()),
+            None,
+            None,
+            None,
         ))
         .unwrap();
         assert_eq!(
@@ -348,6 +354,9 @@ mod live {
             "sleep 5".into(),
             Some(root.clone()),
             Some(1_000),
+            None,
+            None,
+            None,
             None,
             None,
             None,
@@ -635,6 +644,7 @@ mod live {
             "session-live".into(),
             "Nyxs/live".into(),
             None,
+            None,
         )
         .unwrap();
         assert!(
@@ -654,6 +664,7 @@ mod live {
                 root.clone(),
                 "session-live".into(),
                 "Nyxs/live".into(),
+                None,
                 None
             )
             .unwrap(),

@@ -1,6 +1,7 @@
 import { homeDir } from "@tauri-apps/api/path";
 import { readJsonFile, writeJsonFile } from "@/lib/safeJsonFile";
 import { parseCron, cronMatches, nextRun } from "./cron";
+import type { PermissionMode } from "./configSchema";
 
 const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -29,6 +30,19 @@ export interface ScheduledTask {
   nextRunAt?: number;
   /** The project folder the task runs in; the open one when unset. */
   workspace?: string;
+  /** More schedules besides `cron` (the form's "+" next to the trigger): it runs on any of them. */
+  extraCrons?: string[];
+  /** The model the run uses; the app's selected one when unset or no longer available. */
+  model?: string;
+  /** The permission mode of the run; the app's current one when unset. */
+  permissionMode?: PermissionMode;
+  /** The template it was made from, for its icon. */
+  template?: string;
+}
+
+/** Every schedule a task runs on. */
+export function taskCrons(task: Pick<ScheduledTask, "cron" | "extraCrons">): string[] {
+  return [task.cron, ...(task.extraCrons ?? [])].filter((c) => c.trim());
 }
 
 /** A task to fill the Routines form with (from a session's menu in the sidebar). */
@@ -104,18 +118,25 @@ export function dueTasks(tasks: ScheduledTask[], now: Date): ScheduledTask[] {
   const thisMinute = Math.floor(now.getTime() / 60_000);
   return tasks.filter((t) => {
     if (!t.enabled) return false;
-    const spec = parseCron(t.cron);
-    if (!spec || !cronMatches(spec, now)) return false;
+    const matches = taskCrons(t).some((c) => {
+      const spec = parseCron(c);
+      return !!spec && cronMatches(spec, now);
+    });
+    if (!matches) return false;
     if (t.lastRunAt && Math.floor(t.lastRunAt / 60_000) === thisMinute) return false;
     return true;
   });
 }
 
-export function computeNextRun(task: ScheduledTask, after: Date = new Date()): number | null {
-  const spec = parseCron(task.cron);
-  if (!spec) return null;
-  const d = nextRun(spec, after);
-  return d ? d.getTime() : null;
+/** The soonest of the task's schedules. */
+export function computeNextRun(task: Pick<ScheduledTask, "cron" | "extraCrons">, after: Date = new Date()): number | null {
+  let best: number | null = null;
+  for (const c of taskCrons(task)) {
+    const spec = parseCron(c);
+    const d = spec ? nextRun(spec, after) : null;
+    if (d && (best === null || d.getTime() < best)) best = d.getTime();
+  }
+  return best;
 }
 
 export function isValidCron(expr: string): boolean {

@@ -26,6 +26,7 @@ function mount() {
     goBack: vi.fn(),
     goForward: vi.fn(),
     cycleSession: vi.fn(),
+    moveToBackground: vi.fn(() => false),
   } satisfies Actions;
   renderHook(() => useAppShortcuts({ current: a }));
   return a;
@@ -49,6 +50,14 @@ const altGr = (key: string, code: string, flagged = true): KeyboardEventInit =>
 afterEach(cleanup);
 
 describe("useAppShortcuts", () => {
+  it("Ctrl+B moves running commands to the background, and is left alone when there are none", () => {
+    const a = mount();
+    expect(press({ key: "b", code: "KeyB", ctrlKey: true }).defaultPrevented).toBe(false);
+    expect(a.moveToBackground).toHaveBeenCalledOnce();
+    a.moveToBackground.mockReturnValue(true);
+    expect(press({ key: "b", code: "KeyB", ctrlKey: true }).defaultPrevented).toBe(true);
+  });
+
   it("lets AltGr type its characters instead of running shortcuts", () => {
     const a = mount();
     // Spanish layout: \ is AltGr+º, @ AltGr+2, # AltGr+3, | AltGr+1.

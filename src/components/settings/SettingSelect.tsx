@@ -17,12 +17,15 @@ export function SettingSelect<T extends string>({
   onChange,
   ariaLabel,
   align = "right",
+  pill = false,
 }: {
   value: T;
   options: SettingSelectOption<T>[];
   onChange: (v: T) => void;
   ariaLabel?: string;
   align?: "left" | "right";
+  /** A filled gray button, for a row of choices side by side (a scheduled task's trigger). */
+  pill?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -54,7 +57,9 @@ export function SettingSelect<T extends string>({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={ariaLabel}
-        className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[13px] text-text-100 transition-colors whitespace-nowrap ${open ? "bg-bg-200" : "hover:bg-bg-200"}`}
+        className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[13px] text-text-100 transition-colors whitespace-nowrap ${
+          pill ? (open ? "bg-bg-300" : "bg-bg-200 hover:bg-bg-300") : open ? "bg-bg-200" : "hover:bg-bg-200"
+        }`}
       >
         {current?.label}
         <ChevronDown className={`w-3.5 h-3.5 text-text-400 transition-transform ${open ? "rotate-180" : ""}`} />
@@ -63,7 +68,7 @@ export function SettingSelect<T extends string>({
         <div
           data-mod-menu
           role="menu"
-          className={`absolute ${align === "left" ? "left-0" : "right-0"} top-full mt-1.5 z-50 p-1.5 rounded-[8px] border border-bg-300 bg-bg-100 shadow-2xl ${wide ? "w-80" : "min-w-[11rem]"}`}
+          className={`absolute ${align === "left" ? "left-0" : "right-0"} top-full mt-1.5 z-50 p-1.5 rounded-[8px] border border-bg-300 bg-bg-100 shadow-2xl max-h-72 overflow-y-auto custom-scrollbar ${wide ? "w-80" : "min-w-[11rem]"}`}
         >
           {options.map((o) => {
             const active = o.id === value;

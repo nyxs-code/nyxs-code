@@ -56,6 +56,7 @@ export function ServersMenu({
   answerPrep,
   workspace,
   onAddServer,
+  logs,
 }: {
   launch: LaunchEntry[];
   launching: string | null;
@@ -75,6 +76,9 @@ export function ServersMenu({
   answerPrep: (go: boolean) => void;
   workspace: string | null;
   onAddServer?: () => void;
+  /** Shows or hides the panel with the output of the server the page shows; absent while no
+   *  server Nyxs started is running (one started elsewhere has no output to show). */
+  logs?: { open: boolean; toggle: () => void };
 }) {
   const t = useTranslations().views;
   return (
@@ -145,9 +149,22 @@ export function ServersMenu({
           {prep && <div className="px-1 pb-1"><ServerPrepCard prep={prep} workspace={workspace} onAnswer={answerPrep} /></div>}
           {boot && <div className="px-1 pb-1"><ServerBootStatus boot={boot} onCancel={cancelBoot} /></div>}
           {launchError && <div className="px-1 pb-1"><LaunchError error={launchError} /></div>}
+          {logs && (
+            <>
+              <div className="my-1 border-t border-bg-300" />
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => { setServersOpen(false); logs.toggle(); }}
+                className="w-full text-left px-2 py-1 rounded-[5px] text-[13px] text-text-100 hover:bg-bg-200 transition-colors"
+              >
+                {logs.open ? t.hideServerLogs : t.showServerLogs}
+              </button>
+            </>
+          )}
           {onAddServer && (
             <>
-              {launch.length > 0 && <div className="my-1 border-t border-bg-300" />}
+              {launch.length > 0 && !logs && <div className="my-1 border-t border-bg-300" />}
               <button
                 type="button"
                 onClick={() => { setServersOpen(false); onAddServer(); }}

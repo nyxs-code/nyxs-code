@@ -1,11 +1,11 @@
-export type Section = "chat" | "code" | "routines" | "dispatch" | "customize" | "feedback";
+export type Section = "chat" | "code" | "routines" | "artifacts" | "customize" | "feedback";
 
 const SECTION_LABELS: Record<Section, string> = {
   chat: "Chat",
   code: "Code",
-  routines: "Routines",
-  dispatch: "Dispatch",
-  customize: "Customize",
+  routines: "Scheduled",
+  artifacts: "Artifacts",
+  customize: "Plugins",
   feedback: "Feedback",
 };
 

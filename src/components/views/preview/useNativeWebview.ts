@@ -51,7 +51,11 @@ export function useWebviewVisibility({
     // leave that strip uncovered.
     const handle = el?.closest("aside")?.querySelector("[data-panel-resize]")?.getBoundingClientRect();
     const left = handle && handle.right > r.left && handle.left <= r.left ? handle.right : r.left;
-    return { x: left, y: r.top, width: Math.max(0, r.right - left), height: r.height };
+    // Never past the window's edges: a panel wider than a shrunken window would otherwise put
+    // a page bigger than the window on it.
+    const right = Math.min(r.right, window.innerWidth);
+    const bottom = Math.min(r.bottom, window.innerHeight);
+    return { x: left, y: r.top, width: Math.max(0, right - left), height: Math.max(0, bottom - r.top) };
   }, [contentRef]);
   const { covered, dialog } = useCoveredByApp(contentRef, rootRef, contentBounds, active && !!extUrl);
   const holesActive = NATIVE_HOLES && (menuOpen || serversOpen || pickTipShown || barShown || dialog) && active && !!extUrl;
@@ -166,11 +170,23 @@ export function useNativeWebview({
     if (!extUrl || webviewHidden) return;
     const el = contentRef.current;
     if (!el) return;
-    const update = () => { const b = contentBounds(); if (b) setPreviewWebviewBounds(tabId, b); };
-    const ro = new ResizeObserver(update);
+    let last: Bounds | null = null;
+    const update = (onlyIfMoved = false) => {
+      const b = contentBounds();
+      if (!b) return;
+      if (onlyIfMoved && last && b.x === last.x && b.y === last.y && b.width === last.width && b.height === last.height) return;
+      last = b;
+      setPreviewWebviewBounds(tabId, b);
+    };
+    const onResize = () => update();
+    const ro = new ResizeObserver(onResize);
     ro.observe(el);
-    window.addEventListener("resize", update);
-    return () => { ro.disconnect(); window.removeEventListener("resize", update); };
+    window.addEventListener("resize", onResize);
+    // The observers only see the box change size. A box that only moves (a layout change that
+    // shifts it, the window coming back from the computer-control corner) left the page where
+    // it was, over the chat: check now and then that it's still in place.
+    const check = window.setInterval(() => update(true), 400);
+    return () => { ro.disconnect(); window.removeEventListener("resize", onResize); window.clearInterval(check); };
   }, [tabId, extUrl, webviewHidden, contentBounds, contentRef]);
 
   useEffect(() => () => { setNativeViewShown(tabId, false); void closePreviewWebview(tabId); }, [tabId]);

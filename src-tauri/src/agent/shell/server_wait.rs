@@ -242,6 +242,7 @@ mod tests {
                     code,
                     started_at: 0,
                     ended_at: None,
+                    memory_stop: None,
                     dropped: 0,
                 },
             );

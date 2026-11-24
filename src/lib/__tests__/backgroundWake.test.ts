@@ -1,7 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import type { ToolSet } from "ai";
 import {
   BackgroundWaker,
+  MONITOR_BATCH_MS,
   WAKE_HINT,
   backgroundNotice,
   trackBackgroundShells,
@@ -36,6 +37,22 @@ describe("trackBackgroundShells", () => {
     expect(String(out)).toContain(WAKE_HINT);
     expect(await call(tools, "Bash", { command: "ls" })).toBe("[exit code: 0]\nok");
     expect(events).toHaveLength(1);
+  });
+
+  it("follows a command moved to the background, and a monitor, as started shells", async () => {
+    const tools = {
+      ...shellTools(),
+      Bash: { inputSchema: {}, execute: async () => "[moved to the background: bash_7, by the user]\nIt keeps running." },
+      Monitor: { inputSchema: {}, execute: async () => "Monitor started.\nShell ID: bash_8\n…" },
+    } as unknown as ToolSet;
+    const events: BackgroundShellEvent[] = [];
+    trackBackgroundShells(tools, (e) => events.push(e));
+    await call(tools, "Bash", { command: "npm run build", description: "Build" });
+    await call(tools, "Monitor", { command: "tail -f app.log", description: "Errors" });
+    expect(events).toEqual([
+      { kind: "started", id: "bash_7", command: "npm run build", description: "Build" },
+      { kind: "started", id: "bash_8", command: "tail -f app.log", description: "Errors", monitor: true },
+    ]);
   });
 
   it("marks a shell as seen when the model reads its final status or stops it", async () => {
@@ -114,6 +131,58 @@ describe("BackgroundWaker", () => {
     await w.exited("s", "done", 0);
     expect(wakes[0][0].title).toBe("npm test");
     expect(wakes[0][0].tail.length).toBeLessThanOrEqual(3001);
+  });
+});
+
+describe("a monitor", () => {
+  it("wakes its chat with the lines of a few seconds at once, and goes on watching", async () => {
+    vi.useFakeTimers();
+    try {
+      const { w, wakes } = waker();
+      w.onEvent("chat-a", { kind: "started", id: "m1", command: "tail -f app.log", description: "Errors", monitor: true });
+      w.output("m1", "ERROR one");
+      w.output("m1", "ERROR two\nERROR three");
+      expect(wakes).toHaveLength(0);
+      vi.advanceTimersByTime(MONITOR_BATCH_MS);
+      expect(wakes).toHaveLength(1);
+      expect(wakes[0].shells[0]).toMatchObject({ id: "m1", status: "output", lines: 3, tail: "ERROR one\nERROR two\nERROR three" });
+      // Still watched: the next lines wake it again.
+      w.output("m1", "ERROR four");
+      vi.advanceTimersByTime(MONITOR_BATCH_MS);
+      expect(wakes).toHaveLength(2);
+      expect(wakes[1].shells[0].lines).toBe(1);
+      // A plain background shell's output wakes nothing.
+      w.onEvent("chat-a", started("s1"));
+      w.output("s1", "building…");
+      vi.advanceTimersByTime(MONITOR_BATCH_MS);
+      expect(wakes).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("waits for a running reply to end before it wakes", () => {
+    vi.useFakeTimers();
+    try {
+      const { w, wakes, running } = waker(new Set(["chat-a"]));
+      w.onEvent("chat-a", { kind: "started", id: "m1", command: "watch", description: "", monitor: true });
+      w.output("m1", "event");
+      vi.advanceTimersByTime(MONITOR_BATCH_MS);
+      expect(wakes).toHaveLength(0);
+      running.clear();
+      w.turnEnded("chat-a");
+      expect(wakes).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("gives the model its new lines and says it keeps running", () => {
+    const text = backgroundNotice([{ id: "m1", title: "Errors", command: "tail -f", status: "output", code: null, tail: "ERROR 500", lines: 1 }]);
+    expect(text).toContain("<monitor-event>");
+    expect(text).toContain('<new-lines count="1">\nERROR 500');
+    expect(text).toContain("KillShell");
+    expect(text).not.toContain("<task-notification>");
   });
 });
 

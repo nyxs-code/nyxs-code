@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { useCloseOnBlur } from "@/lib/useCloseOnBlur";
 import { createPortal } from "react-dom";
-import { Plus, Search, Settings, Code2, Zap, SlidersHorizontal, Briefcase, ChevronDown, ChevronRight, Check, Languages, LifeBuoy, History, LogOut, EllipsisVertical, MessageSquareHeart, GitPullRequest, GitPullRequestDraft, GitPullRequestClosed, GitMerge, Folder, FolderOpen, Layers, Pin, Pencil, Trash2, X } from "lucide-react";
+import { Plus, Search, Settings, Code2, Clock, Plug, Copy, ChevronDown, ChevronRight, Check, Languages, LifeBuoy, History, LogOut, EllipsisVertical, MessageSquareHeart, GitPullRequest, GitPullRequestDraft, GitPullRequestClosed, GitMerge, Folder, FolderOpen, Layers, Pin, Pencil, Trash2, X } from "lucide-react";
 import { LearnMoreMenu } from "@/components/sidebar/LearnMoreMenu";
 import { SessionMenu, type SessionCopy, type SessionMenuAction, type SessionMenuTarget } from "@/components/sidebar/SessionMenu";
 import { createSection, deleteSection, moveToSection, renameSection, setPinned, setUnread, useSessionMarks } from "@/lib/sessionMarks";
@@ -146,21 +146,27 @@ function ChatStatus({
   );
 }
 
-const OPTIONAL_ITEMS: { id: string; label: string; icon: typeof Code2; section: Section; badge?: string }[] = [
-  { id: "routines", label: "Routines", icon: Zap, section: "routines" },
-  { id: "dispatch", label: "Dispatch", icon: Briefcase, section: "dispatch" },
-  { id: "customize", label: "Customize", icon: SlidersHorizontal, section: "customize" },
-];
-
-const ITEMS_KEY = "nyxs.sidebarItems.v1";
-function loadVisible(): Record<string, boolean> {
-  const defaults = { routines: true, dispatch: true, customize: true, feedback: true };
-  try {
-    return { ...defaults, ...(JSON.parse(localStorage.getItem(accountKey(ITEMS_KEY)) || "{}") as Record<string, boolean>) };
-  } catch {
-    return defaults;
-  }
+/** Claude's plugins icon: a plug lying at 45°, its prongs up and to the right. */
+function PluginsIcon({ className }: { className?: string }) {
+  return <Plug className={cn(className, "rotate-45")} />;
 }
+
+/** Claude's artifacts icon: two overlapping cards, the front one at the bottom left. */
+function ArtifactsIcon({ className }: { className?: string }) {
+  return <Copy className={cn(className, "-scale-x-100")} />;
+}
+
+const OPTIONAL_ITEMS: {
+  id: string;
+  label: string;
+  icon: (props: { className?: string }) => React.ReactNode;
+  section: Section;
+  badge?: string;
+}[] = [
+  { id: "routines", label: "Scheduled", icon: Clock, section: "routines" },
+  { id: "artifacts", label: "Artifacts", icon: ArtifactsIcon, section: "artifacts" },
+  { id: "customize", label: "Plugins", icon: PluginsIcon, section: "customize" },
+];
 
 interface SidebarProps {
   chats: ChatSummary[];
@@ -348,7 +354,7 @@ export function Sidebar({
   onRemoveProject,
 }: SidebarProps) {
   const inCode =
-    section === "code" || section === "routines" || section === "dispatch" || section === "customize" || section === "feedback";
+    section === "code" || section === "routines" || section === "artifacts" || section === "customize" || section === "feedback";
 
   const t = useTranslations().sidebar;
   const tm = useTranslations().sidebarMenu;
@@ -360,8 +366,6 @@ export function Sidebar({
   const tSearch = useTranslations().search;
   const tTitle = useTranslations().titleBar;
 
-  const [visible, setVisible] = useState<Record<string, boolean>>(loadVisible);
-  const [customizeOpen, setCustomizeOpen] = useState(false);
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -558,13 +562,6 @@ export function Sidebar({
     return () => document.removeEventListener("mousedown", h);
   }, []);
 
-  const toggleItem = (id: string) =>
-    setVisible((v) => {
-      const next = { ...v, [id]: !v[id] };
-      localStorage.setItem(accountKey(ITEMS_KEY), JSON.stringify(next));
-      return next;
-    });
-
   return (
     <aside data-mod-panel className="relative shrink-0 flex flex-col bg-bg-0 border-r border-bg-300" style={{ width }}>
       {/* Only the stretch through the title bar (h-9) sits above it, so the divider runs the full
@@ -580,19 +577,6 @@ export function Sidebar({
       <>
       {/* Every row, nav and recents alike, shares one height, size and left edge. */}
       <div className="px-2">
-        {/* Looks like a search box; the search itself opens in the sessions dialog. */}
-        {onOpenSearch && (
-          <button
-            onClick={onOpenSearch}
-            aria-label={tSearch.sessionsTitle}
-            data-tooltip={tSearch.sessionsTitle}
-            data-tooltip-kbd="Ctrl+K"
-            className="w-full mb-2 flex items-center gap-2 px-2 py-1 rounded-[5px] border border-bg-300 bg-bg-100 text-sm leading-5 text-text-300 hover:border-text-500/40 transition-colors"
-          >
-            <Search className="w-4 h-4 shrink-0" />
-            <span className="flex-1 text-left truncate">{tTitle.search}</span>
-          </button>
-        )}
         <button
           onClick={onNewChat}
           className="w-full flex items-center gap-2.5 px-2 py-1 rounded-[5px] text-sm leading-5 text-text-100 hover:bg-bg-200 transition-colors"
@@ -600,8 +584,21 @@ export function Sidebar({
           <Plus className="w-4 h-4" />
           {t.newSession}
         </button>
+        {/* A plain row like the others, as in Claude; the search itself opens in the sessions dialog. */}
+        {onOpenSearch && (
+          <button
+            onClick={onOpenSearch}
+            aria-label={tSearch.sessionsTitle}
+            data-tooltip={tSearch.sessionsTitle}
+            data-tooltip-kbd="Ctrl+K"
+            className="w-full flex items-center gap-2.5 px-2 py-1 rounded-[5px] text-sm leading-5 text-text-100 hover:bg-bg-200 transition-colors"
+          >
+            <Search className="w-4 h-4 shrink-0" />
+            <span className="flex-1 text-left truncate">{tTitle.search}</span>
+          </button>
+        )}
 
-        {OPTIONAL_ITEMS.filter((it) => visible[it.id]).map((it) => (
+        {OPTIONAL_ITEMS.map((it) => (
           <button
             key={it.id}
             onClick={() => onSectionChange(it.section)}
@@ -612,21 +609,13 @@ export function Sidebar({
           >
             <it.icon className="w-4 h-4" />
             <span className="flex-1 text-left">
-              {it.id === "routines" ? tm.routines : it.id === "dispatch" ? tm.dispatch : it.id === "customize" ? tm.customize : it.label}
+              {it.id === "routines" ? tm.routines : it.id === "artifacts" ? tm.artifacts : it.id === "customize" ? tm.customize : it.label}
             </span>
             {it.badge && (
               <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-bg-300 text-text-400">{it.badge}</span>
             )}
           </button>
         ))}
-
-        <button
-          onClick={() => setCustomizeOpen(true)}
-          className="w-full flex items-center gap-2.5 px-2 py-1 rounded-[5px] text-sm leading-5 text-text-300 hover:bg-bg-200 transition-colors"
-        >
-          <ChevronDown className="w-4 h-4" />
-          {t.more}
-        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar px-2 pt-5 pb-3">
@@ -1298,35 +1287,6 @@ export function Sidebar({
 
       <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
 
-      <Dialog open={customizeOpen} onClose={() => setCustomizeOpen(false)} className="max-w-sm p-5">
-        <DialogHeader className="p-0 mb-1">
-          <DialogTitle className="text-lg font-semibold">{t.customizeTitle}</DialogTitle>
-        </DialogHeader>
-        <p className="text-sm text-text-400 mb-4">{t.customizeDesc}</p>
-        <div className="space-y-1">
-          {OPTIONAL_ITEMS.map((it) => {
-            const on = !!visible[it.id];
-            return (
-              <button
-                key={it.id}
-                onClick={() => toggleItem(it.id)}
-                className="w-full flex items-center gap-3 px-2 py-2 rounded-[6px] hover:bg-bg-200 transition-colors"
-              >
-                <span className={cn("w-5 h-5 rounded flex items-center justify-center border shrink-0", on ? "bg-accent border-accent" : "border-bg-300")}>
-                  {on && <Check className="w-3.5 h-3.5 text-bg-0" />}
-                </span>
-                <it.icon className="w-4 h-4 text-text-300" />
-                <span className="text-sm text-text-100">
-                  {it.id === "routines" ? tm.routines : it.id === "dispatch" ? tm.dispatch : it.id === "customize" ? tm.customize : it.label}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-        <div className="flex justify-end mt-5">
-          <Button onClick={() => setCustomizeOpen(false)}>{t.done}</Button>
-        </div>
-      </Dialog>
     </aside>
   );
 }

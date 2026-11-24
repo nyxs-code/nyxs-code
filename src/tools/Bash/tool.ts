@@ -2,12 +2,14 @@ import { invoke } from "@/lib/ipc";
 import { noteShellOwner } from "@/lib/shellOwners";
 import { tool } from "ai";
 import { z } from "zod";
-import { type RunResult, rememberCommandLogs, type BgShell, type BgOutputResult, formatRunResult } from "@/tools/Bash/format";
+import { type RunResult, rememberCommandLogs, type BgShell, type BgOutputResult, formatRunResult, formatMovedResult } from "@/tools/Bash/format";
+import { noteMovableCommand } from "@/lib/commandBackground";
 import { getBashDescription } from "@/tools/Bash/prompt";
 import type { ToolContext } from "@/tools/context";
 import { checkGate } from "@/tools/gate";
 import { TOOL_OUTPUT_LIMITS, outputLimitFor, truncateMiddle } from "@/tools/limits";
 import * as Names from "@/tools/toolNames";
+import { memoryLimitLifted, memoryStopNote } from "@/lib/commandMemory";
 
 export function createBashTool(ctx: ToolContext) {
   const { workspace, gate, promptEnv, resolve, bgOffsets, env, browserChat } = ctx;
@@ -34,8 +36,11 @@ export function createBashTool(ctx: ToolContext) {
       if (denied) return denied;
       if (abortSignal?.aborted) return "Command not run: the turn was cancelled.";
       const runCwd = cwd ? resolve(cwd) : workspace;
+      // Stopped if it uses far more memory than the computer has, unless the user allowed it
+      // for this session (sub-agents share their parent's session).
+      const memoryGuard = !memoryLimitLifted(browserChat);
       if (run_in_background) {
-        const sh = await invoke<BgShell>("agent_run_background", { command, cwd: runCwd, description, env: env ?? null });
+        const sh = await invoke<BgShell>("agent_run_background", { command, cwd: runCwd, description, env: env ?? null, memoryGuard });
         bgOffsets.set(sh.id, 0);
         noteShellOwner(sh.id, browserChat);
         return (
@@ -48,6 +53,8 @@ export function createBashTool(ctx: ToolContext) {
       const runId = crypto.randomUUID();
       const cancel = () => void invoke("agent_run_cancel", { runId });
       abortSignal?.addEventListener("abort", cancel, { once: true });
+      // Ctrl+B and the reply's "Run in background" can move it while it runs (commandBackground).
+      noteMovableCommand(browserChat, runId);
       let res: RunResult;
       try {
         res = await invoke<RunResult>("agent_run", {
@@ -58,11 +65,23 @@ export function createBashTool(ctx: ToolContext) {
           // A saved environment's variables; without them the command runs in the shared shell.
           env: env ?? null,
           logOverBytes: Math.floor(outputLimitFor(Names.BASH_TOOL_NAME) / 3),
+          memoryGuard,
+          toBackground: true,
+          description: description ?? null,
         });
       } finally {
         abortSignal?.removeEventListener("abort", cancel);
+        noteMovableCommand(browserChat, runId, true);
       }
       rememberCommandLogs(res);
+      if (res.background) {
+        const id = res.background.shell_id;
+        // BashOutput starts after what this result already shows (Rust put it first in the shell).
+        const printed = res.stdout + res.stderr;
+        bgOffsets.set(id, printed ? new TextEncoder().encode(printed.endsWith("\n") ? printed : `${printed}\n`).length : 0);
+        noteShellOwner(id, browserChat);
+        return formatMovedResult(res, res.background, timeout_ms ?? 120_000, outputLimitFor(Names.BASH_TOOL_NAME));
+      }
       return formatRunResult(res, outputLimitFor(Names.BASH_TOOL_NAME));
     },
   });
@@ -104,8 +123,9 @@ Usage:
         }
       }
       const status = `[status: ${res.status}${res.code != null ? `, exit code: ${res.code}` : ""}]`;
-      const body = out.trim() ? truncateMiddle(out.trimEnd(), TOOL_OUTPUT_LIMITS.default - status.length, 1 / 5) : "(no new output)";
-      return `${status}\n${body}`;
+      const memory = res.memoryStop ? `${memoryStopNote(res.memoryStop)}\n` : "";
+      const body = out.trim() ? truncateMiddle(out.trimEnd(), TOOL_OUTPUT_LIMITS.default - status.length - memory.length, 1 / 5) : "(no new output)";
+      return `${status}\n${memory}${body}`;
     },
   });
 }

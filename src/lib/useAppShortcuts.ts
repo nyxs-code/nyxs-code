@@ -23,6 +23,8 @@ export interface AppShortcutActions {
   goForward: () => void;
   /** Opens the next (1) or previous (-1) session in Recents. */
   cycleSession: (step: 1 | -1) => void;
+  /** Moves the open chat's running commands to the background; false when it has none. */
+  moveToBackground: () => boolean;
 }
 
 /** The app's keyboard shortcuts. The listeners are added once and call whatever actions the
@@ -101,6 +103,12 @@ export function useAppShortcuts(ref: RefObject<AppShortcutActions | null>) {
         case "o": case "O": e.preventDefault(); cycleTranscriptView(); return;
         // The side chat; Claude Code Desktop's Ctrl+; is the sidebar here.
         case "j": case "J": e.preventDefault(); toggleSideChat(); return;
+        // Like Claude Code Desktop: the open chat's running commands go on in the background.
+        // Only taken when there is one, so Ctrl+B stays the editor's and terminal's otherwise.
+        case "b": case "B":
+          if (e.target instanceof HTMLElement && e.target.closest(".xterm")) return;
+          if (a.moveToBackground()) e.preventDefault();
+          return;
       }
     };
     // Ctrl+` is caught on the way down (capture), before the focused element — the terminal

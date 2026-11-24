@@ -9,6 +9,7 @@ import { APPLY_PATCH_TOOL_NAME, createApplyPatchTool } from "@/tools/ApplyPatch/
 import { addAskUserQuestionTools } from "@/tools/AskUserQuestion/tool";
 import { addBrowserTools } from "@/tools/Browser/tool";
 import { createBashTool, createBashOutputTool, createKillShellTool } from "@/tools/Bash/tool";
+import { createMonitorTool } from "@/tools/Monitor/tool";
 import { createComputerTool } from "@/tools/Computer/tool";
 import { createEditTool, createMultiEditTool } from "@/tools/Edit/tool";
 import { createGitStatusTool, createGitDiffTool, createGitLogTool, createGitBlameTool } from "@/tools/Git/tool";
@@ -67,6 +68,7 @@ export function buildTools(toolOptions: BuildToolsOptions): ToolSet {
     Bash: createBashTool(ctx),
     BashOutput: createBashOutputTool(ctx),
     KillShell: createKillShellTool(ctx),
+    Monitor: createMonitorTool(ctx),
     ListDir: createListDirTool(ctx),
     ReadPdf: createReadPdfTool(ctx),
     WritePdf: createWritePdfTool(ctx),

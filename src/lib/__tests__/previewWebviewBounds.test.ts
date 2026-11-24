@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const invoke = vi.fn();
 vi.mock("@/lib/ipc", () => ({ invoke: (...args: unknown[]) => invoke(...args) }));
 
-import { setPreviewWebviewBounds } from "../previewWebview";
+import { hidePreviewWebview, openPreviewWebview, setPreviewWebviewBounds } from "../previewWebview";
 
 const box = (width: number) => ({ x: 10, y: 20, width, height: 300 });
 const flush = () => new Promise((r) => setTimeout(r));
@@ -50,5 +50,18 @@ describe("setPreviewWebviewBounds", () => {
     await flush();
     expect(invoke.mock.calls.map(([, args]) => (args as { tab: string }).tab)).toEqual(["c", "d", "c"]);
     expect(widths()).toEqual([100, 400, 200]);
+  });
+
+  it("hides a tab only after its open under way lands", async () => {
+    const commands = () => invoke.mock.calls.map(([cmd]) => cmd);
+    void openPreviewWebview("e", "https://example.com", box(100));
+    void hidePreviewWebview("e");
+    setPreviewWebviewBounds("e", box(200));
+    await flush();
+    expect(commands()).toEqual(["preview_open"]);
+    await land();
+    expect(commands()).toEqual(["preview_open", "preview_hide"]);
+    await land();
+    expect(commands()).toEqual(["preview_open", "preview_hide", "preview_set_bounds"]);
   });
 });

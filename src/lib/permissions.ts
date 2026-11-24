@@ -93,6 +93,7 @@ export function permissionKey(toolName: string, input: unknown): string {
   const i = (input ?? {}) as Record<string, unknown>;
   switch (toolName) {
     case "Bash":
+    case "Monitor":
       return String(i.command ?? "");
     case "KillShell":
     case "BashOutput":

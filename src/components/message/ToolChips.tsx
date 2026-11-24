@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { Wrench, TriangleAlert, ChevronRight, CircleStop, Clock, Copy, Check } from "lucide-react";
+import { Wrench, TriangleAlert, ChevronRight, CircleStop, Clock, Copy, Check, ListTodo } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TextShimmer } from "@/components/ui/text-shimmer";
 import { langFromPath } from "@/lib/highlight";
@@ -9,6 +9,9 @@ import type { ToolDetail } from "@/lib/agentTools";
 import type { ToolEnd } from "./parse";
 import { DiffView } from "@/components/DiffView";
 import { EditDiffCard, LineCounts } from "./EditGroup";
+import { MemoryStopNote } from "./MemoryStopNote";
+import { BackgroundMoveNote } from "./BackgroundMoveNote";
+import { useMovedState } from "./useMovedState";
 import {
   TOOL_ICONS,
   PATH_TOOLS,
@@ -61,8 +64,13 @@ export function ToolChip({
   const pending = awaitingPermission && !done && !end;
   const running = !done && !pending;
   const failed = done && end?.status === "err";
-  // Cut off by a stop: neither done nor failed, so it gets a neutral look of its own.
-  const stopped = done && end?.status === "stopped";
+  const memoryStop = done ? info?.memoryStop : undefined;
+  // Cut off by a stop (the user's, or Nyxs's for its memory): neither done nor failed, so it
+  // gets a neutral look of its own.
+  const stopped = done && (end?.status === "stopped" || !!memoryStop);
+  // Moved to the background: it goes on there, so it reads neither as done nor as stopped.
+  const moved = done && !memoryStop ? info?.background : undefined;
+  const movedState = useMovedState(moved?.shellId, moved?.limitMs);
 
   const streamingNow = running && !!info?.streaming;
   const [now, setNow] = useState(() => Date.now());
@@ -85,8 +93,8 @@ export function ToolChip({
   // A failed call keeps its tool's own icon: many commands end with a non-zero code without
   // anything going wrong (grep with no match, git diff with changes), and a warning sign there
   // read as "the agent broke something". The row's text still says how it ended.
-  const Lead = pending ? Clock : stopped ? CircleStop : Icon;
-  const leadTone = pending ? "text-yellow-500/80" : stopped ? "text-text-400" : running ? "text-accent" : toolTone(name);
+  const Lead = pending ? Clock : stopped ? CircleStop : moved ? ListTodo : Icon;
+  const leadTone = pending ? "text-yellow-500/80" : stopped || moved ? "text-text-400" : running ? "text-accent" : toolTone(name);
 
   const row = (
     <>
@@ -112,9 +120,10 @@ export function ToolChip({
       ) : running ? (
         <TextShimmer className="text-[12.5px] font-medium whitespace-nowrap shrink-0">{`${present}…`}</TextShimmer>
       ) : (
-        <span className="text-[12.5px] font-medium text-text-300 shrink-0">{failed || stopped ? name : past}</span>
+        <span className="text-[12.5px] font-medium text-text-300 shrink-0">{failed || stopped || moved ? name : past}</span>
       )}
       {stopped && <span className="text-[11.5px] text-text-400 shrink-0">· {tMsg.toolStopped}</span>}
+      {movedState && <span className="text-[11.5px] text-text-400 shrink-0">· {movedState}</span>}
       {detail && (
         <code className="text-[11.5px] font-mono text-text-400 truncate min-w-0">
           {shown}
@@ -142,11 +151,18 @@ export function ToolChip({
 
   const thumbnail = done && !failed && info?.thumbnail ? <ToolThumbnail path={info.thumbnail} stamp={info.endedAt} /> : null;
 
+  const memoryNote = memoryStop ? (
+    <MemoryStopNote usedGb={memoryStop.usedGb} installedGb={memoryStop.installedGb} />
+  ) : moved ? (
+    <BackgroundMoveNote shellId={moved.shellId} title={detail} />
+  ) : null;
+
   if (!expandable) {
     return (
       <div className="py-0.5 min-w-0">
         <div className="flex items-center gap-2 min-w-0">{row}</div>
         {thumbnail}
+        {memoryNote}
       </div>
     );
   }
@@ -162,6 +178,7 @@ export function ToolChip({
         {row}
       </button>
       {thumbnail}
+      {memoryNote}
       {open && errorText && (
         <p className="mt-1 ml-[7px] pl-3 border-l border-bg-300 text-[11.5px] text-text-400 break-words">{errorText}</p>
       )}

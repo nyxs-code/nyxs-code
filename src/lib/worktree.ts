@@ -17,12 +17,13 @@ export function worktreeCreate(workspace: string, id: string): Promise<string> {
 }
 
 /** A session's own worktree, on the branch `<prefix>/<session id>` (Desktop prepends the prefix
- *  to every worktree branch). Reopening the session gets the same one back. */
-export async function createSessionWorktree(workspace: string, sessionId: string, existingBranch?: string): Promise<{ path: string; branch: string }> {
+ *  to every worktree branch), made from `base` (the branch picked in the composer) or from what
+ *  the folder has checked out. Reopening the session gets the same one back. */
+export async function createSessionWorktree(workspace: string, sessionId: string, existingBranch?: string, base?: string): Promise<{ path: string; branch: string }> {
   const { location, branchPrefix } = wtConfig();
   // A session reopened keeps the branch it started on, whatever the prefix is now.
   const branch = existingBranch ?? `${(branchPrefix ?? DEFAULT_BRANCH_PREFIX).replace(/\/+$/, "")}/${sessionId}`;
-  const path = await invoke<string>("session_worktree_create", { workspace, id: `session-${sessionId}`, branch, location });
+  const path = await invoke<string>("session_worktree_create", { workspace, id: `session-${sessionId}`, branch, location, base });
   return { path, branch };
 }
 

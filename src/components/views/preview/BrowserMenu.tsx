@@ -35,6 +35,7 @@ export function BrowserMenu({
   contentBounds,
   loadTarget,
   reload,
+  onImportCookies,
 }: {
   menuRef: RefObject<HTMLDivElement | null>;
   sub: SubMenu | null;
@@ -53,8 +54,11 @@ export function BrowserMenu({
   contentBounds: () => Bounds | null;
   loadTarget: LoadTarget;
   reload: () => void;
+  /** Opens "Import cookies" (CookieImportDialog), which outlives this menu. */
+  onImportCookies: () => void;
 }) {
   const t = useTranslations().views;
+  const tc = useTranslations().cookieImport;
   const prefs = useBrowserPrefs();
   const { settings, update } = useSettings();
   const verifyChanges = (settings as { allowPreview?: boolean }).allowPreview ?? true;
@@ -211,6 +215,7 @@ export function BrowserMenu({
           </div>
         )}
       </div>
+      <MenuItem onClick={() => { setMenuOpen(false); onImportCookies(); }} onHover={() => setSub(null)}>{tc.menuItem}</MenuItem>
       <MenuItem danger onClick={() => void clearBrowsingData()} onHover={() => setSub(null)}>{t.clearBrowsingData}</MenuItem>
     </div>
   );

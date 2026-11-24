@@ -62,11 +62,27 @@ export interface PreviewNavReport {
   canForward: boolean | null;
 }
 
+/** The tab's last command to its page, settled or not. */
+const tabOps = new Map<string, Promise<void>>();
+
+/** Runs the tab's commands one after the other. Commands run concurrently in the backend, so a
+ *  hide sent while an open was still under way could land first, and the open then showed the
+ *  page with its old bounds over the chat, with the panel already closed. A command with none
+ *  before it starts right away. */
+function inOrder<T>(tab: string, op: () => Promise<T>): Promise<T> {
+  const before = tabOps.get(tab);
+  const run = before ? before.then(op) : op();
+  const done = run.then(() => undefined, () => undefined);
+  tabOps.set(tab, done);
+  void done.then(() => { if (tabOps.get(tab) === done) tabOps.delete(tab); });
+  return run;
+}
+
 /** `profile` picks where the site's cookies live: "shared", "private" or a per-project key.
  *  `hidden` loads the page without showing it (a chat's browser that isn't on screen). */
 export async function openPreviewWebview(tab: string, url: string, b: Bounds, profile?: string, hidden = false): Promise<void> {
   const nav = currentPreviewNav(tab);
-  await invoke("preview_open", { tab, url, x: b.x, y: b.y, width: b.width, height: b.height, profile, hidden, nav });
+  await inOrder(tab, () => invoke("preview_open", { tab, url, x: b.x, y: b.y, width: b.width, height: b.height, profile, hidden, nav }));
 }
 
 /** Back (-1) or forward (1) in the tab's page's own history. */
@@ -94,7 +110,7 @@ export function setPreviewWebviewBounds(tab: string, b: Bounds): void {
   void (async () => {
     for (;;) {
       const { x, y, width, height } = entry.sending;
-      await invoke("preview_set_bounds", { tab, x, y, width, height }).catch(() => undefined);
+      await inOrder(tab, () => invoke("preview_set_bounds", { tab, x, y, width, height })).catch(() => undefined);
       if (!entry.next) break;
       entry.sending = entry.next;
       entry.next = null;
@@ -105,7 +121,7 @@ export function setPreviewWebviewBounds(tab: string, b: Bounds): void {
 
 /** Hides the tab's page but keeps it loaded, for a tab in the background. */
 export async function hidePreviewWebview(tab: string): Promise<void> {
-  await invoke("preview_hide", { tab });
+  await inOrder(tab, () => invoke("preview_hide", { tab }));
 }
 
 export async function reloadPreviewWebview(tab: string): Promise<void> {
@@ -113,5 +129,5 @@ export async function reloadPreviewWebview(tab: string): Promise<void> {
 }
 
 export async function closePreviewWebview(tab: string): Promise<void> {
-  await invoke("preview_close", { tab });
+  await inOrder(tab, () => invoke("preview_close", { tab }));
 }

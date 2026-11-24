@@ -20,6 +20,8 @@ import { VoiceWaveform, MicButton } from "./chat-input/VoiceControls";
 import { useInputDraft } from "./chat-input/useInputDraft";
 import { useComposerSuggestions } from "./chat-input/useComposerSuggestions";
 import { useComposerAttachments } from "./chat-input/useComposerAttachments";
+import { useComposerHistory } from "./chat-input/useComposerHistory";
+import { useSettings } from "@/lib/useSettings";
 import { useVoiceInput, type VoiceSend } from "./chat-input/useVoiceInput";
 import type { TranscribeErrorReason } from "@/lib/transcribe";
 import { livePreview } from "@/lib/attachmentPreviews";
@@ -90,6 +92,8 @@ interface ClaudeChatInputProps {
     /** The side chat's composer: the same box, without what it can't use (it reads text only and
      *  runs no tools): attachments, the permission mode and the context meter. */
     sideChat?: boolean;
+    /** The messages sent in this chat, oldest first: ↑ in the empty box brings them back. */
+    history?: readonly string[];
 }
 
 export const ClaudeChatInput: React.FC<ClaudeChatInputProps> = ({
@@ -135,8 +139,10 @@ export const ClaudeChatInput: React.FC<ClaudeChatInputProps> = ({
     draftKey = "",
     primary = true,
     sideChat = false,
+    history,
 }) => {
     const t = useTranslations().chatInput;
+    const enterNewline = (useSettings().settings as { enterNewline?: boolean }).enterNewline ?? false;
     const { message, setMessage, files, setFiles, pastedContent, setPastedContent, attachedElements, setAttachedElements } = useInputDraft(draftKey);
     const [isThinkingEnabled] = useState(false);
 
@@ -323,25 +329,44 @@ export const ClaudeChatInput: React.FC<ClaudeChatInputProps> = ({
     };
 
     const showSuggestion = Boolean(suggestion) && !message && !isStreaming && voiceState === "idle";
+    const { handleHistoryKey } = useComposerHistory({
+        history,
+        message,
+        setMessage,
+        pendingCursorRef,
+        hasAttachments: files.length > 0 || pastedContent.length > 0 || attachedElements.length > 0,
+    });
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         // An input method's Enter and arrows pick its candidates; they don't send or move menus.
         if (isComposingKey(e)) return;
         if (handleMenuKey(e)) return;
+        if (handleHistoryKey(e as React.KeyboardEvent<HTMLTextAreaElement>)) return;
         if (e.key === "Tab" && !e.shiftKey && showSuggestion) {
             e.preventDefault();
             setMessage(suggestion!);
             pendingCursorRef.current = suggestion!.length;
             return;
         }
-        if (e.key === "Enter" && !e.shiftKey) {
+        if (e.key !== "Enter") return;
+        const withMod = e.ctrlKey || e.metaKey;
+        if (enterNewline) {
+            // Enter and Shift+Enter write a line; Ctrl/⌘+Enter does what Enter does otherwise,
+            // and adding Shift interrupts the running reply.
+            if (!withMod) return;
             e.preventDefault();
-            if (isStreaming) {
-                if (e.ctrlKey || e.metaKey) handleSteer();
-                else handleQueue();
-            } else {
-                handleSend();
-            }
+            if (!isStreaming) handleSend();
+            else if (e.shiftKey) handleSteer();
+            else handleQueue();
+            return;
+        }
+        if (e.shiftKey) return;
+        e.preventDefault();
+        if (isStreaming) {
+            if (withMod) handleSteer();
+            else handleQueue();
+        } else {
+            handleSend();
         }
     };
 
@@ -415,6 +440,9 @@ export const ClaudeChatInput: React.FC<ClaudeChatInputProps> = ({
                                 className="inline-flex items-center justify-center shrink-0 transition-colors duration-[120ms] ease-[cubic-bezier(.32,.72,0,1)] h-7 w-7 rounded-[7px] active:scale-95 text-text-300 hover:text-text-100 hover:bg-bg-200 mb-0.5 animate-fade-in"
                                 type="button"
                                 aria-label={t.sendMessage}
+                                data-tooltip={t.sendMessage}
+                                data-tooltip-kbd={enterNewline ? "Ctrl+Enter" : "Enter"}
+                                aria-keyshortcuts={enterNewline ? "Control+Enter" : "Enter"}
                             >
                                 <Icons.Enter className="w-4 h-4" />
                             </button>

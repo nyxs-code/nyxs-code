@@ -4,6 +4,8 @@ import { workspaceName } from "@/lib/workspace";
 import { useTranslations } from "@/lib/i18n";
 import { applyEnvironment, savedEnvironments, setPendingEnvironment, usePendingEnvironment, useSavedEnvironments, type SavedEnvironment } from "@/lib/environments";
 import { EnvironmentDialog } from "./EnvironmentDialog";
+import { BranchMenuRow } from "@/components/branch/BranchMenuRow";
+import { useBranchPicker } from "@/components/branch/useBranchPicker";
 
 export const WorkspaceSelector: React.FC<{
     workspace?: string | null;
@@ -21,6 +23,8 @@ export const WorkspaceSelector: React.FC<{
     // The environment picked for the next session, while its folder is still the open one.
     const current = environments.find((e) => e.id === pendingId && e.folder === workspace) ?? null;
     const [editing, setEditing] = useState<{ env: SavedEnvironment | null } | null>(null);
+    // The folder's branch lives in this menu, as in Claude Code Desktop's new session.
+    const branch = useBranchPicker(current ? null : workspace, ref);
 
     useEffect(() => {
         const handle = (e: MouseEvent) => {
@@ -145,8 +149,15 @@ export const WorkspaceSelector: React.FC<{
                         <span className="flex-1 text-[13px] leading-5 text-text-100">{te.newEnvironment}</span>
                         <span className="text-[11px] tabular-nums text-text-500">Ctrl+Alt+0</span>
                     </button>
+                    {branch.data && workspace && (
+                        <>
+                            <div className="my-1 h-px bg-bg-300 dark:bg-[#30302E]" />
+                            <BranchMenuRow picker={branch} folder={workspaceName(workspace)} onPicked={() => setOpen(false)} />
+                        </>
+                    )}
                 </div>
             )}
+            {branch.overlays}
             {editing && (
                 <EnvironmentDialog
                     env={editing.env}

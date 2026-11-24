@@ -3,7 +3,9 @@ import { Check, Loader2, Download, Lock, Server, HardDrive, FolderOpen } from "l
 import { invoke } from "@/lib/ipc";
 import { save } from "@tauri-apps/plugin-dialog";
 import { userNyxsDir, userSettingsFile } from "@/lib/paths";
-import { loadGlobalConfig } from "@/lib/globalConfig";
+import { getRagConsent, loadGlobalConfig, setRagConsent } from "@/lib/globalConfig";
+import { askRagConsent, notifyRagConsentChanged, onRagConsentChanged } from "@/lib/ragConsentAsk";
+import { workspaceName } from "@/lib/workspace";
 import { useTranslations } from "@/lib/i18n";
 import { DEFAULT_SETTINGS } from "@/lib/configSchema";
 import type { PrivacySettings } from "@/lib/privacySettings";
@@ -25,15 +27,58 @@ function PrivacyInfoCard({ icon, title, desc }: { icon: ReactNode; title: string
 }
 
 /** One row of what goes to the Nyxs service: a switch, or a tag saying when it's sent. */
-function ServiceRow({ title, desc, children }: { title: string; desc: string; children: ReactNode }) {
+function ServiceRow({ title, desc, extra, children }: { title: string; desc: string; extra?: ReactNode; children: ReactNode }) {
   return (
     <li className="flex items-start justify-between gap-4 py-4">
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium text-text-100">{title}</p>
         <p className="text-[12px] text-text-400 mt-0.5">{desc}</p>
+        {extra}
       </div>
       {children}
     </li>
+  );
+}
+
+/**
+ * Whether the open project is indexed, with the way to change it: "Not now" in the dialog keeps
+ * the switch on (it's for every project) and leaves this one out, until "Index now" here.
+ */
+function SemanticProjectLine({ workspace }: { workspace: string }) {
+  const p = useTranslations().settings.privacyPage;
+  const [consent, setConsent] = useState<"granted" | "declined" | undefined | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    const read = () => void getRagConsent(workspace).then((c) => { if (alive) setConsent(c); });
+    read();
+    const off = onRagConsentChanged(read);
+    return () => {
+      alive = false;
+      off();
+    };
+  }, [workspace]);
+
+  if (consent === null) return null;
+  const name = workspaceName(workspace);
+  const indexed = consent === "granted";
+  return (
+    <div className="mt-2 flex items-center gap-3 flex-wrap">
+      <span className="inline-flex items-center gap-1.5 text-[12px] text-text-300">
+        <span className={`w-1.5 h-1.5 rounded-full ${indexed ? "bg-green-500" : "bg-text-500"}`} />
+        {(indexed ? p.semanticIndexed : p.semanticNotIndexed).replace("{name}", name)}
+      </span>
+      <button
+        type="button"
+        onClick={() => {
+          if (indexed) void setRagConsent(workspace, "declined").then(notifyRagConsentChanged);
+          else askRagConsent(workspace);
+        }}
+        className="h-7 px-2.5 rounded-[6px] border border-bg-300 text-[12px] text-text-200 hover:bg-bg-200 hover:text-text-100"
+      >
+        {indexed ? p.semanticStop : p.semanticIndexNow}
+      </button>
+    </div>
   );
 }
 
@@ -43,7 +88,7 @@ function SentTag({ children }: { children: ReactNode }) {
   );
 }
 
-export function PrivacySection({ title }: { title: ReactNode }) {
+export function PrivacySection({ title, workspace }: { title: ReactNode; workspace?: string | null }) {
   const p = useTranslations().settings.privacyPage;
   const { settings, perSource, update } = useSettings();
   // The user's own choices: the privacy switches are read from that layer only (privacySettings).
@@ -131,8 +176,24 @@ export function PrivacySection({ title }: { title: ReactNode }) {
           <ServiceRow title={p.imagesTitle} desc={p.imagesDesc}>
             <SettingsToggle label={p.imagesTitle} checked={privacy.imageDescriptions} onChange={(v) => setPrivacy("imageDescriptions", v)} />
           </ServiceRow>
-          <ServiceRow title={p.semanticTitle} desc={p.semanticDesc}>
-            <SettingsToggle label={p.semanticTitle} checked={privacy.semanticSearch} onChange={(v) => setPrivacy("semanticSearch", v)} />
+          <ServiceRow
+            title={p.semanticTitle}
+            desc={p.semanticDesc}
+            extra={privacy.semanticSearch && workspace ? <SemanticProjectLine workspace={workspace} /> : undefined}
+          >
+            <SettingsToggle
+              label={p.semanticTitle}
+              checked={privacy.semanticSearch}
+              onChange={(v) => {
+                setPrivacy("semanticSearch", v);
+                // Turning it on asks about the open project right away, over Settings.
+                if (v && workspace) {
+                  void getRagConsent(workspace).then((c) => {
+                    if (c !== "granted") askRagConsent(workspace);
+                  });
+                }
+              }}
+            />
           </ServiceRow>
           <ServiceRow title={p.deviceTitle} desc={p.deviceDesc}>
             <SettingsToggle label={p.deviceTitle} checked={privacy.deviceDetails} onChange={(v) => setPrivacy("deviceDetails", v)} />

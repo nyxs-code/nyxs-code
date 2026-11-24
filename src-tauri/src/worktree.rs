@@ -506,14 +506,16 @@ fn copy_worktree_includes(workspace: &Path, wt: &Path) -> usize {
 }
 
 /// A session's own worktree (Settings' location, one folder per session) on the branch
-/// `branch`, made from HEAD with nothing seeded: the session's commits are only its own. An
-/// existing one is handed back as it is, so reopening the session finds its work.
+/// `branch`, made from `base` (HEAD when none was picked in the composer) with nothing seeded:
+/// the session's commits are only its own. An existing one is handed back as it is, so
+/// reopening the session finds its work.
 #[tauri::command(async)]
 pub fn session_worktree_create(
     workspace: String,
     id: String,
     branch: String,
     location: Option<String>,
+    base: Option<String>,
 ) -> Result<String, String> {
     if let Some(r) = crate::remote::parse(&workspace) {
         return remote::session_create(&r, &id, &branch, location.as_deref());
@@ -555,7 +557,26 @@ pub fn session_worktree_create(
     if exists {
         git(ws, &["worktree", "add", &path_str, branch])?;
     } else {
-        git(ws, &["worktree", "add", "-b", branch, &path_str, "HEAD"])?;
+        let base = match base.as_deref().map(str::trim).filter(|b| !b.is_empty()) {
+            // Only a local branch: a name git takes as an option or a revision expression is refused.
+            Some(b)
+                if git(
+                    ws,
+                    &[
+                        "rev-parse",
+                        "--verify",
+                        "--quiet",
+                        &format!("refs/heads/{b}"),
+                    ],
+                )
+                .is_ok() =>
+            {
+                b.to_string()
+            }
+            Some(b) => return Err(format!("\"{b}\" isn't a branch of this repository.")),
+            None => "HEAD".to_string(),
+        };
+        git(ws, &["worktree", "add", "-b", branch, &path_str, &base])?;
     }
     copy_worktree_includes(ws, &path);
     Ok(path_str)
@@ -1049,6 +1070,7 @@ mod tests {
             "brave-otter".into(),
             "Nyxs/brave-otter".into(),
             None,
+            None,
         )
         .unwrap();
         let wt = Path::new(&path);
@@ -1075,6 +1097,7 @@ mod tests {
                 ws.clone(),
                 "brave-otter".into(),
                 "Nyxs/brave-otter".into(),
+                None,
                 None
             )
             .unwrap(),
@@ -1091,7 +1114,60 @@ mod tests {
             &["rev-parse", "--verify", "refs/heads/Nyxs/brave-otter"]
         )
         .is_ok());
-        assert!(session_worktree_create(ws, "x".into(), "bad branch name".into(), None).is_err());
+        assert!(
+            session_worktree_create(ws, "x".into(), "bad branch name".into(), None, None).is_err()
+        );
+        let _ = fs::remove_dir_all(&repo);
+    }
+
+    #[test]
+    fn a_session_worktree_starts_from_the_branch_picked_in_the_composer() {
+        let repo = tmp_repo("session-base");
+        let ws = repo.to_string_lossy().to_string();
+        let loc = tmp_location("session-base");
+        let location = Some(loc.to_string_lossy().to_string());
+        git(&repo, &["branch", "feature"]).unwrap();
+        let feature = git(&repo, &["rev-parse", "feature"]).unwrap();
+        fs::write(repo.join("a.txt"), "on main\n").unwrap();
+        git(
+            &repo,
+            &[
+                "-c",
+                "user.email=t@t",
+                "-c",
+                "user.name=Test",
+                "-c",
+                "commit.gpgsign=false",
+                "commit",
+                "-qam",
+                "main moves on",
+            ],
+        )
+        .unwrap();
+
+        let path = session_worktree_create(
+            ws.clone(),
+            "s-base".into(),
+            "Nyxs/s-base".into(),
+            location.clone(),
+            Some("feature".into()),
+        )
+        .unwrap();
+        assert_eq!(
+            git(Path::new(&path), &["rev-parse", "HEAD"]).unwrap(),
+            feature
+        );
+        // Not a branch of the repository: refused, nothing made.
+        let err = session_worktree_create(
+            ws,
+            "s-bad".into(),
+            "Nyxs/s-bad".into(),
+            location,
+            Some("--orphan".into()),
+        )
+        .unwrap_err();
+        assert!(err.contains("isn't a branch"), "{err}");
+        let _ = fs::remove_dir_all(&loc);
         let _ = fs::remove_dir_all(&repo);
     }
 
@@ -1134,6 +1210,7 @@ mod tests {
                 "otter".into(),
                 "Nyxs/otter".into(),
                 Some(location),
+                None,
             )
         };
         let path = create(real.to_string_lossy().into()).unwrap();
@@ -1169,6 +1246,7 @@ mod tests {
             "lost".into(),
             "Nyxs/lost".into(),
             location.clone(),
+            None,
         )
         .unwrap();
         let wip = Path::new(&path).join("wip.txt");
@@ -1176,8 +1254,14 @@ mod tests {
         // The project lost its record of the worktree; the folder and its work are still there.
         fs::remove_dir_all(repo.join(".git").join("worktrees").join("lost")).unwrap();
 
-        let err = session_worktree_create(ws.clone(), "lost".into(), "Nyxs/lost".into(), location)
-            .unwrap_err();
+        let err = session_worktree_create(
+            ws.clone(),
+            "lost".into(),
+            "Nyxs/lost".into(),
+            location,
+            None,
+        )
+        .unwrap_err();
         assert!(err.contains(".git"), "{err}");
         assert_eq!(fs::read_to_string(&wip).unwrap(), "uncommitted\n");
         let _ = fs::remove_dir_all(&loc);
@@ -1195,6 +1279,7 @@ mod tests {
             "s-10".into(),
             "Nyxs/s-10".into(),
             location.clone(),
+            None,
         )
         .unwrap();
         // A leftover folder of an interrupted run, with no checkout in it.
@@ -1203,7 +1288,8 @@ mod tests {
         fs::write(leftover.join("half.txt"), "x").unwrap();
 
         let path =
-            session_worktree_create(ws.clone(), "s-1".into(), "Nyxs/s-1".into(), location).unwrap();
+            session_worktree_create(ws.clone(), "s-1".into(), "Nyxs/s-1".into(), location, None)
+                .unwrap();
         assert_eq!(
             git(Path::new(&path), &["rev-parse", "--abbrev-ref", "HEAD"]).unwrap(),
             "Nyxs/s-1"

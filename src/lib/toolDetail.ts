@@ -48,6 +48,11 @@ export interface ToolDetail {
   progress?: string;
   startedAt?: number;
   endedAt?: number;
+  /** A command Nyxs stopped for using far more memory than the computer has (commandMemory.ts). */
+  memoryStop?: { usedGb: number; installedGb: number };
+  /** A command that moved to the background and goes on as this shell (commandBackground.ts);
+   *  `limitMs` when its time limit moved it. */
+  background?: { shellId: string; limitMs?: number };
 }
 
 export const OUTPUT_PREVIEW_TOOLS = new Set(["Bash", "BashOutput", "Grep", "Glob"]);
@@ -378,6 +383,8 @@ export function describeToolCall(toolName: string, input: unknown): ToolCallLabe
       return { name: "BashOutput", detail: str(i.shell_id) };
     case "KillShell":
       return { name: "KillShell", detail: str(i.shell_id) };
+    case "Monitor":
+      return { name: "Monitor", detail: str(i.command) };
     case "ListDir":
       return { name: "ListDir", detail: str(i.path) };
     case "Skill":

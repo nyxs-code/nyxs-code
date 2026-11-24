@@ -8,6 +8,7 @@ mod capture;
 mod env;
 #[cfg(target_os = "windows")]
 mod host;
+mod memory_guard;
 mod port_owner;
 mod run;
 mod server_wait;
@@ -19,9 +20,9 @@ pub use port_owner::*;
 pub use run::*;
 pub use server_wait::*;
 
-/// Fixtures shared by the tests of several submodules.
+/// Fixtures shared by the tests of several submodules, and of `ps_host`.
 #[cfg(test)]
-mod test_support {
+pub(super) mod test_support {
     use std::sync::{Mutex, RwLock, RwLockReadGuard};
 
     #[cfg(target_os = "windows")]
@@ -34,13 +35,14 @@ mod test_support {
     pub(super) static HOSTS: RwLock<()> = RwLock::new(());
 
     /// Commands share pooled PowerShell hosts; the last test still using them closes the
-    /// pool so none outlives the test binary.
-    pub(super) struct HostUser {
+    /// pool so none outlives the test binary. A test with a host of its own holds one too:
+    /// `bg_shutdown_all` kills every host, its own included.
+    pub(crate) struct HostUser {
         _shared: RwLockReadGuard<'static, ()>,
     }
 
     impl HostUser {
-        pub(super) fn enter() -> Self {
+        pub(crate) fn enter() -> Self {
             let shared = HOSTS.read().unwrap_or_else(|e| e.into_inner());
             *HOST_USERS.lock().unwrap_or_else(|e| e.into_inner()) += 1;
             HostUser { _shared: shared }

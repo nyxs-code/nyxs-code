@@ -1,6 +1,7 @@
 mod agent;
 mod cli_sessions;
 mod computer;
+mod cookie_import;
 mod device;
 mod error;
 mod fswatch;
@@ -180,6 +181,7 @@ pub fn run() {
             agent::agent_grep,
             agent::agent_run,
             agent::agent_run_cancel,
+            agent::agent_run_to_background,
             agent::agent_git,
             agent::agent_exec,
             agent::agent_run_background,
@@ -213,6 +215,9 @@ pub fn run() {
             preview_webview::preview_history,
             preview_webview::preview_close,
             preview_webview::preview_clear_data,
+            cookie_import::browser_cookie_sources,
+            cookie_import::browser_cookie_sites,
+            cookie_import::browser_cookie_import,
             preview_webview::preview_capture,
             preview_webview::preview_capture_png,
             preview_webview::preview_agent_status,

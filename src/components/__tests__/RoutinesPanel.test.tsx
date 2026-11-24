@@ -18,7 +18,7 @@ vi.mock("@/lib/scheduledTasks", async (importOriginal) => ({
 
 const { RoutinesPanel } = await import("../RoutinesPanel");
 const { getTranslations, setLanguage } = await import("@/lib/i18n");
-const es = getTranslations("es-ES").routinesPanel;
+const es = getTranslations("es-ES").scheduled;
 
 const task: ScheduledTask = {
   id: "task-1",
@@ -33,6 +33,10 @@ const mount = () => act(async () => {
   render(<RoutinesPanel />);
 });
 
+const click = (el: Element) => act(async () => {
+  fireEvent.click(el);
+});
+
 beforeAll(() => setLanguage("es-ES"));
 beforeEach(() => {
   fake.data = { teams: [], tasks: [task] };
@@ -41,48 +45,56 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("RoutinesPanel", () => {
-  it("speaks the app's language", async () => {
-    expect(es.title).not.toBe(getTranslations("en-US").routinesPanel.title);
+  it("speaks the app's language and says when each task runs", async () => {
+    expect(es.title).not.toBe(getTranslations("en-US").scheduled.title);
     await mount();
     expect(screen.getByText(es.title)).toBeTruthy();
-    expect(screen.getByText(es.subtitle)).toBeTruthy();
-    expect(screen.getByRole("button", { name: es.add })).toBeTruthy();
-    expect(document.querySelector(`[data-tooltip="${es.runNow}"]`)).toBeTruthy();
-    expect(document.querySelector(`[data-tooltip="${es.delete}"]`)).toBeTruthy();
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: es.add }));
-    });
-    expect(screen.getByText(es.name)).toBeTruthy();
-    expect(screen.getByPlaceholderText(es.promptPlaceholder)).toBeTruthy();
-    expect(screen.getByText(es.cronHelp)).toBeTruthy();
+    expect(screen.getByRole("tab", { name: es.yours })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: es.templates })).toBeTruthy();
+    expect(screen.getByRole("button", { name: es.newTask })).toBeTruthy();
+    expect(screen.getByText(es.descWeekdays.replace("{time}", "9:00"))).toBeTruthy();
   });
 
-  it("edits a routine in the same form and saves it in place", async () => {
+  it("shows the templates under the empty state", async () => {
+    fake.data = { teams: [], tasks: [] };
+    await mount();
+    expect(screen.getByText(es.empty)).toBeTruthy();
+    expect(screen.getByText(es.tplBriefName)).toBeTruthy();
+    expect(screen.getByText(es.tplFlakyName)).toBeTruthy();
+  });
+
+  it("creates a task from a template, filled in", async () => {
+    fake.data = { teams: [], tasks: [] };
+    await mount();
+    await click(screen.getByText(es.tplPrsName));
+    expect(screen.getByDisplayValue(es.tplPrsName)).toBeTruthy();
+    expect(screen.getByDisplayValue(es.tplPrsPrompt)).toBeTruthy();
+    await click(screen.getByRole("button", { name: es.create }));
+    const saved = fake.saved.at(-1)!.tasks;
+    expect(saved).toHaveLength(1);
+    expect(saved[0]).toMatchObject({ name: es.tplPrsName, prompt: es.tplPrsPrompt, cron: "49 7 * * 1-5", template: "prs", enabled: true });
+    expect(saved[0].nextRunAt).toBeGreaterThan(0);
+  });
+
+  it("edits a task in the same dialog and saves it in place", async () => {
     const other: ScheduledTask = { ...task, id: "task-2", name: "Otra" };
     fake.data = { teams: [], tasks: [task, other] };
     await mount();
-    const edit = document.querySelector<HTMLButtonElement>(`[data-tooltip="${es.edit}"]`);
-    expect(edit).toBeTruthy();
-    await act(async () => {
-      fireEvent.click(edit!);
-    });
+    await click(screen.getByText(task.name));
     const name = screen.getByDisplayValue(task.name);
     expect(screen.getByDisplayValue(task.prompt)).toBeTruthy();
-    expect(screen.getByDisplayValue(task.cron)).toBeTruthy();
     await act(async () => {
       fireEvent.change(name, { target: { value: "Revisar dependencias cada lunes" } });
-      fireEvent.change(screen.getByDisplayValue(task.cron), { target: { value: "0 9 * * 1" } });
     });
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: es.save }));
-    });
+    // Weekdays → Weekly keeps the time and picks Monday.
+    await click(screen.getByRole("button", { name: es.trigger }));
+    await click(screen.getByRole("menuitemradio", { name: es.freqWeekly }));
+    await click(screen.getByRole("button", { name: es.save }));
     const saved = fake.saved.at(-1)!.tasks;
     expect(saved.map((t) => t.id)).toEqual(["task-1", "task-2"]);
     expect(saved[0]).toMatchObject({ id: "task-1", name: "Revisar dependencias cada lunes", cron: "0 9 * * 1", prompt: task.prompt, createdAt: 1 });
     expect(saved[0].nextRunAt).toBeGreaterThan(0);
     expect(saved[1]).toEqual(other);
-    // The form closes and the list shows the new name.
     expect(screen.queryByDisplayValue("Revisar dependencias cada lunes")).toBeNull();
     expect(screen.getByText("Revisar dependencias cada lunes")).toBeTruthy();
   });

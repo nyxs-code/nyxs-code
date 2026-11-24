@@ -134,16 +134,21 @@ function ReasoningWindow({ text, label, live }: { text: string; label: string; l
   );
 }
 
-export type TraceNotice = { id?: string; title: string; status: string; code: number | null };
+export type TraceNotice = { id?: string; title: string; status: string; code: number | null; lines?: number };
 
 function NoticeRow({ notice, onOpen }: { notice: TraceNotice; onOpen?: () => void }) {
   const t = useTranslations().message;
+  const tBg = useTranslations().commandBackground;
   const label =
-    notice.status === "killed"
-      ? t.bgStopped
-      : notice.code != null && notice.code !== 0
-        ? t.bgFailed.replace("{code}", String(notice.code))
-        : t.bgCompleted;
+    notice.status === "output"
+      ? notice.lines === 1
+        ? tBg.monitorLine
+        : tBg.monitorLines.replace("{count}", String(notice.lines ?? 0))
+      : notice.status === "killed"
+        ? t.bgStopped
+        : notice.code != null && notice.code !== 0
+          ? t.bgFailed.replace("{code}", String(notice.code))
+          : t.bgCompleted;
   return (
     <div className="flex items-baseline gap-2 py-0.5 min-w-0 text-[12.5px]">
       <span className="shrink-0 text-text-400">{label}</span>

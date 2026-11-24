@@ -1,6 +1,7 @@
 //! Shells left running in the background: their live output, listing, killing and shutdown.
 
 use super::env::shell_command;
+use super::memory_guard::{self, MemoryStop};
 use crate::agent::*;
 use crate::error::CmdError;
 use std::sync::atomic::AtomicBool;
@@ -27,6 +28,10 @@ pub struct BgShell {
     pub(super) started_at: u64,
 
     pub(super) ended_at: Option<u64>,
+
+    /// Killed because one of its processes used far more memory than the computer has.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) memory_stop: Option<MemoryStop>,
 
     #[serde(skip)]
     pub(super) dropped: usize,
@@ -64,6 +69,8 @@ pub struct BgOutputResult {
     next_offset: usize,
     status: String,
     code: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    memory_stop: Option<MemoryStop>,
 }
 
 static BG_SHELLS: OnceLock<Mutex<HashMap<String, BgShell>>> = OnceLock::new();
@@ -71,6 +78,14 @@ static BG_SHELLS: OnceLock<Mutex<HashMap<String, BgShell>>> = OnceLock::new();
 pub(super) enum BgChild {
     Local(Child),
     Remote(crate::remote::procs::RemoteHandle),
+    /// A command moved to the background while it ran on a pooled PowerShell host: a thread
+    /// follows the host until the command ends. `stop` asks it to kill the host; `ended` is the
+    /// exit code once it is over (None inside when it was killed).
+    #[cfg(target_os = "windows")]
+    Host {
+        stop: Arc<AtomicBool>,
+        ended: Arc<Mutex<Option<Option<i32>>>>,
+    },
 }
 
 impl BgChild {
@@ -78,6 +93,8 @@ impl BgChild {
         match self {
             BgChild::Local(c) => c.try_wait().map(|s| s.map(|s| s.code())),
             BgChild::Remote(h) => Ok(h.try_wait()),
+            #[cfg(target_os = "windows")]
+            BgChild::Host { ended, .. } => Ok(*ended.lock().unwrap_or_else(|e| e.into_inner())),
         }
     }
 
@@ -85,6 +102,8 @@ impl BgChild {
         match self {
             BgChild::Local(c) => kill_tree(c),
             BgChild::Remote(h) => h.kill(),
+            #[cfg(target_os = "windows")]
+            BgChild::Host { stop, .. } => stop.store(true, Ordering::Release),
         }
     }
 }
@@ -128,11 +147,12 @@ fn group_by_stream(lines: Vec<(&'static str, String)>) -> Vec<(&'static str, Str
     groups
 }
 
-fn flush_pending(app: &AppHandle, id: &str, pending: &PendingLines) {
+fn flush_pending(app: Option<&AppHandle>, id: &str, pending: &PendingLines) {
     let lines = match pending.lock() {
         Ok(mut p) => std::mem::take(&mut *p),
         Err(_) => return,
     };
+    let Some(app) = app else { return };
     for (stream, line) in group_by_stream(lines) {
         let _ = app.emit(
             "bg-shell-output",
@@ -146,7 +166,7 @@ fn flush_pending(app: &AppHandle, id: &str, pending: &PendingLines) {
 }
 
 fn spawn_flusher(
-    app: AppHandle,
+    app: Option<AppHandle>,
     id: String,
     pending: PendingLines,
     closed: Arc<AtomicBool>,
@@ -154,10 +174,32 @@ fn spawn_flusher(
     std::thread::spawn(move || {
         while !closed.load(Ordering::Acquire) {
             std::thread::sleep(BG_FLUSH_EVERY);
-            flush_pending(&app, &id, &pending);
+            flush_pending(app.as_ref(), &id, &pending);
         }
-        flush_pending(&app, &id, &pending);
+        flush_pending(app.as_ref(), &id, &pending);
     })
+}
+
+/// One line of a background shell's output: kept (the oldest dropped past the limit) and queued
+/// for the live view.
+fn push_line(id: &str, pending: &PendingLines, stream: &'static str, raw: &[u8]) {
+    let line = String::from_utf8_lossy(raw)
+        .trim_end_matches(['\n', '\r'])
+        .to_string();
+    if let Ok(mut map) = bg_shells().lock() {
+        if let Some(sh) = map.get_mut(id) {
+            sh.output.push_str(&line);
+            sh.output.push('\n');
+            if sh.output.len() > MAX_BG_OUTPUT {
+                let cut = next_char_boundary(&sh.output, sh.output.len() - MAX_BG_OUTPUT);
+                sh.output.drain(..cut);
+                sh.dropped += cut;
+            }
+        }
+    }
+    if let Ok(mut p) = pending.lock() {
+        p.push((stream, line));
+    }
 }
 
 fn spawn_reader<R: Read + Send + 'static>(
@@ -175,25 +217,213 @@ fn spawn_reader<R: Read + Send + 'static>(
                 Ok(0) | Err(_) => break,
                 Ok(_) => {}
             }
-            let line = String::from_utf8_lossy(&raw)
-                .trim_end_matches(['\n', '\r'])
-                .to_string();
-            if let Ok(mut map) = bg_shells().lock() {
-                if let Some(sh) = map.get_mut(&id) {
-                    sh.output.push_str(&line);
-                    sh.output.push('\n');
-                    if sh.output.len() > MAX_BG_OUTPUT {
-                        let cut = next_char_boundary(&sh.output, sh.output.len() - MAX_BG_OUTPUT);
-                        sh.output.drain(..cut);
-                        sh.dropped += cut;
-                    }
-                }
-            }
-            if let Ok(mut p) = pending.lock() {
-                p.push((stream, line));
-            }
+            push_line(&id, &pending, stream, &raw);
         }
     })
+}
+
+/// Bytes from a moved command's reader, cut into the shell's lines; an empty slice ends the
+/// last, unfinished line.
+pub(super) struct LineFeed {
+    id: String,
+    stream: &'static str,
+    pending: PendingLines,
+    partial: Vec<u8>,
+}
+
+impl LineFeed {
+    pub(super) fn feed(&mut self, data: &[u8]) {
+        if data.is_empty() {
+            if !self.partial.is_empty() {
+                let rest = std::mem::take(&mut self.partial);
+                push_line(&self.id, &self.pending, self.stream, &rest);
+            }
+            return;
+        }
+        self.partial.extend_from_slice(data);
+        while let Some(at) = self.partial.iter().position(|&b| b == b'\n') {
+            let line: Vec<u8> = self.partial.drain(..=at).collect();
+            push_line(&self.id, &self.pending, self.stream, &line);
+        }
+    }
+
+    /// The same, for a reader that hands over whole lines (a PowerShell host's).
+    #[cfg(target_os = "windows")]
+    pub(super) fn line(&mut self, line: &[u8]) {
+        push_line(&self.id, &self.pending, self.stream, line);
+    }
+}
+
+/// What a background shell shows about itself.
+pub(super) struct BgInfo {
+    pub command: String,
+    pub cwd: Option<String>,
+    pub description: Option<String>,
+}
+
+/// A new running shell in the list, with its process.
+fn register_shell(info: BgInfo, child: BgChild) -> BgShell {
+    let id = format!("bash_{}", BG_COUNTER.fetch_add(1, Ordering::Relaxed));
+    let shell = BgShell {
+        id: id.clone(),
+        command: info.command,
+        description: info.description.unwrap_or_default(),
+        cwd: info.cwd.filter(|d| !d.is_empty()),
+        output: String::new(),
+        status: "running".into(),
+        code: None,
+        started_at: now_ms(),
+        ended_at: None,
+        memory_stop: None,
+        dropped: 0,
+    };
+    bg_shells()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .insert(id.clone(), shell.clone());
+    bg_children()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .insert(id, Arc::new(Mutex::new(child)));
+    shell
+}
+
+fn watch_memory(id: &str, root: Option<u32>) -> Option<memory_guard::Watch> {
+    let id = id.to_string();
+    root.and_then(|root| memory_guard::watch(root, move |stop| stop_for_memory(&id, stop)))
+}
+
+/// Once the shell's readers are done (`readers_done` returns), waits for its process and reports
+/// its end: status, exit code, and the `bg-shell-exit` event that wakes the session's agent.
+fn finish_when_done(
+    app: Option<AppHandle>,
+    id: String,
+    closed: Arc<AtomicBool>,
+    flusher: std::thread::JoinHandle<()>,
+    watch: Option<memory_guard::Watch>,
+    readers_done: impl FnOnce() + Send + 'static,
+) {
+    std::thread::spawn(move || {
+        // Watched until the shell ends.
+        let _watch = watch;
+        readers_done();
+        closed.store(true, Ordering::Release);
+        let _ = flusher.join();
+
+        let code = loop {
+            let arc = bg_children()
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .get(&id)
+                .cloned();
+            let Some(arc) = arc else { break None };
+            let status = {
+                let mut child = arc.lock().unwrap_or_else(|e| e.into_inner());
+                child.try_wait()
+            };
+            match status {
+                Ok(Some(code)) => break code,
+                Ok(None) => std::thread::sleep(Duration::from_millis(50)),
+                Err(_) => break None,
+            }
+        };
+
+        let mut final_status = String::from("done");
+        let ended_at = now_ms();
+        if let Ok(mut map) = bg_shells().lock() {
+            if let Some(sh) = map.get_mut(&id) {
+                if sh.status != "killed" {
+                    sh.status = "done".into();
+                }
+                sh.code = code;
+                sh.ended_at = Some(ended_at);
+                final_status = sh.status.clone();
+            }
+        }
+        bg_children()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(&id);
+        if let Some(app) = app {
+            let _ = app.emit(
+                "bg-shell-exit",
+                BgExitEvent {
+                    id,
+                    status: final_status,
+                    code,
+                    ended_at,
+                },
+            );
+        }
+    });
+}
+
+/// A command that was running in the foreground, moved to the background (the user's Ctrl+B,
+/// or its time limit). It is registered as a shell, then its readers go on into `feed`s, and
+/// what it printed before goes in front with `prepend`.
+pub(super) struct Adoption {
+    pub id: String,
+    pending: PendingLines,
+    closed: Arc<AtomicBool>,
+    flusher: std::thread::JoinHandle<()>,
+    watch: Option<memory_guard::Watch>,
+}
+
+pub(super) fn adopt(info: BgInfo, child: BgChild, memory_root: Option<u32>) -> Adoption {
+    let shell = register_shell(info, child);
+    let pending: PendingLines = Arc::new(Mutex::new(Vec::new()));
+    let closed = Arc::new(AtomicBool::new(false));
+    let flusher = spawn_flusher(
+        crate::remote::app().cloned(),
+        shell.id.clone(),
+        pending.clone(),
+        closed.clone(),
+    );
+    Adoption {
+        watch: watch_memory(&shell.id, memory_root),
+        id: shell.id,
+        pending,
+        closed,
+        flusher,
+    }
+}
+
+impl Adoption {
+    pub(super) fn feed(&self, stream: &'static str) -> LineFeed {
+        LineFeed {
+            id: self.id.clone(),
+            stream,
+            pending: self.pending.clone(),
+            partial: Vec::new(),
+        }
+    }
+
+    /// What the command printed while it was in the foreground, before what came since.
+    pub(super) fn prepend(&self, printed: &str) {
+        if printed.is_empty() {
+            return;
+        }
+        if let Ok(mut map) = bg_shells().lock() {
+            if let Some(sh) = map.get_mut(&self.id) {
+                let mut text = printed.to_string();
+                if !text.ends_with('\n') {
+                    text.push('\n');
+                }
+                sh.output.insert_str(0, &text);
+            }
+        }
+    }
+
+    pub(super) fn finish_when(self, readers_done: impl FnOnce() + Send + 'static) {
+        finish_when_done(
+            crate::remote::app().cloned(),
+            self.id,
+            self.closed,
+            self.flusher,
+            self.watch,
+            readers_done,
+        );
+    }
 }
 
 #[tauri::command(async)]
@@ -203,6 +433,7 @@ pub fn agent_run_background(
     cwd: Option<String>,
     description: Option<String>,
     env: Option<std::collections::HashMap<String, String>>,
+    memory_guard: Option<bool>,
 ) -> Result<BgShell, CmdError> {
     if let Some(r) = cwd.as_deref().and_then(crate::remote::parse) {
         let mut child = crate::remote::procs::spawn(
@@ -227,6 +458,7 @@ pub fn agent_run_background(
             BgChild::Remote(child.handle()),
             stdout,
             stderr,
+            None,
         ));
     }
     let mut cmd = shell_command(&command);
@@ -256,6 +488,7 @@ pub fn agent_run_background(
 
     let stdout = child.stdout.take();
     let stderr = child.stderr.take();
+    let memory_root = memory_guard.unwrap_or(false).then(|| child.id());
     Ok(track_background(
         app,
         command,
@@ -264,10 +497,35 @@ pub fn agent_run_background(
         BgChild::Local(child),
         stdout,
         stderr,
+        memory_root,
     ))
 }
 
+/// The memory watch of a background shell crossed the line: it is killed, and says why.
+fn stop_for_memory(id: &str, stop: MemoryStop) {
+    {
+        let mut map = bg_shells().lock().unwrap_or_else(|e| e.into_inner());
+        match map.get_mut(id) {
+            Some(sh) if sh.status == "running" => {
+                sh.status = "killed".into();
+                sh.memory_stop = Some(stop);
+            }
+            _ => return,
+        }
+    }
+    let child = bg_children()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get(id)
+        .cloned();
+    if let Some(arc) = child {
+        arc.lock().unwrap_or_else(|e| e.into_inner()).kill();
+    }
+}
+
 /// Records a started background shell and follows its output and end, wherever it runs.
+/// `memory_root`: the local process whose tree is watched for its memory (see memory_guard).
+#[allow(clippy::too_many_arguments)]
 fn track_background<O, E>(
     app: AppHandle,
     command: String,
@@ -276,94 +534,41 @@ fn track_background<O, E>(
     child: BgChild,
     stdout: Option<O>,
     stderr: Option<E>,
+    memory_root: Option<u32>,
 ) -> BgShell
 where
     O: Read + Send + 'static,
     E: Read + Send + 'static,
 {
-    let id = format!("bash_{}", BG_COUNTER.fetch_add(1, Ordering::Relaxed));
-    let info = BgShell {
-        id: id.clone(),
-        command: command.clone(),
-        description: description.unwrap_or_default(),
-        cwd: cwd.filter(|d| !d.is_empty()),
-        output: String::new(),
-        status: "running".into(),
-        code: None,
-        started_at: now_ms(),
-        ended_at: None,
-        dropped: 0,
-    };
-    bg_shells()
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .insert(id.clone(), info.clone());
-    bg_children()
-        .lock()
-        .unwrap()
-        .insert(id.clone(), Arc::new(Mutex::new(child)));
+    let info = register_shell(
+        BgInfo {
+            command,
+            cwd,
+            description,
+        },
+        child,
+    );
+    let id = info.id.clone();
 
     let pending: PendingLines = Arc::new(Mutex::new(Vec::new()));
     let closed = Arc::new(AtomicBool::new(false));
-    let flusher = spawn_flusher(app.clone(), id.clone(), pending.clone(), closed.clone());
+    let flusher = spawn_flusher(
+        Some(app.clone()),
+        id.clone(),
+        pending.clone(),
+        closed.clone(),
+    );
     let out_handle = stdout.map(|s| spawn_reader(pending.clone(), id.clone(), "stdout", s));
     let err_handle = stderr.map(|s| spawn_reader(pending.clone(), id.clone(), "stderr", s));
+    let watch = watch_memory(&id, memory_root);
 
-    let waiter_app = app.clone();
-    let waiter_id = id.clone();
-    std::thread::spawn(move || {
+    finish_when_done(Some(app), id, closed, flusher, watch, move || {
         if let Some(h) = out_handle {
             let _ = h.join();
         }
         if let Some(h) = err_handle {
             let _ = h.join();
         }
-        closed.store(true, Ordering::Release);
-        let _ = flusher.join();
-
-        let code = loop {
-            let arc = bg_children()
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .get(&waiter_id)
-                .cloned();
-            let Some(arc) = arc else { break None };
-            let status = {
-                let mut child = arc.lock().unwrap_or_else(|e| e.into_inner());
-                child.try_wait()
-            };
-            match status {
-                Ok(Some(code)) => break code,
-                Ok(None) => std::thread::sleep(Duration::from_millis(50)),
-                Err(_) => break None,
-            }
-        };
-
-        let mut final_status = String::from("done");
-        let ended_at = now_ms();
-        if let Ok(mut map) = bg_shells().lock() {
-            if let Some(sh) = map.get_mut(&waiter_id) {
-                if sh.status != "killed" {
-                    sh.status = "done".into();
-                }
-                sh.code = code;
-                sh.ended_at = Some(ended_at);
-                final_status = sh.status.clone();
-            }
-        }
-        bg_children()
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .remove(&waiter_id);
-        let _ = waiter_app.emit(
-            "bg-shell-exit",
-            BgExitEvent {
-                id: waiter_id.clone(),
-                status: final_status,
-                code,
-                ended_at,
-            },
-        );
     });
 
     info
@@ -406,6 +611,7 @@ fn agent_bg_output_blocking(
                     next_offset: end,
                     status: sh.status.clone(),
                     code: sh.code,
+                    memory_stop: sh.memory_stop,
                 });
             }
         }

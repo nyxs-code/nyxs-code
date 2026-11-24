@@ -83,12 +83,28 @@ impl CaptureBuf {
     }
 }
 
+/// Where a reader sends what it reads once its command moved to the background; an empty
+/// slice says the stream ended.
+pub(super) type Sink = Box<dyn FnMut(&[u8]) + Send>;
+
 pub(super) struct Capture {
     buf: Arc<Mutex<CaptureBuf>>,
     done: Arc<AtomicBool>,
+    sink: Arc<Mutex<Option<Sink>>>,
 }
 
 impl Capture {
+    /// From now on what the reader reads goes to `sink` instead of the buffer. Whatever came
+    /// before is in the buffer: the reader holds the sink's lock while it writes either.
+    pub(super) fn hand_over(&self, sink: Sink) {
+        *self.sink.lock().unwrap_or_else(|e| e.into_inner()) = Some(sink);
+    }
+
+    /// True once the reader has read its stream to the end.
+    pub(super) fn done_flag(&self) -> Arc<AtomicBool> {
+        self.done.clone()
+    }
+
     fn finished(&self) -> bool {
         self.done.load(Ordering::Acquire)
     }
@@ -116,22 +132,32 @@ pub(super) fn capture<R: Read + Send + 'static>(
 ) -> Capture {
     let buf = Arc::new(Mutex::new(CaptureBuf::logged(log, stream)));
     let done = Arc::new(AtomicBool::new(reader.is_none()));
+    let sink: Arc<Mutex<Option<Sink>>> = Arc::new(Mutex::new(None));
     if let Some(mut reader) = reader {
-        let (buf, done) = (buf.clone(), done.clone());
+        let (buf, done, sink) = (buf.clone(), done.clone(), sink.clone());
         std::thread::spawn(move || {
             let mut chunk = [0u8; 16 * 1024];
             loop {
                 match reader.read(&mut chunk) {
                     Ok(0) | Err(_) => break,
                     Ok(n) => {
-                        if let Ok(mut b) = buf.lock() {
-                            b.push(&chunk[..n]);
+                        let mut s = sink.lock().unwrap_or_else(|e| e.into_inner());
+                        match s.as_mut() {
+                            Some(forward) => forward(&chunk[..n]),
+                            None => {
+                                if let Ok(mut b) = buf.lock() {
+                                    b.push(&chunk[..n]);
+                                }
+                            }
                         }
                     }
                 }
             }
+            if let Some(forward) = sink.lock().unwrap_or_else(|e| e.into_inner()).as_mut() {
+                forward(&[]);
+            }
             done.store(true, Ordering::Release);
         });
     }
-    Capture { buf, done }
+    Capture { buf, done, sink }
 }

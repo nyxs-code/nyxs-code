@@ -17,6 +17,8 @@ import { useWebviewVisibility, useNativeWebview } from "./useNativeWebview";
 import { usePreviewController } from "./usePreviewController";
 import { usePickAndAnnotate } from "./usePickAndAnnotate";
 import { ServersMenu } from "./ServersMenu";
+import { DevServerLogs } from "./DevServerLogs";
+import { CookieImportDialog } from "./CookieImportDialog";
 import { AddressBar } from "./AddressBar";
 import { BrowserMenu } from "./BrowserMenu";
 import { PageEmptyState } from "./PageEmptyState";
@@ -257,6 +259,22 @@ export function PreviewPage({
       onAttachImage,
     });
 
+  // The dev server whose output the logs panel shows: the one Nyxs started on the page's port,
+  // or else the last one it started.
+  const [logsOpen, setLogsOpen] = useState(false);
+  const [importingCookies, setImportingCookies] = useState(false);
+  const pagePort = Number(/^(?:https?:\/\/)?(?:localhost|127\.0\.0\.1|\[::1\]):(\d+)/i.exec(input.trim())?.[1]) || null;
+  const logsSource = (() => {
+    const running = launch.flatMap((e) => {
+      const shell = runningShellOf(e);
+      return shell ? [{ entry: e, shell }] : [];
+    });
+    if (!running.length) return null;
+    const pick = running.find((r) => pagePort && r.entry.port === pagePort) ?? running.reduce((a, b) => ((b.shell.startedAt ?? 0) > (a.shell.startedAt ?? 0) ? b : a));
+    const port = pick.entry.port;
+    return { shellId: pick.shell.id, title: port ? `${pick.entry.name} · localhost:${port}` : pick.entry.name };
+  })();
+
   const openInLabel = t.openInNamed.replace("{name}", browserName ?? t.browserFallback);
   const vpSize = prefs.viewport === "responsive" ? null : VIEWPORT_SIZES[prefs.viewport];
 
@@ -290,6 +308,7 @@ export function PreviewPage({
               answerPrep={answerPrep}
               workspace={workspace}
               onAddServer={onAddServer}
+              logs={logsSource ? { open: logsOpen, toggle: () => setLogsOpen((o) => !o) } : undefined}
             />
           )}
           <button
@@ -355,7 +374,11 @@ export function PreviewPage({
             contentBounds={contentBounds}
             loadTarget={loadTarget}
             reload={reload}
+            onImportCookies={() => setImportingCookies(true)}
           />
+        )}
+        {importingCookies && (
+          <CookieImportDialog profile={profile} onClose={() => setImportingCookies(false)} onReload={hasPage ? reload : undefined} />
         )}
       </div>
       {picking && hasPage && pickError && (
@@ -445,6 +468,8 @@ export function PreviewPage({
         </div>
       )}
       </div>
+      {/* Under the page, which shrinks for it (the native page follows its box). */}
+      {logsOpen && logsSource && <DevServerLogs key={logsSource.shellId} shellId={logsSource.shellId} title={logsSource.title} onClose={() => setLogsOpen(false)} />}
     </div>
   );
 }

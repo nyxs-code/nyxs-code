@@ -55,7 +55,7 @@ export async function wakeChatForShells(chatId: string, shells: FinishedShell[],
     id: uid(),
     role: "user",
     content,
-    notice: { kind: "background", items: shells.map((s) => ({ id: s.id, title: s.title, status: s.status, code: s.code })) },
+    notice: { kind: "background", items: shells.map((s) => ({ id: s.id, title: s.title, status: s.status, code: s.code, ...(s.lines !== undefined && { lines: s.lines }) })) },
     createdAt: Date.now(),
   };
   env.setChats((prev) => prev.map((c) => (c.id === chatId ? { ...c, messages: [...c.messages, notice] } : c)));

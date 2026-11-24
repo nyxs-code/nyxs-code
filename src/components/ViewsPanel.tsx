@@ -249,7 +249,10 @@ export function ViewsPanel({ open, views, onCloseView, plan, workspace, previews
       const max = maxPanelWidth();
       setWidth((w) => {
         const next = pinnedRef.current ? max : Math.min(w, max);
-        pinnedRef.current = next >= max - 1;
+        // A window too narrow for the panel beside the chat leaves it at its minimum, which is
+        // also its maximum there: that says nothing of the user pinning it to the edge, and
+        // pinning it then stretched it over the chat once the window was wide again.
+        if (max > minPanelRef.current) pinnedRef.current = next >= max - 1;
         return next;
       });
     };

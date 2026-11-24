@@ -7,6 +7,7 @@ import {
   ChevronRight,
   RotateCcw,
   Pencil,
+  ListTodo,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
@@ -20,6 +21,7 @@ import type { TextHighlight } from "@/lib/chatHighlights";
 import { ImageLightbox } from "@/components/ImageLightbox";
 import { ElementChip } from "@/components/ui/claude-style-chat-input";
 import { useTranslations, LANG_KEY } from "@/lib/i18n";
+import { moveCommandsToBackground, useHasMovableCommand } from "@/lib/commandBackground";
 import { relativeTime, fullDateTime } from "@/lib/time";
 import type { RetryState } from "@/lib/useStreamingChats";
 import { parseMessage, type Segment, type ToolEnd } from "./message/parse";
@@ -93,7 +95,7 @@ export interface ChatMessage {
 
   /** A turn the app started on the user's behalf: background work finished, or a reload of
    *  the app cut the previous reply short and the agent carries on ("resume"). */
-  notice?: { kind: "background" | "resume"; items: { id?: string; title: string; status: string; code: number | null }[] };
+  notice?: { kind: "background" | "resume"; items: { id?: string; title: string; status: string; code: number | null; lines?: number }[] };
 
   /** A message another session sent (SendToSession, or the reply of a session this one created):
    *  shown as a card naming that session, with a link to it. `content` keeps the quoted text the
@@ -662,6 +664,10 @@ function MessageBody({
   const showEdit = canEdit && !!onEdit && isUser;
   const showFork = !!onFork && canFork && !isUser;
   const showActions = !streaming && !editing && (!!copyText || showRevert || showRetry || showEdit || showFork);
+  // While the reply runs a command that can move, its actions row holds just "Run in background",
+  // as in Claude Code Desktop (Ctrl+B does the same from anywhere).
+  const movable = useHasMovableCommand(streaming && !isUser ? chatId : undefined);
+  const tBg = useTranslations().commandBackground;
 
   return (
     <div data-message-id={message.id} className={cn("group flex px-4 py-3.5", isUser ? "justify-end" : "justify-start")}>
@@ -735,6 +741,21 @@ function MessageBody({
         )}
         {!isUser && !streaming && chatId && message.changedFiles && message.changedFiles.length > 0 && (
           <TurnChanges files={message.changedFiles} toolData={toolData} endMap={endMap} subagentEdits={message.subagentEdits} onReview={onReviewChanges} />
+        )}
+        {movable && (
+          <div className="mt-1 flex items-center gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+            <button
+              type="button"
+              onClick={() => moveCommandsToBackground(chatId)}
+              className="inline-flex items-center text-text-400 hover:text-text-200 transition-colors"
+              data-tooltip={tBg.moveToBackground}
+              data-tooltip-kbd="Ctrl+B"
+              aria-keyshortcuts="Control+B"
+              aria-label={tBg.moveToBackground}
+            >
+              <ListTodo className="w-3.5 h-3.5" />
+            </button>
+          </div>
         )}
         {showActions && (
           <div
