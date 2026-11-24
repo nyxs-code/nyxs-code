@@ -673,10 +673,19 @@ mod tests {
             Some(a.as_str())
         );
         fs::write(background.join("b.ts"), "x").unwrap();
-        assert_eq!(
-            next_change(&rx, Duration::from_secs(5)).as_deref(),
-            Some(b.as_str())
-        );
+        // FSEvents may report a.ts's write a second time, late; skip those.
+        let until = std::time::Instant::now() + Duration::from_secs(5);
+        let mut from_b = None;
+        while let Some(left) = until.checked_duration_since(std::time::Instant::now()) {
+            match next_change(&rx, left) {
+                Some(root) if root == a => continue,
+                other => {
+                    from_b = other;
+                    break;
+                }
+            }
+        }
+        assert_eq!(from_b.as_deref(), Some(b.as_str()));
 
         // Stopping the background one leaves the one on screen watched.
         drop(watch_b);
