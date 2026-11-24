@@ -13,6 +13,207 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.8.59",
+    date: "November 24, 2026",
+    added: [
+      "A redesigned Plugins page with Plugins and Connectors tabs, and a Directory to browse and install connectors, plugins and skills.",
+      "28 new connectors with their logos, including Atlassian, Canva, Supabase, Zapier, Context7, Airtable, Dropbox, PayPal, Neon and Netlify.",
+      "A Discover view for connectors with featured, popular and trending lists, categories and a page for each connector.",
+      "Add a plugin marketplace from a GitHub repository or Git URL, or upload a local plugin folder; each plugin's menu can check for updates.",
+      "A new Scheduled page with your tasks, eight ready-made templates and a New scheduled task dialog; a task can run on several schedules with its own model and permission mode.",
+      "In a new session's folder menu, pick the branch: the folder switches to it, or with Worktree on the session starts from it. Uncommitted changes can be stashed, committed as WIP or discarded first.",
+      "Ctrl+B, or Run in background on the reply, moves a running command to the background so the agent can carry on; a command that reaches its time limit moves there instead of being stopped.",
+      "A Monitor tool lets the agent watch a command, like a log, and react to the new lines it prints.",
+      "The built-in browser can import cookies from Firefox, and on macOS from Chrome, Edge and Brave, so your sites open signed in.",
+      "The browser's servers menu opens your dev server's logs in a panel under the page.",
+      "Settings › General has Enter starts a new line, and ↑ in an empty message box brings back your earlier messages.",
+      "A command the agent runs is stopped if it uses more than twice your computer's memory, with a note to allow it for the session.",
+      "Index now and Stop indexing in Settings › Privacy turn semantic search on or off for the open project at any time.",
+    ],
+    improved: [
+      "Schedules are picked as Hourly, Daily, Weekdays, Weekly or Monthly at a time, instead of typing a cron expression.",
+      "The sidebar reads Scheduled, Artifacts and Plugins, and Search is a plain row like the others.",
+      "Over a theme's scene, the chat column is frosted so the text stays easy to read.",
+      "Plugins show gray icons that hint at what each one does.",
+    ],
+    fixed: [
+      "The semantic search consent dialog no longer opens behind Settings, and answering Not now still lets you index the project later.",
+      "Updating a plugin no longer turns it back on if you had turned it off.",
+      "Closing the browser panel or giving the agent the computer no longer leaves a web page showing over the chat or past the window.",
+    ],
+    card: {
+      v: 1,
+      slides: [
+        {
+          title: {
+            "en-US": "Plugins & connectors", "es-ES": "Plugins y conectores", "fr-FR": "Plugins et connecteurs",
+            "de-DE": "Plugins & Konnektoren", "it-IT": "Plugin e connettori", "pt-BR": "Plugins e conectores",
+            "id-ID": "Plugin & konektor", "ja-JP": "プラグインとコネクタ", "ko-KR": "플러그인과 커넥터", "hi-IN": "प्लगइन और कनेक्टर",
+          },
+          desc: {
+            "en-US": "A new Plugins page with a directory, 28 new connectors and marketplaces.",
+            "es-ES": "Nueva página de Plugins con directorio, 28 conectores nuevos y marketplaces.",
+            "fr-FR": "Nouvelle page Plugins avec annuaire, 28 nouveaux connecteurs et marketplaces.",
+            "de-DE": "Neue Plugins-Seite mit Verzeichnis, 28 neuen Konnektoren und Marktplätzen.",
+            "it-IT": "Nuova pagina Plugin con directory, 28 nuovi connettori e marketplace.",
+            "pt-BR": "Nova página de Plugins com diretório, 28 conectores novos e marketplaces.",
+            "id-ID": "Halaman Plugin baru dengan direktori, 28 konektor baru, dan marketplace.",
+            "ja-JP": "ディレクトリ付きの新しいプラグインページ。新コネクタ28種とマーケットプレイス。",
+            "ko-KR": "디렉터리가 있는 새 플러그인 페이지, 새 커넥터 28개와 마켓플레이스.",
+            "hi-IN": "डायरेक्टरी वाला नया प्लगइन पेज, 28 नए कनेक्टर और मार्केटप्लेस।",
+          },
+          scene: { kind: "icon", icon: "layers" },
+        },
+        {
+          title: {
+            "en-US": "Scheduled tasks", "es-ES": "Tareas programadas", "fr-FR": "Tâches planifiées",
+            "de-DE": "Geplante Aufgaben", "it-IT": "Attività pianificate", "pt-BR": "Tarefas agendadas",
+            "id-ID": "Tugas terjadwal", "ja-JP": "スケジュールタスク", "ko-KR": "예약 작업", "hi-IN": "शेड्यूल किए गए काम",
+          },
+          desc: {
+            "en-US": "Start from 8 templates and pick Hourly, Daily or Weekly, no cron needed.",
+            "es-ES": "Empieza con 8 plantillas y elige cada hora, a diario o semanal, sin cron.",
+            "fr-FR": "Pars de 8 modèles et choisis horaire, quotidien ou hebdo, sans cron.",
+            "de-DE": "Mit 8 Vorlagen starten, stündlich, täglich oder wöchentlich, ohne Cron.",
+            "it-IT": "Parti da 8 modelli e scegli ogni ora, giorno o settimana, senza cron.",
+            "pt-BR": "Comece com 8 modelos e escolha a cada hora, diário ou semanal, sem cron.",
+            "id-ID": "Mulai dari 8 templat, pilih per jam, harian, atau mingguan, tanpa cron.",
+            "ja-JP": "8つのテンプレートから始め、毎時・毎日・毎週を選ぶだけ。cron は不要。",
+            "ko-KR": "템플릿 8개로 시작해 매시간, 매일, 매주 중에 고르세요. cron은 필요 없어요.",
+            "hi-IN": "8 टेम्पलेट से शुरू करें, हर घंटे, रोज़ या हर हफ़्ते चुनें, cron नहीं।",
+          },
+          scene: { kind: "icon", icon: "refresh" },
+        },
+        {
+          title: {
+            "en-US": "Ctrl+B: run in background", "es-ES": "Ctrl+B: a segundo plano", "fr-FR": "Ctrl+B : en arrière-plan",
+            "de-DE": "Strg+B: im Hintergrund", "it-IT": "Ctrl+B: in background", "pt-BR": "Ctrl+B: segundo plano",
+            "id-ID": "Ctrl+B: latar belakang", "ja-JP": "Ctrl+B でバックグラウンドへ", "ko-KR": "Ctrl+B로 백그라운드 실행", "hi-IN": "Ctrl+B: बैकग्राउंड में",
+          },
+          desc: {
+            "en-US": "A long command keeps running in the background while the agent carries on.",
+            "es-ES": "Un comando largo sigue en segundo plano mientras el agente continúa.",
+            "fr-FR": "Une longue commande continue en arrière-plan pendant que l'agent avance.",
+            "de-DE": "Ein langer Befehl läuft im Hintergrund weiter, der Agent macht weiter.",
+            "it-IT": "Un comando lungo continua in background mentre l'agente va avanti.",
+            "pt-BR": "Um comando longo continua em segundo plano enquanto o agente segue.",
+            "id-ID": "Perintah panjang tetap berjalan di latar belakang, agen terus bekerja.",
+            "ja-JP": "長いコマンドはバックグラウンドで続き、エージェントは作業を続けます。",
+            "ko-KR": "긴 명령은 백그라운드에서 계속되고 에이전트는 작업을 이어가요.",
+            "hi-IN": "लंबी कमांड बैकग्राउंड में चलती रहती है, एजेंट आगे काम करता है।",
+          },
+          scene: {
+            kind: "mascot",
+            steps: [
+              {
+                pose: "code",
+                label: {
+                  "en-US": "Running the build…", "es-ES": "Compilando…", "fr-FR": "Compilation…", "de-DE": "Baut…",
+                  "it-IT": "Compilazione…", "pt-BR": "Compilando…", "id-ID": "Membangun…", "ja-JP": "ビルド中…",
+                  "ko-KR": "빌드 중…", "hi-IN": "बिल्ड हो रहा है…",
+                },
+              },
+              {
+                pose: "rest",
+                label: {
+                  "en-US": "In the background", "es-ES": "En segundo plano", "fr-FR": "En arrière-plan", "de-DE": "Im Hintergrund",
+                  "it-IT": "In background", "pt-BR": "Em segundo plano", "id-ID": "Di latar belakang", "ja-JP": "裏で実行中",
+                  "ko-KR": "백그라운드로", "hi-IN": "बैकग्राउंड में",
+                },
+              },
+            ],
+          },
+        },
+        {
+          title: {
+            "en-US": "Pick a branch to start on", "es-ES": "Elige la rama al empezar", "fr-FR": "Choisis ta branche",
+            "de-DE": "Branch zum Start wählen", "it-IT": "Scegli il branch", "pt-BR": "Escolha o branch inicial",
+            "id-ID": "Pilih branch awal", "ja-JP": "開始するブランチを選択", "ko-KR": "시작할 브랜치 선택", "hi-IN": "शुरुआती ब्रांच चुनें",
+          },
+          desc: {
+            "en-US": "In the folder menu: switch the branch, or start a worktree from it.",
+            "es-ES": "En el menú de carpeta: cambia la rama o empieza un worktree desde ella.",
+            "fr-FR": "Dans le menu du dossier : change de branche ou crée un worktree depuis elle.",
+            "de-DE": "Im Ordnermenü: Branch wechseln oder einen Worktree davon starten.",
+            "it-IT": "Nel menu della cartella: cambia branch o avvia un worktree da lì.",
+            "pt-BR": "No menu da pasta: troque de branch ou comece um worktree a partir dele.",
+            "id-ID": "Di menu folder: ganti branch atau mulai worktree darinya.",
+            "ja-JP": "フォルダメニューでブランチを切り替えたり、そこから worktree を作成。",
+            "ko-KR": "폴더 메뉴에서 브랜치를 바꾸거나 그 브랜치로 worktree를 시작해요.",
+            "hi-IN": "फ़ोल्डर मेनू में ब्रांच बदलें या उससे worktree शुरू करें।",
+          },
+          scene: { kind: "icon", icon: "git" },
+        },
+        {
+          title: {
+            "en-US": "Import your cookies", "es-ES": "Importa tus cookies", "fr-FR": "Importe tes cookies",
+            "de-DE": "Cookies importieren", "it-IT": "Importa i tuoi cookie", "pt-BR": "Importe seus cookies",
+            "id-ID": "Impor cookie Anda", "ja-JP": "Cookie をインポート", "ko-KR": "쿠키 가져오기", "hi-IN": "अपनी कुकी इंपोर्ट करें",
+          },
+          desc: {
+            "en-US": "Bring your sites' sign-ins from Firefox (or Chrome, Edge, Brave on Mac).",
+            "es-ES": "Trae las sesiones de tus sitios desde Firefox (o Chrome, Edge y Brave en Mac).",
+            "fr-FR": "Récupère tes connexions depuis Firefox (ou Chrome, Edge, Brave sur Mac).",
+            "de-DE": "Übernimm Anmeldungen aus Firefox (oder Chrome, Edge, Brave am Mac).",
+            "it-IT": "Porta gli accessi dei siti da Firefox (o Chrome, Edge, Brave su Mac).",
+            "pt-BR": "Traga os logins dos sites do Firefox (ou Chrome, Edge, Brave no Mac).",
+            "id-ID": "Bawa login situs dari Firefox (atau Chrome, Edge, Brave di Mac).",
+            "ja-JP": "Firefox(Mac では Chrome・Edge・Brave も)からサイトのログインを取り込み。",
+            "ko-KR": "Firefox(Mac은 Chrome, Edge, Brave도)에서 사이트 로그인을 가져와요.",
+            "hi-IN": "Firefox (Mac पर Chrome, Edge, Brave भी) से साइटों का साइन इन लाएँ।",
+          },
+          scene: { kind: "icon", icon: "globe" },
+        },
+        {
+          title: {
+            "en-US": "And also", "es-ES": "Y además", "fr-FR": "Et aussi", "de-DE": "Außerdem", "it-IT": "E inoltre",
+            "pt-BR": "E também", "id-ID": "Selain itu", "ja-JP": "そのほか", "ko-KR": "그 밖에", "hi-IN": "और भी",
+          },
+          desc: {
+            "en-US": "And more in this version.", "es-ES": "Y más en esta versión.", "fr-FR": "Et plus dans cette version.",
+            "de-DE": "Und mehr in dieser Version.", "it-IT": "E altro in questa versione.", "pt-BR": "E mais nesta versão.",
+            "id-ID": "Dan lainnya di versi ini.", "ja-JP": "このバージョンのその他の変更。", "ko-KR": "이번 버전의 다른 변경 사항.", "hi-IN": "इस संस्करण में और भी।",
+          },
+          scene: {
+            kind: "list",
+            items: [
+              {
+                tag: "new",
+                text: {
+                  "en-US": "Dev server logs open under the browser's page.",
+                  "es-ES": "Los logs del servidor se abren bajo la página del navegador.",
+                  "fr-FR": "Les logs du serveur s'ouvrent sous la page du navigateur.",
+                  "de-DE": "Dev-Server-Logs öffnen sich unter der Browserseite.",
+                  "it-IT": "I log del server si aprono sotto la pagina del browser.",
+                  "pt-BR": "Os logs do servidor abrem abaixo da página do navegador.",
+                  "id-ID": "Log server dev terbuka di bawah halaman browser.",
+                  "ja-JP": "開発サーバーのログをブラウザの下に表示できます。",
+                  "ko-KR": "개발 서버 로그가 브라우저 페이지 아래에 열려요.",
+                  "hi-IN": "डेव सर्वर लॉग ब्राउज़र पेज के नीचे खुलते हैं।",
+                },
+              },
+              {
+                tag: "new",
+                text: {
+                  "en-US": "↑ in an empty box brings back your earlier messages.",
+                  "es-ES": "↑ en el cuadro vacío trae tus mensajes anteriores.",
+                  "fr-FR": "↑ dans la zone vide rappelle tes messages précédents.",
+                  "de-DE": "↑ im leeren Feld holt frühere Nachrichten zurück.",
+                  "it-IT": "↑ nella casella vuota richiama i messaggi precedenti.",
+                  "pt-BR": "↑ na caixa vazia traz suas mensagens anteriores.",
+                  "id-ID": "↑ di kotak kosong memunculkan pesan sebelumnya.",
+                  "ja-JP": "空の入力欄で ↑ を押すと前のメッセージを呼び出せます。",
+                  "ko-KR": "빈 입력창에서 ↑를 누르면 이전 메시지를 불러와요.",
+                  "hi-IN": "खाली बॉक्स में ↑ दबाकर पिछले संदेश वापस लाएँ।",
+                },
+              },
+            ],
+          },
+        },
+      ],
+    },
+  },
+  {
     version: "0.8.58",
     date: "November 15, 2026",
     added: [
@@ -54,7 +255,7 @@ export const CHANGELOG: ChangelogEntry[] = [
             kind: "reply",
             quote: {
               "en-US": "Fix the pay button on mobile", "es-ES": "Arregla el botón de pago en móvil", "fr-FR": "Répare le bouton payer sur mobile",
-              "de-DE": "Repariere den Bezahlknopf mobil", "it-IT": "Sistema il tasto paga su mobile", "pt-BR": "Corrija o botão de pagar no celular",
+              "de-DE": "Repariere den Bezahlknopf mobil", "it-IT": "Sistema il tasto paga su mobile", "pt-BR": "Arrume o botão de pagar no app",
               "id-ID": "Perbaiki tombol bayar di ponsel", "ja-JP": "モバイルの支払いボタンを直して", "ko-KR": "모바일 결제 버튼 고쳐 줘", "hi-IN": "मोबाइल पर पे बटन ठीक करो",
             },
             voice: true,

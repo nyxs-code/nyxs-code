@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "0.8.58"
+version = "0.8.59"
 description = "Nyxs, a desktop AI coding agent"
 authors = ["Nyxs Code"]
 license = "MIT"
