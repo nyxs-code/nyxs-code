@@ -30,6 +30,10 @@ beforeEach(() => {
   repo = mkdtempSync(join(tmpdir(), "nyxs-branches-"));
   extra = [];
   git(repo, "init", "-q", "-b", "main");
+  // The picker's own git runs (the mocked runGit) don't get ENV; CI has no global identity.
+  git(repo, "config", "user.name", "T");
+  git(repo, "config", "user.email", "t@t");
+  git(repo, "config", "commit.gpgsign", "false");
   writeFileSync(join(repo, "a.txt"), "one\n");
   git(repo, "add", "-A");
   git(repo, "commit", "-qm", "init");

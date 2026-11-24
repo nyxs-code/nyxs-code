@@ -213,9 +213,7 @@ fn tree_of(root: u32) -> Option<Vec<u32>> {
             .map(|p| p as u32)
             .collect()
     }
-    if footprint(root).is_none() {
-        return None;
-    }
+    footprint(root)?;
     let mut tree = vec![root];
     let mut i = 0;
     while i < tree.len() {

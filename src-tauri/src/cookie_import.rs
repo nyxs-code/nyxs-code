@@ -52,7 +52,8 @@ enum Kind {
         service: &'static str,
         account: &'static str,
     },
-    /// Installed, but its cookies can't be read on this system.
+    /// Installed, but its cookies can't be read on this system (only found on Windows).
+    #[cfg_attr(not(windows), allow(dead_code))]
     Unreadable,
 }
 
