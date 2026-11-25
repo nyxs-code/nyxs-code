@@ -13,6 +13,158 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.8.61",
+    date: "November 26, 2026",
+    added: [
+      "The Files panel opens 3D models (glb, gltf, stl and obj) in a 3D view: drag or use the arrow keys to turn them, Shift with an arrow to move them, and see their triangles and size.",
+      "Draw on an image before you send it: the image viewer has a pencil, arrows, shapes, numbered steps, colors and undo, and Add to message attaches the marked-up copy.",
+      "The browser and the terminal can be minimized to a small card in a corner of the chat; drag it or use the arrow keys to move it, and open the panel again from it.",
+      "Turn into a skill, in a session's menu, asks its agent to write what the session did as a skill you can use again.",
+      "Settings › Nyxs Code › Appearance has Theme sound (rain, campfire or a soft ambience), Reduce motion, Keep popups on screen and Dynamic conversations, which keeps long chats smooth.",
+      "Drag a queued message, or move it with the arrow keys, to change the order it goes in.",
+      "Right-click a sidebar row to hide it in a More menu, and pin it back from there.",
+    ],
+    improved: [
+      "A message the agent sends to another session shows Queued, Delivered, Read or Replied as it goes, and isn't delivered when two sessions answer each other in a loop or one sends too many.",
+    ],
+    fixed: [
+      "With /goal, the agent replies in the language the goal is written in.",
+    ],
+    card: {
+      v: 1,
+      slides: [
+        {
+          title: {
+            "en-US": "Draw on images", "es-ES": "Dibuja en imágenes", "fr-FR": "Dessine sur les images",
+            "de-DE": "Auf Bilder zeichnen", "it-IT": "Disegna sulle immagini", "pt-BR": "Desenhe nas imagens",
+            "id-ID": "Gambar di atas gambar", "ja-JP": "画像に書き込む", "ko-KR": "이미지에 그리기", "hi-IN": "इमेज पर बनाएँ",
+          },
+          desc: {
+            "en-US": "Mark up a screenshot with arrows and notes, then send it.",
+            "es-ES": "Marca una captura con flechas y notas, y luego envíala.",
+            "fr-FR": "Annote une capture avec des flèches et des notes, puis envoie-la.",
+            "de-DE": "Markiere einen Screenshot mit Pfeilen und Notizen und sende ihn.",
+            "it-IT": "Segna uno screenshot con frecce e note, poi invialo.",
+            "pt-BR": "Marque uma captura com setas e notas e depois envie.",
+            "id-ID": "Tandai tangkapan layar dengan panah dan catatan, lalu kirim.",
+            "ja-JP": "スクリーンショットに矢印やメモを描いて送信できます。",
+            "ko-KR": "스크린샷에 화살표와 메모를 그려서 보내세요.",
+            "hi-IN": "स्क्रीनशॉट पर तीर और नोट बनाएँ, फिर भेजें।",
+          },
+          scene: { kind: "icon", icon: "image" },
+        },
+        {
+          title: {
+            "en-US": "Minimize panels", "es-ES": "Minimiza los paneles", "fr-FR": "Réduis les panneaux",
+            "de-DE": "Bereiche minimieren", "it-IT": "Riduci i pannelli", "pt-BR": "Minimize os painéis",
+            "id-ID": "Kecilkan panel", "ja-JP": "パネルを最小化", "ko-KR": "패널 최소화", "hi-IN": "पैनल छोटा करें",
+          },
+          desc: {
+            "en-US": "Send the browser or terminal to a card in a corner of the chat.",
+            "es-ES": "Lleva el navegador o la terminal a una tarjeta en una esquina.",
+            "fr-FR": "Envoie le navigateur ou le terminal dans une carte en coin.",
+            "de-DE": "Browser oder Terminal als Karte in eine Ecke des Chats legen.",
+            "it-IT": "Manda browser o terminale in una scheda in un angolo.",
+            "pt-BR": "Leve o navegador ou o terminal a um cartão num canto.",
+            "id-ID": "Pindahkan browser atau terminal ke kartu di pojok obrolan.",
+            "ja-JP": "ブラウザーやターミナルをチャットの隅のカードにまとめます。",
+            "ko-KR": "브라우저나 터미널을 채팅 구석의 카드로 보내요.",
+            "hi-IN": "ब्राउज़र या टर्मिनल को चैट के कोने में कार्ड बनाएँ।",
+          },
+          scene: { kind: "icon", icon: "panel" },
+        },
+        {
+          title: {
+            "en-US": "3D models in Files", "es-ES": "Modelos 3D en Archivos", "fr-FR": "Modèles 3D dans Fichiers",
+            "de-DE": "3D-Modelle in Dateien", "it-IT": "Modelli 3D in File", "pt-BR": "Modelos 3D em Arquivos",
+            "id-ID": "Model 3D di File", "ja-JP": "ファイルで 3D 表示", "ko-KR": "파일에서 3D 모델", "hi-IN": "फ़ाइलों में 3D मॉडल",
+          },
+          desc: {
+            "en-US": "Open glb, gltf, stl or obj files and turn them around.",
+            "es-ES": "Abre archivos glb, gltf, stl u obj y gíralos.",
+            "fr-FR": "Ouvre des fichiers glb, gltf, stl ou obj et fais-les tourner.",
+            "de-DE": "Öffne glb-, gltf-, stl- oder obj-Dateien und dreh sie.",
+            "it-IT": "Apri file glb, gltf, stl o obj e falli ruotare.",
+            "pt-BR": "Abra arquivos glb, gltf, stl ou obj e gire-os.",
+            "id-ID": "Buka file glb, gltf, stl, atau obj lalu putar.",
+            "ja-JP": "glb・gltf・stl・obj を開いて回転できます。",
+            "ko-KR": "glb, gltf, stl, obj 파일을 열어 돌려 보세요.",
+            "hi-IN": "glb, gltf, stl या obj फ़ाइलें खोलें और घुमाएँ।",
+          },
+          scene: { kind: "icon", icon: "file" },
+        },
+        {
+          title: {
+            "en-US": "Turn into a skill", "es-ES": "Convierte en skill", "fr-FR": "Transforme en skill",
+            "de-DE": "Als Skill speichern", "it-IT": "Trasforma in skill", "pt-BR": "Transforme em skill",
+            "id-ID": "Jadikan skill", "ja-JP": "スキルにする", "ko-KR": "스킬로 만들기", "hi-IN": "स्किल बनाएँ",
+          },
+          desc: {
+            "en-US": "From a session's menu: save what it did as a reusable skill.",
+            "es-ES": "Desde el menú de la sesión: guarda lo hecho como skill.",
+            "fr-FR": "Depuis le menu de la session : garde ce travail en skill.",
+            "de-DE": "Im Sitzungsmenü: das Erledigte als Skill speichern.",
+            "it-IT": "Dal menu della sessione: salva il lavoro come skill.",
+            "pt-BR": "No menu da sessão: salve o que foi feito como skill.",
+            "id-ID": "Dari menu sesi: simpan hasilnya sebagai skill.",
+            "ja-JP": "セッションのメニューから、作業内容をスキルに保存。",
+            "ko-KR": "세션 메뉴에서 한 일을 스킬로 저장해요.",
+            "hi-IN": "सत्र मेनू से किया गया काम स्किल के रूप में सहेजें।",
+          },
+          scene: { kind: "icon", icon: "sparkles" },
+        },
+        {
+          title: {
+            "en-US": "And also", "es-ES": "Y además", "fr-FR": "Et aussi", "de-DE": "Außerdem", "it-IT": "E inoltre",
+            "pt-BR": "E também", "id-ID": "Dan juga", "ja-JP": "そのほか", "ko-KR": "그리고", "hi-IN": "और भी",
+          },
+          desc: {
+            "en-US": "Smaller changes in this version.", "es-ES": "Cambios más pequeños de esta versión.",
+            "fr-FR": "Petits changements de cette version.", "de-DE": "Kleinere Änderungen dieser Version.",
+            "it-IT": "Modifiche minori di questa versione.", "pt-BR": "Mudanças menores desta versão.",
+            "id-ID": "Perubahan kecil di versi ini.", "ja-JP": "このバージョンの小さな変更。",
+            "ko-KR": "이번 버전의 작은 변경 사항.", "hi-IN": "इस संस्करण के छोटे बदलाव।",
+          },
+          scene: {
+            kind: "list",
+            items: [
+              {
+                tag: "new",
+                text: {
+                  "en-US": "Theme sound: rain, campfire or a soft ambience",
+                  "es-ES": "Sonido del tema: lluvia, fogata o ambiente suave",
+                  "fr-FR": "Son du thème : pluie, feu de camp ou ambiance",
+                  "de-DE": "Theme-Klang: Regen, Lagerfeuer oder Ambiente",
+                  "it-IT": "Suono del tema: pioggia, falò o atmosfera",
+                  "pt-BR": "Som do tema: chuva, fogueira ou ambiente suave",
+                  "id-ID": "Suara tema: hujan, api unggun, atau suasana",
+                  "ja-JP": "テーマの環境音: 雨、焚き火など",
+                  "ko-KR": "테마 사운드: 빗소리, 모닥불, 앰비언트",
+                  "hi-IN": "थीम ध्वनि: बारिश, अलाव या हल्का माहौल",
+                },
+              },
+              {
+                tag: "new",
+                text: {
+                  "en-US": "Drag queued messages to change their order",
+                  "es-ES": "Arrastra los mensajes en cola para reordenarlos",
+                  "fr-FR": "Fais glisser les messages en attente pour les trier",
+                  "de-DE": "Wartende Nachrichten per Ziehen umordnen",
+                  "it-IT": "Trascina i messaggi in coda per riordinarli",
+                  "pt-BR": "Arraste mensagens na fila para reordenar",
+                  "id-ID": "Seret pesan antrean untuk mengubah urutan",
+                  "ja-JP": "待機中のメッセージをドラッグで並べ替え",
+                  "ko-KR": "대기 중인 메시지를 끌어서 순서 변경",
+                  "hi-IN": "कतार के संदेश खींचकर क्रम बदलें",
+                },
+              },
+            ],
+          },
+        },
+      ],
+    },
+  },
+  {
     version: "0.8.60",
     date: "November 25, 2026",
     added: [
