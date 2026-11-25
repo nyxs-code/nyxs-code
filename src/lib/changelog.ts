@@ -13,6 +13,160 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.8.60",
+    date: "November 25, 2026",
+    added: [
+      "Goal mode: type /goal and a condition, and the agent keeps working turn after turn until a check finds it met. A card above the message box shows the goal, its turns and the last check, and you can edit or clear it.",
+      "Keyboard shortcuts can be changed: in the shortcuts list (Ctrl+/), click a pencil and press the new keys. Keys another shortcut uses ask before replacing it, reserved keys are refused, and Reset all brings the defaults back.",
+      "Settings › Nyxs Code › Session worktrees shows how much space your sessions' worktrees take and removes the unused ones; sessions, conversations and branches stay.",
+      "Archive inactive sessions in Settings › Nyxs Code archives sessions with no activity for 1 to 30 days. Sessions that are open, working or running something in the background are never archived.",
+    ],
+    improved: [
+      "Tooltips and menus show the shortcut keys you chose.",
+    ],
+    card: {
+      v: 1,
+      slides: [
+        {
+          title: {
+            "en-US": "Goal mode", "es-ES": "Modo objetivo", "fr-FR": "Mode objectif",
+            "de-DE": "Zielmodus", "it-IT": "Modalità obiettivo", "pt-BR": "Modo objetivo",
+            "id-ID": "Mode tujuan", "ja-JP": "目標モード", "ko-KR": "목표 모드", "hi-IN": "लक्ष्य मोड",
+          },
+          desc: {
+            "en-US": "Type /goal and a condition: the agent keeps going until it's met.",
+            "es-ES": "Escribe /goal y una condición: el agente sigue hasta cumplirla.",
+            "fr-FR": "Tape /goal et une condition : l'agent continue jusqu'à l'atteindre.",
+            "de-DE": "Tippe /goal und eine Bedingung: Der Agent macht weiter, bis sie erfüllt ist.",
+            "it-IT": "Scrivi /goal e una condizione: l'agente va avanti finché non è raggiunta.",
+            "pt-BR": "Digite /goal e uma condição: o agente continua até cumpri-la.",
+            "id-ID": "Ketik /goal dan syaratnya: agen terus bekerja sampai tercapai.",
+            "ja-JP": "/goal と条件を入力すると、達成するまでエージェントが続けます。",
+            "ko-KR": "/goal과 조건을 입력하면 달성할 때까지 에이전트가 계속해요.",
+            "hi-IN": "/goal और शर्त लिखें: पूरी होने तक एजेंट काम करता रहता है।",
+          },
+          scene: {
+            kind: "mascot",
+            steps: [
+              {
+                pose: "code",
+                label: {
+                  "en-US": "2 tests fail", "es-ES": "Fallan 2 tests", "fr-FR": "2 tests échouent",
+                  "de-DE": "2 Tests rot", "it-IT": "2 test falliti", "pt-BR": "2 testes falham",
+                  "id-ID": "2 tes gagal", "ja-JP": "2 件失敗", "ko-KR": "테스트 2개 실패", "hi-IN": "2 टेस्ट फ़ेल",
+                },
+              },
+              {
+                pose: "think",
+                label: {
+                  "en-US": "Checking the goal…", "es-ES": "Comprobando…", "fr-FR": "Vérification…", "de-DE": "Prüfe das Ziel…",
+                  "it-IT": "Verifica in corso…", "pt-BR": "Verificando…", "id-ID": "Memeriksa…", "ja-JP": "確認中…",
+                  "ko-KR": "확인 중…", "hi-IN": "जाँच हो रही है…",
+                },
+              },
+              {
+                pose: "celebrate",
+                label: {
+                  "en-US": "Goal met!", "es-ES": "¡Cumplido!", "fr-FR": "Objectif atteint", "de-DE": "Ziel erreicht!",
+                  "it-IT": "Raggiunto!", "pt-BR": "Alcançado!", "id-ID": "Tercapai!", "ja-JP": "達成！",
+                  "ko-KR": "달성!", "hi-IN": "लक्ष्य पूरा!",
+                },
+              },
+            ],
+          },
+        },
+        {
+          title: {
+            "en-US": "Your own shortcuts", "es-ES": "Tus propios atajos", "fr-FR": "Tes raccourcis",
+            "de-DE": "Eigene Tastenkürzel", "it-IT": "Le tue scorciatoie", "pt-BR": "Seus próprios atalhos",
+            "id-ID": "Pintasanmu sendiri", "ja-JP": "ショートカットを変更", "ko-KR": "나만의 단축키", "hi-IN": "अपने शॉर्टकट",
+          },
+          desc: {
+            "en-US": "Press Ctrl+/, click a pencil and press the new keys.",
+            "es-ES": "Pulsa Ctrl+/, toca un lápiz y pulsa las teclas nuevas.",
+            "fr-FR": "Appuie sur Ctrl+/, clique un crayon et tape les nouvelles touches.",
+            "de-DE": "Drücke Strg+/, klick auf einen Stift und drück die neuen Tasten.",
+            "it-IT": "Premi Ctrl+/, clicca una matita e premi i nuovi tasti.",
+            "pt-BR": "Aperte Ctrl+/, clique num lápis e aperte as novas teclas.",
+            "id-ID": "Tekan Ctrl+/, klik pensil, lalu tekan tombol barunya.",
+            "ja-JP": "Ctrl+/ を押し、鉛筆を選んで新しいキーを押すだけ。",
+            "ko-KR": "Ctrl+/를 누르고 연필을 클릭한 뒤 새 키를 누르세요.",
+            "hi-IN": "Ctrl+/ दबाएँ, पेंसिल पर क्लिक करें और नई कुंजियाँ दबाएँ।",
+          },
+          scene: { kind: "icon", icon: "keyboard" },
+        },
+        {
+          title: {
+            "en-US": "Free up worktrees", "es-ES": "Libera worktrees", "fr-FR": "Libère les worktrees",
+            "de-DE": "Worktrees aufräumen", "it-IT": "Libera i worktree", "pt-BR": "Libere worktrees",
+            "id-ID": "Bersihkan worktree", "ja-JP": "ワークツリーを整理", "ko-KR": "워크트리 정리", "hi-IN": "वर्कट्री साफ़ करें",
+          },
+          desc: {
+            "en-US": "See their size in Settings and remove the unused ones. Branches stay.",
+            "es-ES": "Mira su tamaño en Ajustes y quita los que no uses. Las ramas se quedan.",
+            "fr-FR": "Vois leur taille dans les Paramètres et retire les inutiles. Les branches restent.",
+            "de-DE": "Größe in den Einstellungen sehen, unbenutzte entfernen. Branches bleiben.",
+            "it-IT": "Vedi quanto occupano nelle Impostazioni e togli quelli inutili. I branch restano.",
+            "pt-BR": "Veja o tamanho nos Ajustes e remova os sem uso. Os branches ficam.",
+            "id-ID": "Lihat ukurannya di Pengaturan dan hapus yang tak dipakai. Branch tetap ada.",
+            "ja-JP": "設定でサイズを確認し、使わないものを削除。ブランチは残ります。",
+            "ko-KR": "설정에서 크기를 보고 안 쓰는 것을 제거해요. 브랜치는 남아요.",
+            "hi-IN": "सेटिंग्स में आकार देखें, बेकार वाले हटाएँ। ब्रांच बनी रहती हैं।",
+          },
+          scene: { kind: "icon", icon: "folder" },
+        },
+        {
+          title: {
+            "en-US": "And also", "es-ES": "Y además", "fr-FR": "Et aussi", "de-DE": "Außerdem", "it-IT": "E inoltre",
+            "pt-BR": "E também", "id-ID": "Dan juga", "ja-JP": "そのほか", "ko-KR": "그리고", "hi-IN": "और भी",
+          },
+          desc: {
+            "en-US": "Smaller changes in this version.", "es-ES": "Cambios más pequeños de esta versión.",
+            "fr-FR": "Petits changements de cette version.", "de-DE": "Kleinere Änderungen dieser Version.",
+            "it-IT": "Modifiche minori di questa versione.", "pt-BR": "Mudanças menores desta versão.",
+            "id-ID": "Perubahan kecil di versi ini.", "ja-JP": "このバージョンの小さな変更。",
+            "ko-KR": "이번 버전의 작은 변경 사항.", "hi-IN": "इस संस्करण के छोटे बदलाव।",
+          },
+          scene: {
+            kind: "list",
+            items: [
+              {
+                tag: "new",
+                text: {
+                  "en-US": "Sessions inactive for 1 to 30 days can archive themselves",
+                  "es-ES": "Las sesiones inactivas de 1 a 30 días pueden archivarse solas",
+                  "fr-FR": "Les sessions inactives 1 à 30 jours peuvent s'archiver seules",
+                  "de-DE": "Sitzungen, 1 bis 30 Tage inaktiv, archivieren sich selbst",
+                  "it-IT": "Le sessioni inattive da 1 a 30 giorni si archiviano da sole",
+                  "pt-BR": "Sessões inativas de 1 a 30 dias podem se arquivar sozinhas",
+                  "id-ID": "Sesi yang diam 1 sampai 30 hari bisa terarsip sendiri",
+                  "ja-JP": "1〜30 日使わないセッションを自動でアーカイブ",
+                  "ko-KR": "1~30일 동안 쓰지 않은 세션을 자동 보관",
+                  "hi-IN": "1 से 30 दिन निष्क्रिय सत्र अपने-आप संग्रहित",
+                },
+              },
+              {
+                tag: "improved",
+                text: {
+                  "en-US": "Tooltips show the shortcut keys you chose",
+                  "es-ES": "Los tooltips muestran las teclas que elegiste",
+                  "fr-FR": "Les infobulles montrent les touches choisies",
+                  "de-DE": "Tooltips zeigen deine gewählten Tasten",
+                  "it-IT": "I suggerimenti mostrano i tasti che hai scelto",
+                  "pt-BR": "As dicas mostram as teclas que você escolheu",
+                  "id-ID": "Tooltip menampilkan tombol pilihanmu",
+                  "ja-JP": "ツールチップに選んだキーを表示",
+                  "ko-KR": "툴팁에 고른 단축키가 표시돼요",
+                  "hi-IN": "टूलटिप में आपकी चुनी कुंजियाँ दिखती हैं",
+                },
+              },
+            ],
+          },
+        },
+      ],
+    },
+  },
+  {
     version: "0.8.59",
     date: "November 24, 2026",
     added: [

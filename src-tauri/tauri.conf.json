@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Nyxs",
-  "version": "0.8.59",
+  "version": "0.8.60",
   "identifier": "com.nyxs.desktop",
   "build": {
     "frontendDist": "../dist",
