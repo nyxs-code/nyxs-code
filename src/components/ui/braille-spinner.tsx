@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
+import { reducedMotion } from "@/lib/appearance";
 
 /** The classic terminal spinner (⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏) drawn as dots, so it reads the same on every
  *  system and takes the text color. Dots that go out fade over TRAIL_MS instead of vanishing,
@@ -32,7 +33,7 @@ export function BrailleSpinner({ className, label }: { className?: string; label
       });
     };
     // With reduced motion it holds its first frame.
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (reducedMotion()) {
       paint(0);
       return;
     }

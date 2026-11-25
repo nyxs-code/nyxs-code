@@ -12,6 +12,7 @@ import { MessageScroller } from "@/components/ui/message-scroller";
 import { HIGHLIGHT_SWATCH, turnHighlightColors, type TextHighlight } from "@/lib/chatHighlights";
 import { canResendBefore, isMinimapTurn } from "@/lib/chatMessages";
 import type { Chat, CompactionMark } from "@/lib/chatStore";
+import { useAppearance } from "@/lib/appearance";
 import { useTranslations } from "@/lib/i18n";
 import type { RetryState } from "@/lib/useStreamingChats";
 import { cn } from "@/lib/utils";
@@ -58,6 +59,9 @@ interface ChatTranscriptProps {
 
 /** The open chat's conversation: its messages, the queued ones, the minimap, highlights and
  *  the reply-to-selection bubble. */
+/** The last messages are always drawn: they're on screen, and they change while a reply streams. */
+const LIVE_ROWS = 4;
+
 export function ChatTranscript({
   chat,
   scrollRef,
@@ -89,6 +93,7 @@ export function ChatTranscript({
   onHighlightsChange,
 }: ChatTranscriptProps) {
   const tApp = useTranslations().app;
+  const dynamic = useAppearance().dynamicConversations;
   const messages = chat.messages;
   // Highlights by message, and the minimap color of each turn that has one.
   const highlights = useMemo(() => {
@@ -125,7 +130,9 @@ export function ChatTranscript({
               )}
               {shown.map((m, i) => (
                 <Fragment key={m.id}>
-                  {/* A message that fails to render shows a notice; the rest of the chat stays. */}
+                  {/* A message that fails to render shows a notice; the rest of the chat stays. Off
+                      screen, an older one isn't drawn (Dynamic conversations, `.chat-row-lazy`). */}
+                  <div className={cn(dynamic && !m.streaming && i < shown.length - LIVE_ROWS && "chat-row-lazy")}>
                   <MessageErrorBoundary text={m.content}>
                     <Message
                       message={m}
@@ -150,6 +157,7 @@ export function ChatTranscript({
                       onReviewChanges={onReviewChanges}
                     />
                   </MessageErrorBoundary>
+                  </div>
                   {compactionsAfter.get(m.id)?.map((mark, j) => <CompactionDivider key={j} mark={mark} />)}
                 </Fragment>
               ))}

@@ -69,6 +69,19 @@ export function editItem<P extends { message: string }>(
   });
 }
 
+/** Moves a queued message to `toIndex` in its chat's queue (the user dragged it there). */
+export function moveItem<P extends { message: string }>(map: QueueMap<P>, chatId: string, id: string, toIndex: number): QueueMap<P> {
+  return withQueue(map, chatId, (q) => {
+    const from = q.items.findIndex((i) => i.id === id);
+    const to = Math.max(0, Math.min(q.items.length - 1, toIndex));
+    if (from < 0 || from === to) return q;
+    const items = [...q.items];
+    const [item] = items.splice(from, 1);
+    items.splice(to, 0, item);
+    return { ...q, items };
+  });
+}
+
 export function setPaused<P extends { message: string }>(map: QueueMap<P>, chatId: string, paused: boolean): QueueMap<P> {
   return withQueue(map, chatId, (q) => (q.paused === paused || (paused && !q.items.length) ? q : { ...q, paused }));
 }

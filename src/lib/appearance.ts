@@ -1,3 +1,4 @@
+import type { AmbientKind, AmbientVolume } from "@/lib/ambientSound";
 import { useEffect, useState } from "react";
 
 export type InterfaceFont = "sans" | "system";
@@ -26,7 +27,18 @@ export interface AppearancePrefs {
   codeThemeDark: CodeTheme;
   codeThemeLight: CodeTheme;
   requestAttention: boolean;
+  /** Animations: as the system says, or always fewer (on) or always all (off). */
+  reduceMotion: ReduceMotion;
+  /** Popups (the mods' notices) stay until closed instead of going after a few seconds. */
+  keepPopups: boolean;
+  /** A background ambience while the app is on screen (ambientSound.ts). */
+  themeSound: "off" | AmbientKind;
+  themeSoundVolume: AmbientVolume;
+  /** Older messages out of view aren't drawn (CSS content-visibility), so long chats stay smooth. */
+  dynamicConversations: boolean;
 }
+
+export type ReduceMotion = "system" | "on" | "off";
 
 export const DEFAULT_APPEARANCE: AppearancePrefs = {
   interfaceFont: "sans",
@@ -36,6 +48,11 @@ export const DEFAULT_APPEARANCE: AppearancePrefs = {
   codeThemeDark: "dark-plus",
   codeThemeLight: "github-light",
   requestAttention: true,
+  reduceMotion: "system",
+  keepPopups: false,
+  themeSound: "off",
+  themeSoundVolume: "medium",
+  dynamicConversations: true,
 };
 
 export interface CodePalette {
@@ -179,6 +196,8 @@ export function applyAppearance(prefs: AppearancePrefs): void {
     "--ui-font",
     prefs.interfaceFont === "system" ? SYSTEM_STACK : SANS_STACK,
   );
+  // index.css reads it: "on" stills the app like the system setting, "off" ignores the system's.
+  root.dataset.reduceMotion = prefs.reduceMotion;
   const code = prefs.codeFont.trim();
   root.style.setProperty(
     "--code-font",
@@ -198,6 +217,13 @@ export function applyCodePalette(mode: "light" | "dark"): void {
   for (const [role, color] of Object.entries(palette)) {
     root.style.setProperty(`--code-${role}`, color);
   }
+}
+
+/** Whether the app should keep still: the Reduce motion setting, or the system's when it follows it. */
+export function reducedMotion(): boolean {
+  const pref = getAppearance().reduceMotion;
+  if (pref !== "system") return pref === "on";
+  return typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 export function setAppearance(patch: Partial<AppearancePrefs>): void {

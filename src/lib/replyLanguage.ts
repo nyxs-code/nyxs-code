@@ -16,9 +16,11 @@ const LATIN_LANGUAGES: LanguageCues[] = [
       "su", "al", "no", "ya", "pero", "porque", "cuando", "esto", "este", "esta", "también", "haz",
       "hola", "ahora", "sí", "puedes", "hay", "cómo", "como", "qué", "muy", "lo", "está", "mi", "tu",
       "gracias", "dime", "cambia", "arregla", "revisa", "añade", "quita", "pon", "mira", "busca",
-      "explica", "prueba", "borra",
+      "explica", "prueba", "borra", "otro", "otra", "deja", "empieza",
     ],
-    marks: /[ñ¿¡]/,
+    // "las"/"los" are Spanish only among these languages (Portuguese says "as"/"os"), and people
+    // often type without accents, so they're what tells it from Portuguese.
+    marks: /[ñ¿¡]| las | los /,
   },
   {
     name: "English",
@@ -109,7 +111,9 @@ function proseOf(text: string): string {
 /** The language of the user's message, or null when it can't be told for sure: a wrong guess
  *  would order the model to answer in a language the user didn't write in. */
 export function detectReplyLanguage(text: string): string | null {
-  const prose = proseOf(text);
+  // A `/goal` message wraps the user's words in English instructions: only the goal is theirs.
+  const goal = /<goal>([\s\S]*?)<\/goal>/.exec(text);
+  const prose = proseOf(goal ? goal[1] : text);
   if (/[぀-ヿ]/.test(prose)) return "Japanese";
   if (/[가-힯]/.test(prose)) return "Korean";
   if (/[ऀ-ॿ]/.test(prose)) return "Hindi";

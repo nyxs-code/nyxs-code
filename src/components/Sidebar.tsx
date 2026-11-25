@@ -3,6 +3,7 @@ import { useCloseOnBlur } from "@/lib/useCloseOnBlur";
 import { createPortal } from "react-dom";
 import { Plus, Search, Settings, Code2, Clock, Plug, Copy, ChevronDown, ChevronRight, Check, Languages, LifeBuoy, History, LogOut, EllipsisVertical, MessageSquareHeart, GitPullRequest, GitPullRequestDraft, GitPullRequestClosed, GitMerge, Folder, FolderOpen, Layers, Pin, Pencil, Trash2, X } from "lucide-react";
 import { LearnMoreMenu } from "@/components/sidebar/LearnMoreMenu";
+import { NavRows } from "@/components/sidebar/NavRows";
 import { SessionMenu, type SessionCopy, type SessionMenuAction, type SessionMenuTarget } from "@/components/sidebar/SessionMenu";
 import { createSection, deleteSection, moveToSection, renameSection, setPinned, setUnread, useSessionMarks } from "@/lib/sessionMarks";
 import { shortAge } from "@/lib/time";
@@ -204,6 +205,8 @@ interface SidebarProps {
   onForkSession?: (id: string) => void;
   /** The Routines form, filled in from the session. */
   onScheduleSession?: (id: string) => void;
+  /** Asks the session's agent to write a skill from what it did there. */
+  onSkillFromSession?: (id: string) => void;
   onCopySession?: (id: string, what: SessionCopy) => void;
   onMoveSession?: (id: string, workspace: string) => void;
   /** Files the session changed that aren't committed, named in the delete confirmation. */
@@ -342,6 +345,7 @@ export function Sidebar({
   onNewSideChat,
   onForkSession,
   onScheduleSession,
+  onSkillFromSession,
   onCopySession,
   onMoveSession,
   uncommittedFilesOf,
@@ -499,6 +503,7 @@ export function Sidebar({
       case "sideChat": onNewSideChat?.(id); break;
       case "fork": onForkSession?.(id); break;
       case "schedule": onScheduleSession?.(id); break;
+      case "skill": onSkillFromSession?.(id); break;
       case "select": setSelected(new Set([id])); break;
       case "rename": startRename(id); break;
       case "rewind": onRewindSession?.(id); break;
@@ -587,38 +592,21 @@ export function Sidebar({
           <Plus className="w-4 h-4" />
           {t.newSession}
         </button>
-        {/* A plain row like the others, as in Claude; the search itself opens in the sessions dialog. */}
-        {onOpenSearch && (
-          <button
-            onClick={onOpenSearch}
-            aria-label={tSearch.sessionsTitle}
-            data-tooltip={tSearch.sessionsTitle}
-            data-tooltip-kbd={searchKeys}
-            className="w-full flex items-center gap-2.5 px-2 py-1 rounded-[5px] text-sm leading-5 text-text-100 hover:bg-bg-200 transition-colors"
-          >
-            <Search className="w-4 h-4 shrink-0" />
-            <span className="flex-1 text-left truncate">{tTitle.search}</span>
-          </button>
-        )}
-
-        {OPTIONAL_ITEMS.map((it) => (
-          <button
-            key={it.id}
-            onClick={() => onSectionChange(it.section)}
-            className={cn(
-              "w-full flex items-center gap-2.5 px-2 py-1 rounded-[5px] text-sm leading-5 transition-colors",
-              section === it.section ? "bg-bg-200 text-text-100" : "text-text-300 hover:bg-bg-200",
-            )}
-          >
-            <it.icon className="w-4 h-4" />
-            <span className="flex-1 text-left">
-              {it.id === "routines" ? tm.routines : it.id === "artifacts" ? tm.artifacts : it.id === "customize" ? tm.customize : it.label}
-            </span>
-            {it.badge && (
-              <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-bg-300 text-text-400">{it.badge}</span>
-            )}
-          </button>
-        ))}
+        {/* Search is a plain row like the others, as in Claude; the search itself opens in the
+            sessions dialog. A right click moves a row to More. */}
+        <NavRows
+          rows={[
+            ...(onOpenSearch ? [{ id: "search", icon: Search, label: tTitle.search, tooltip: tSearch.sessionsTitle, kbd: searchKeys, onClick: onOpenSearch, bright: true }] : []),
+            ...OPTIONAL_ITEMS.map((it) => ({
+              id: it.id,
+              icon: it.icon,
+              label: it.id === "routines" ? tm.routines : it.id === "artifacts" ? tm.artifacts : it.id === "customize" ? tm.customize : it.label,
+              onClick: () => onSectionChange(it.section),
+              active: section === it.section,
+              badge: it.badge,
+            })),
+          ]}
+        />
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar px-2 pt-5 pb-3">

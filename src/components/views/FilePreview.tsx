@@ -1,10 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { invoke } from "@/lib/ipc";
 import { tokenize, langFromPath } from "@/lib/highlight";
 import { localizedError, useTranslations } from "@/lib/i18n";
 import { insideWorkspace, isViewOnlyConfig, toLines } from "@/lib/fileEditing";
 import { FileEditor, type LeaveGuard } from "./FileEditor";
+import { modelFormat, type ModelFormat } from "@/lib/model3d";
+
+// three.js only loads when a 3D model is opened.
+const ModelView = lazy(() => import("./ModelView"));
 
 const MAX_LINES = 5000;
 const IMAGE_EXT = /\.(png|jpe?g|gif|webp|bmp)$/i;
@@ -14,6 +18,7 @@ type Loaded = { path: string } & (
    *  opens read-only. */
   | { kind: "text"; text: string; truncated: boolean; mtime: number | null; encoding: string | null }
   | { kind: "image"; src: string }
+  | { kind: "model"; base64: string; format: ModelFormat }
   | { kind: "none" }
   | { kind: "error"; message: string }
 );
@@ -38,7 +43,10 @@ export function FilePreview({ path, label, refreshKey, workspace, onLeaveGuard }
     (async () => {
       let next: Loaded;
       try {
-        if (IMAGE_EXT.test(path)) {
+        const format = modelFormat(path);
+        if (format) {
+          next = { path, kind: "model", format, base64: await invoke<string>("agent_read_model", { path }) };
+        } else if (IMAGE_EXT.test(path)) {
           const img = await invoke<{ base64: string; mediaType: string }>("agent_read_image", { path });
           next = { path, kind: "image", src: `data:${img.mediaType};base64,${img.base64}` };
         } else {
@@ -90,6 +98,12 @@ export function FilePreview({ path, label, refreshKey, workspace, onLeaveGuard }
             <p className="px-4 text-[12px] text-red-400 break-words">{loaded.message}</p>
           ) : loaded.kind === "none" ? (
             <p className="px-4 text-[12px] text-text-500">{t.cannotPreview}</p>
+          ) : loaded.kind === "model" ? (
+            <div className="h-full">
+              <Suspense fallback={<p className="px-4 text-text-500"><Loader2 className="w-3.5 h-3.5 animate-spin" /></p>}>
+                <ModelView base64={loaded.base64} format={loaded.format} name={label} />
+              </Suspense>
+            </div>
           ) : loaded.kind === "image" ? (
             <div className="p-4">
               <img src={loaded.src} alt={label} className="max-w-full h-auto rounded-md border border-bg-300 bg-[repeating-conic-gradient(#8881_0%_25%,transparent_0%_50%)] bg-[length:16px_16px]" />

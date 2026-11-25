@@ -23,6 +23,7 @@ import {
   Plus,
   Trash2,
   Undo2,
+  Wand2,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -41,6 +42,7 @@ export type SessionMenuAction =
   | "sideChat"
   | "fork"
   | "schedule"
+  | "skill"
   | "select"
   | "rename"
   | "rewind"
@@ -219,6 +221,7 @@ export function SessionMenu({
         <Row icon={MessageSquarePlus} label={tm.newSideChat} hint={sideChatKeys} disabled={!hasMessages || !saved} onHover={plain} onClick={() => pick("sideChat")} />
         <Row icon={GitFork} label={tm.fork} disabled={!saved || !hasMessages} onHover={plain} onClick={() => pick("fork")} />
         <Row icon={Clock} label={tm.addScheduledTask} disabled={!target.workspace} onHover={plain} onClick={() => pick("schedule")} />
+        <Row icon={Wand2} label={tm.turnIntoSkill} disabled={!saved || !hasMessages || !target.workspace} onHover={plain} onClick={() => pick("skill")} />
         <Sep />
         <div className="relative" onMouseLeave={leaveSub}>
           <Row icon={Copy} label={tm.copy} arrow open={sub?.which === "copy"} onHover={(row) => openSub("copy", row)} onClick={() => setSub(null)} />

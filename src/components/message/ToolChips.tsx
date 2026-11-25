@@ -11,6 +11,7 @@ import { DiffView } from "@/components/DiffView";
 import { EditDiffCard, LineCounts } from "./EditGroup";
 import { MemoryStopNote } from "./MemoryStopNote";
 import { BackgroundMoveNote } from "./BackgroundMoveNote";
+import { deliveryIdIn, useDeliveryState } from "@/lib/sessionDelivery";
 import { useMovedState } from "./useMovedState";
 import {
   TOOL_ICONS,
@@ -71,6 +72,8 @@ export function ToolChip({
   // Moved to the background: it goes on there, so it reads neither as done nor as stopped.
   const moved = done && !memoryStop ? info?.background : undefined;
   const movedState = useMovedState(moved?.shellId, moved?.limitMs);
+  // A message sent to another session: where it is now (queued, delivered, read, replied).
+  const delivery = useDeliveryState(done && !failed ? deliveryIdIn(info?.output) : undefined);
 
   const streamingNow = running && !!info?.streaming;
   const [now, setNow] = useState(() => Date.now());
@@ -124,6 +127,11 @@ export function ToolChip({
       )}
       {stopped && <span className="text-[11.5px] text-text-400 shrink-0">· {tMsg.toolStopped}</span>}
       {movedState && <span className="text-[11.5px] text-text-400 shrink-0">· {movedState}</span>}
+      {delivery && (
+        <span className={cn("text-[11.5px] shrink-0", delivery === "replied" ? "text-success" : "text-text-400")}>
+          · {{ queued: tMsg.deliveryQueued, delivered: tMsg.deliveryDelivered, read: tMsg.deliveryRead, replied: tMsg.deliveryReplied }[delivery]}
+        </span>
+      )}
       {detail && (
         <code className="text-[11.5px] font-mono text-text-400 truncate min-w-0">
           {shown}

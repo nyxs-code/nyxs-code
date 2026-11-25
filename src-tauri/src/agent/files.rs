@@ -384,6 +384,38 @@ fn shift_spans(spans: &mut Vec<(usize, usize)>, at: usize, removed: usize, added
     }
 }
 
+/// Biggest 3D model the Files panel opens: a viewer, not a tool for scenes of hundreds of MB.
+const MODEL_MAX_READ_BYTES: u64 = 64 * 1024 * 1024;
+
+/// A 3D model's bytes (glb, gltf, stl, obj) for the Files panel's 3D view, as base64.
+#[tauri::command(async)]
+pub fn agent_read_model(path: String, scope: Option<String>) -> Result<String, CmdError> {
+    use base64::Engine;
+    confine(&path, scope.as_deref())?;
+    let lower = path.to_lowercase();
+    if ![".glb", ".gltf", ".stl", ".obj"]
+        .iter()
+        .any(|e| lower.ends_with(e))
+    {
+        return Err(
+            format!("Not a 3D model this view opens: {path} (glb, gltf, stl or obj).").into(),
+        );
+    }
+    let meta = vfs::metadata(&path).map_err(|e| CmdError::file_open_failed(&path, e))?;
+    if meta.is_dir {
+        return Err(CmdError::file_is_directory(&path));
+    }
+    if meta.len > MODEL_MAX_READ_BYTES {
+        return Err(format!(
+            "The model is larger than {} MB, too large to preview.",
+            MODEL_MAX_READ_BYTES / (1024 * 1024)
+        )
+        .into());
+    }
+    let bytes = vfs::read(&path).map_err(|e| CmdError::file_read_failed(&path, e))?;
+    Ok(base64::engine::general_purpose::STANDARD.encode(&bytes))
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImageRead {

@@ -1,5 +1,6 @@
-import { useAppearance, setAppearance, CODE_THEMES, codePaletteFor, type InterfaceFont, type TranscriptTextSize, type ChatWidth, type CodeTheme } from "@/lib/appearance";
+import { useAppearance, setAppearance, CODE_THEMES, codePaletteFor, type InterfaceFont, type TranscriptTextSize, type ChatWidth, type CodeTheme, type ReduceMotion } from "@/lib/appearance";
 import { tokenize } from "@/lib/highlight";
+import type { AmbientKind, AmbientVolume } from "@/lib/ambientSound";
 import { useTranslations } from "@/lib/i18n";
 import { isHighContrast, setHighContrast, useTheme } from "@/lib/theme";
 import { SegmentedControl, SettingGroup, SettingRow, SettingsToggle } from "./settingsControls";
@@ -117,6 +118,57 @@ export function CodeAppearanceSettings() {
             label={cs.highContrastTitle}
           />
         </SettingRow>
+        <SettingRow title={cs.reduceMotionTitle} desc={cs.reduceMotionDesc}>
+          <SegmentedControl<ReduceMotion>
+            value={appearance.reduceMotion}
+            options={[
+              { id: "system", label: cs.motionSystem },
+              { id: "on", label: cs.motionOn },
+              { id: "off", label: cs.motionOff },
+            ]}
+            onChange={(v) => setAppearance({ reduceMotion: v })}
+          />
+        </SettingRow>
+        <SettingRow title={cs.dynamicChatsTitle} desc={cs.dynamicChatsDesc}>
+          <SettingsToggle
+            checked={appearance.dynamicConversations}
+            onChange={(v) => setAppearance({ dynamicConversations: v })}
+            label={cs.dynamicChatsTitle}
+          />
+        </SettingRow>
+        <SettingRow title={cs.keepPopupsTitle} desc={cs.keepPopupsDesc}>
+          <SettingsToggle
+            checked={appearance.keepPopups}
+            onChange={(v) => setAppearance({ keepPopups: v })}
+            label={cs.keepPopupsTitle}
+          />
+        </SettingRow>
+        <SettingRow title={cs.themeSoundTitle} desc={cs.themeSoundDesc}>
+          <SettingSelect<"off" | AmbientKind>
+            value={appearance.themeSound}
+            ariaLabel={cs.themeSoundTitle}
+            onChange={(v) => setAppearance({ themeSound: v })}
+            options={[
+              { id: "off", label: cs.themeSoundOff },
+              { id: "rain", label: cs.themeSoundRain },
+              { id: "campfire", label: cs.themeSoundCampfire },
+              { id: "ambience", label: cs.themeSoundAmbience },
+            ]}
+          />
+        </SettingRow>
+        {appearance.themeSound !== "off" && (
+          <SettingRow title={cs.themeSoundVolumeTitle}>
+            <SegmentedControl<AmbientVolume>
+              value={appearance.themeSoundVolume}
+              options={[
+                { id: "low", label: cs.volumeLow },
+                { id: "medium", label: cs.volumeMedium },
+                { id: "high", label: cs.volumeHigh },
+              ]}
+              onChange={(v) => setAppearance({ themeSoundVolume: v })}
+            />
+          </SettingRow>
+        )}
         <SettingRow title={cs.interfaceFontTitle} desc={cs.interfaceFontDesc}>
           <SegmentedControl<InterfaceFont>
             value={appearance.interfaceFont}

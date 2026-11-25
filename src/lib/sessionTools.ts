@@ -1,5 +1,7 @@
 import { chatModeOf } from "@/lib/chatModes";
 import { sessionBridge } from "@/lib/sessionBridge";
+import { noteMessageSent, refuseMessage, refusalText } from "@/lib/sessionMessageGuard";
+import { deliveryMarker, latestDeliveryId } from "@/lib/sessionDelivery";
 
 // The user's other sessions, as Claude Code Desktop gives them to Claude: list, read, message,
 // create (nested under this one), rename and archive. One set of definitions serves the
@@ -112,15 +114,22 @@ export const SESSION_TOOLS: SessionToolDef[] = [
       const message = str(input.message).trim();
       if (!message) throw new Error("Pass the message to send.");
       notSelf(ctx, id);
+      // A sender with no session of its own (an outside client of the sessions server) counts as one.
+      const from = ctx.chat ?? "outside";
+      const refused = refuseMessage(from, id);
+      if (refused) throw new Error(refusalText(refused, id));
       // The gate compares the other session's mode with this one's.
       const targetMode = chatModeOf(id);
       await gated(ctx, "SendToSession", { session_id: id, message, ...(targetMode ? { target_mode: targetMode } : {}) });
       const outcome = await bridge().send(ctx.chat, id, message);
+      if (outcome === "queued" || outcome === "sent") noteMessageSent(from, id, outcome === "queued");
       if (outcome === "missing") throw new Error(`No session ${id}, or it is archived: the message wasn't delivered.`);
       if (outcome === "unsupported") throw new Error(`Session ${id} uses a model that can't be messaged from here (no key, or an agent that runs its own terminal).`);
+      const sentId = latestDeliveryId(ctx.chat, id);
+      const marker = sentId ? ` ${deliveryMarker(sentId)}` : "";
       return outcome === "queued"
-        ? `Queued for ${id}: a turn is running there, and the message goes in when it ends.`
-        : `Sent to ${id}; its agent is answering it now.`;
+        ? `Queued for ${id}: a turn is running there, and the message goes in when it ends.${marker}`
+        : `Sent to ${id}; its agent is answering it now.${marker}`;
     },
   },
   {

@@ -4,7 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { Terminal as XTerm, type ITheme } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
-import { Maximize2, Minimize2, Plus, Terminal as TerminalIcon, X } from "lucide-react";
+import { Maximize2, Minimize2, Minus, Plus, Terminal as TerminalIcon, X } from "lucide-react";
 import { APPEARANCE_EVENT } from "@/lib/appearance";
 import { isNewTerminalShortcut, isTerminalShortcut, NEW_TERMINAL_EVENT } from "@/lib/terminalShortcut";
 import { loadReloadState, saveReloadState } from "@/lib/reloadState";
@@ -227,12 +227,15 @@ export function TerminalView({
   onClose,
   visible = true,
   onToggleMaximize,
+  onMinimize,
   maximized = false,
 }: {
   workspace: string | null;
   onClose: () => void;
   visible?: boolean;
   onToggleMaximize?: () => void;
+  /** Hides the panel and leaves a card in a corner of the chat to bring it back. */
+  onMinimize?: () => void;
   maximized?: boolean;
 }) {
   const tAll = useTranslations();
@@ -365,6 +368,11 @@ export function TerminalView({
           </button>
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
+          {onMinimize && (
+            <button onClick={onMinimize} aria-label={t.minimizePanel} data-tooltip={t.minimizePanel} className="p-1.5 rounded-[6px] text-text-400 hover:text-text-200 hover:bg-bg-200">
+              <Minus className="w-4 h-4" />
+            </button>
+          )}
           {onToggleMaximize && (
             <button onClick={onToggleMaximize} aria-label={maximized ? t.showChat : t.diffExpandPanel} className="p-1.5 rounded-[6px] text-text-400 hover:text-text-200 hover:bg-bg-200">
               {maximized ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}

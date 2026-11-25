@@ -258,6 +258,11 @@ export interface Translations {
     views: string;
     preview: string;
     terminal: string;
+    minimizePanel: string;
+    minimizedPanels: string;
+    minimizedHint: string;
+    restorePanel: string;
+    hideMinimized: string;
     files: string;
     backgroundTasks: string;
     agentsView: string;
@@ -425,6 +430,11 @@ export interface Translations {
     diffShowMore: string;
     diffTooLarge: string;
     diffBinary: string;
+    model3d: string;
+    modelInfo: string;
+    modelHint: string;
+    modelOtherFiles: string;
+    modelUnreadable: string;
   };
   question: {
     agentAsks: string;
@@ -516,6 +526,10 @@ export interface Translations {
     sumCreatedMany: string;
     sumOtherOne: string;
     sumOther: string;
+    deliveryQueued: string;
+    deliveryDelivered: string;
+    deliveryRead: string;
+    deliveryReplied: string;
   };
   toolVerbs: Record<string, [string, string]>;
   modals: {
@@ -1226,6 +1240,25 @@ export interface Translations {
     appearanceTitle: string;
     highContrastTitle: string;
     highContrastDesc: string;
+    reduceMotionTitle: string;
+    reduceMotionDesc: string;
+    motionSystem: string;
+    motionOn: string;
+    motionOff: string;
+    dynamicChatsTitle: string;
+    dynamicChatsDesc: string;
+    keepPopupsTitle: string;
+    keepPopupsDesc: string;
+    themeSoundTitle: string;
+    themeSoundDesc: string;
+    themeSoundOff: string;
+    themeSoundRain: string;
+    themeSoundCampfire: string;
+    themeSoundAmbience: string;
+    themeSoundVolumeTitle: string;
+    volumeLow: string;
+    volumeMedium: string;
+    volumeHigh: string;
     interfaceFontTitle: string;
     interfaceFontDesc: string;
     interfaceFontSans: string;
@@ -1833,6 +1866,12 @@ export interface Translations {
     openInSplit: string;
     newSideChat: string;
     addScheduledTask: string;
+    turnIntoSkill: string;
+    turnIntoSkillMessage: string;
+    moreRows: string;
+    hideRow: string;
+    showRow: string;
+    movedToMore: string;
     copy: string;
     copyForModel: string;
     copyMarkdown: string;
@@ -1866,6 +1905,8 @@ export interface Translations {
   };
   messageExtra: {
     attachedImage: string;
+    annotateImage: string;
+    addToMessage: string;
     pastedClickCollapse: string;
     pasted: string;
     copied: string;
@@ -2167,6 +2208,8 @@ export interface Translations {
     sendNow: string;
     edit: string;
     remove: string;
+    reorder: string;
+    reorderHint: string;
     attachments: string;
     addToQueue: string;
     steer: string;

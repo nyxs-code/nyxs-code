@@ -303,6 +303,8 @@ const handlers: Record<string, Handler> = {
   agent_grep: () => "",
   agent_file_mtime: ({ path }, s) => (s.files.has(norm(path)) ? 1 : null),
   agent_read_text: ({ path }, s) => s.files.get(norm(path)) ?? null,
+  // A seeded text file (an ASCII STL, say) as the 3D view's bytes.
+  agent_read_model: ({ path }, s) => btoa(readFile(s, path)),
   nyxs_read_text: ({ path }, s) => s.files.get(norm(path)) ?? "",
   agent_read_file_range: ({ path, offset, limit }, s) => {
     const lines = readFile(s, path).split("\n");

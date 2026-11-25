@@ -40,14 +40,20 @@ export function newGoal(text: string, now = Date.now()): ChatGoal {
 /** The first message of a goal: what the agent works on. */
 export function goalKickoff(goal: string): string {
   return `<goal>${goal}</goal>
-Work toward this goal now. After each of your turns a check reads how far you got, and you get another turn until the goal is met, so keep going step by step and verify it (run the tests, the build, whatever proves it). If it can't be met, say why plainly.`;
+Work toward this goal now. After each of your turns a check reads how far you got, and you get another turn until the goal is met, so keep going step by step and verify it (run the tests, the build, whatever proves it). If it can't be met, say why plainly.
+${GOAL_LANGUAGE}`;
 }
+
+// These instructions are English but the user wrote only the goal: without this the agent
+// answered a Spanish goal in English. The reply-language check reads the <goal> tag too.
+const GOAL_LANGUAGE = "Write every reply in the language the goal is written in, not in the language of these instructions.";
 
 /** What the agent reads when a check says the goal isn't met yet. */
 export function goalContinue(goal: string, reason: string): string {
   return `<goal-check>The goal isn't met yet: ${reason}</goal-check>
-Keep working toward the goal: ${goal}
-Pick up where you left off. If it can't be met, say why plainly instead of trying the same thing again.`;
+Keep working toward the goal: <goal>${goal}</goal>
+Pick up where you left off. If it can't be met, say why plainly instead of trying the same thing again.
+${GOAL_LANGUAGE}`;
 }
 
 export const GOAL_JUDGE_SYSTEM = `You check whether an AI coding agent has met the user's goal.

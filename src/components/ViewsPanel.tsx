@@ -152,6 +152,8 @@ interface ViewsPanelProps {
   /** The views on screen, in the order they were opened (at most four). */
   views: ViewId[];
   onCloseView: (view: ViewId) => void;
+  /** Hides the browser or the terminal behind a card in a corner of the chat. */
+  onMinimizeView?: (view: "preview" | "terminal") => void;
   plan: string;
   workspace: string | null;
   previews: PreviewSlot[];
@@ -175,7 +177,7 @@ type Drag = "panel" | "col" | 0 | 1;
 
 const OFF = { on: false, solo: null as ViewId | null };
 
-export function ViewsPanel({ open, views, onCloseView, plan, workspace, previews, activePreviewSlot, diffNonce, diffFocus, onRequestDevServer, onAddServer, onPickElement, onAttachImage, chatId, onMaximizedChange, sideChat }: ViewsPanelProps) {
+export function ViewsPanel({ open, views, onCloseView, onMinimizeView, plan, workspace, previews, activePreviewSlot, diffNonce, diffFocus, onRequestDevServer, onAddServer, onPickElement, onAttachImage, chatId, onMaximizedChange, sideChat }: ViewsPanelProps) {
   const tViews = useTranslations().views;
   const panelVisual = usePanelVisual();
   const asideRef = useRef<HTMLElement>(null);
@@ -492,6 +494,7 @@ export function ViewsPanel({ open, views, onCloseView, plan, workspace, previews
                 workspace={ws || null}
                 onClose={() => onCloseView("terminal")}
                 visible={!!style}
+                onMinimize={onMinimizeView ? () => onMinimizeView("terminal") : undefined}
                 onToggleMaximize={paneMaximize("terminal")}
                 maximized={paneMaximized("terminal")}
               />
@@ -509,6 +512,7 @@ export function ViewsPanel({ open, views, onCloseView, plan, workspace, previews
                 onRequestDevServer={onRequestDevServer}
                 onAddServer={onAddServer}
                 onClose={() => onCloseView("preview")}
+                onMinimize={onMinimizeView ? () => onMinimizeView("preview") : undefined}
                 onToggleMaximize={paneMaximize("preview")}
                 maximized={paneMaximized("preview")}
                 onPickElement={onPickElement}

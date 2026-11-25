@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { X, MoreVertical, Globe, Maximize2, Minimize2 } from "lucide-react";
+import { X, MoreVertical, Globe, Maximize2, Minimize2, Minus } from "lucide-react";
 import { invoke } from "@/lib/ipc";
 import { cn } from "@/lib/utils";
 import { PREVIEW_ORIGIN, previewSite } from "@/lib/previewWebview";
@@ -47,6 +47,7 @@ export function PreviewPage({
   onAddServer,
   onClose,
   onToggleMaximize,
+  onMinimize,
   maximized,
   onPickElement,
   onAttachImage,
@@ -323,6 +324,11 @@ export function PreviewPage({
           >
             <MoreVertical className="w-3.5 h-3.5" />
           </button>
+          {onMinimize && (
+            <button type="button" onClick={onMinimize} aria-label={t.minimizePanel} data-tooltip={t.minimizePanel} className="p-1 rounded text-text-400 hover:text-text-100 hover:bg-bg-200 shrink-0">
+              <Minus className="w-3.5 h-3.5" />
+            </button>
+          )}
           {onToggleMaximize && (
             <button type="button" onClick={onToggleMaximize} aria-label={maximized ? t.showChat : t.diffExpandPanel} data-tooltip={maximized ? t.showChat : t.diffExpandPanel} className="p-1 rounded text-text-400 hover:text-text-100 hover:bg-bg-200 shrink-0">
               {maximized ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}

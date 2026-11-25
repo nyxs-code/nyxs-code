@@ -118,6 +118,8 @@ export function AnnotationBar({
   onClear,
   onAddToChat,
   onClose,
+  pageTools = true,
+  addLabel,
 }: {
   /** The tool lit up; null when the arrow has stopped after a pick and none is in use. */
   tool: AnnotTool | null;
@@ -136,6 +138,10 @@ export function AnnotationBar({
   onClear: () => void;
   onAddToChat: () => void;
   onClose: () => void;
+  /** The element picker and text, which only work on a page; off over an image (ImageAnnotator). */
+  pageTools?: boolean;
+  /** The send button's text, when it isn't "Add to chat". */
+  addLabel?: string;
 }) {
   const t = useTranslations().views;
   const [menu, setMenu] = useState<Menu | null>(null);
@@ -169,9 +175,11 @@ export function AnnotationBar({
       onKeyDown={(e) => { if (e.key === "Escape") setMenu(null); }}
       className="flex items-center gap-0.5 rounded-lg border border-bg-300 bg-bg-100 shadow-lg px-1.5 py-1"
     >
-      <BarButton label={t.selectElement} active={tool === "select"} tip={tip} onClick={() => { setMenu(null); onTool("select"); }}>
-        <CursorIcon className="w-4 h-4" />
-      </BarButton>
+      {pageTools && (
+        <BarButton label={t.selectElement} active={tool === "select"} tip={tip} onClick={() => { setMenu(null); onTool("select"); }}>
+          <CursorIcon className="w-4 h-4" />
+        </BarButton>
+      )}
       <BarButton label={t.annotPen} active={tool === "pen"} tip={tip} onClick={() => { setMenu(null); onTool("pen"); }}>
         <Pencil className="w-4 h-4" strokeWidth={1.8} />
       </BarButton>
@@ -191,9 +199,11 @@ export function AnnotationBar({
           </MenuPanel>
         )}
       </div>
-      <BarButton label={t.annotText} active={tool === "text"} tip={tip} onClick={() => { setMenu(null); onTool("text"); }}>
-        <Type className="w-4 h-4" strokeWidth={1.8} />
-      </BarButton>
+      {pageTools && (
+        <BarButton label={t.annotText} active={tool === "text"} tip={tip} onClick={() => { setMenu(null); onTool("text"); }}>
+          <Type className="w-4 h-4" strokeWidth={1.8} />
+        </BarButton>
+      )}
       {sep}
       <div className="relative">
         <BarButton label={t.annotColor} tip={tip} open={menu === "color"} onClick={() => toggle("color")}>
@@ -260,7 +270,7 @@ export function AnnotationBar({
         onClick={() => { setMenu(null); onAddToChat(); }}
         className="ml-1 h-6 px-2 rounded-md text-[12px] font-semibold whitespace-nowrap bg-[#1a1a19] text-white hover:bg-black dark:bg-text-100 dark:text-bg-0 dark:hover:bg-white transition-colors"
       >
-        {t.annotAddToChat}
+        {addLabel ?? t.annotAddToChat}
       </button>
       <BarButton label={t.annotClose} tip={tip} onClick={() => { setMenu(null); onClose(); }}>
         <X className="w-4 h-4" strokeWidth={1.8} />

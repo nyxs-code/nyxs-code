@@ -45,6 +45,14 @@ describe("detectReplyLanguage", () => {
     expect(detectReplyLanguage("Run the tests and tell me what fails")).toBe("English");
   });
 
+  it("reads only the goal of a /goal message, not the English instructions around it", async () => {
+    const { goalContinue, goalKickoff } = await import("@/lib/goal");
+    const goal = "empiesa por las de menos a mas deja las mas pesadas para otro dia";
+    expect(detectReplyLanguage(goal)).toBe("Spanish");
+    expect(detectReplyLanguage(goalKickoff(goal))).toBe("Spanish");
+    expect(detectReplyLanguage(goalContinue(goal, "Faltan dos tareas."))).toBe("Spanish");
+  });
+
   it("returns null without a clear winner or with marks of another language", () => {
     expect(detectReplyLanguage("revisa por favor, no sé por qué dice não encontrado")).toBeNull();
     expect(detectReplyLanguage("Change the button label to Größe ändern in the settings page")).toBeNull();

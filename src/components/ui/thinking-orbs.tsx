@@ -1,5 +1,6 @@
 /** @license MIT — thinking-orbs by Yogesh, https://github.com/yogesharc/thinking-orbs */
 import { useEffect, useRef } from "react";
+import { reducedMotion } from "@/lib/appearance";
 
 const VARIANTS = {
   base: ["default"],
@@ -363,7 +364,7 @@ function mountOrb(
 
   const look = `${state}@${speed}`;
   draw(tick(look, performance.now(), speed));
-  const still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const still = reducedMotion();
   let visible = true, raf = 0, dead = false;
   const io = typeof IntersectionObserver === "function"
     ? new IntersectionObserver((es) => (visible = es[es.length - 1].isIntersecting))

@@ -256,6 +256,7 @@ pub fn run() {
             agent::agent_read_pdf,
             agent::agent_read_pdf_text,
             agent::agent_read_image,
+            agent::agent_read_model,
             agent::agent_prepare_video,
             computer::computer_screenshot,
             computer::computer_act,

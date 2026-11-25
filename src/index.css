@@ -150,10 +150,21 @@
   }
 }
 
+/* Settings › Nyxs Code › Reduce motion (data-reduce-motion on <html>, appearance.ts): "on" stills
+   the app whatever the system says, "off" keeps the animations even when the system asks for less. */
+html[data-reduce-motion="on"] *,
+html[data-reduce-motion="on"] *::before,
+html[data-reduce-motion="on"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  html:not([data-reduce-motion="off"]) *,
+  html:not([data-reduce-motion="off"]) *::before,
+  html:not([data-reduce-motion="off"]) *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
@@ -176,6 +187,14 @@
 
 .animate-fade-in {
   animation: fadeIn 0.3s var(--ease-silk) both;
+}
+
+/* Settings › Dynamic conversations (ChatTranscript.tsx): an older message out of view isn't laid
+   out or painted until it scrolls near. It stays in the page, so find, copy and screen readers
+   still reach it; `auto` keeps its last measured height so the scrollbar doesn't jump. */
+.chat-row-lazy {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 320px;
 }
 
 /* The goal card (GoalCard.tsx): a light runs around its border while the agent works toward the
@@ -353,8 +372,12 @@
   animation-direction: reverse;
 }
 
+html[data-reduce-motion="on"] .compact-sweep::after {
+  animation: none;
+  left: 30%;
+}
 @media (prefers-reduced-motion: reduce) {
-  .compact-sweep::after {
+  html:not([data-reduce-motion="off"]) .compact-sweep::after {
     animation: none;
     left: 30%;
   }
@@ -382,8 +405,11 @@
   --reasoning-fade: 48px;
 }
 
+html[data-reduce-motion="on"] .reasoning-live {
+  transition: none;
+}
 @media (prefers-reduced-motion: reduce) {
-  .reasoning-live {
+  html:not([data-reduce-motion="off"]) .reasoning-live {
     transition: none;
   }
 }

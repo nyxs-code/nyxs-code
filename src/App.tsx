@@ -77,6 +77,11 @@ import { useSessionWorktrees } from "@/lib/useSessionWorktrees";
 import { setSessionEnvironments } from "@/lib/environments";
 import { allowWorkspaceAccess } from "@/lib/workspace";
 import { localizedError } from "@/lib/i18n";
+import { SKILL_FROM_SESSION_PROMPT } from "@/lib/skillFromSession";
+import { ThemeSound } from "@/components/ThemeSound";
+import { setComposerAttach } from "@/lib/composerAttach";
+import { forgetMinimized, minimizeView } from "@/lib/minimizedViews";
+import { MinimizedViews } from "@/components/MinimizedViews";
 import { TrustWorkspaceModal } from "@/components/TrustWorkspaceModal";
 import { OpenProjectModal } from "@/components/OpenProjectModal";
 import { ProjectOnboardingModal } from "@/components/ProjectOnboardingModal";
@@ -446,6 +451,11 @@ export default function App() {
     return () => setSideChatHost(null);
   }, [patchViews]);
   const sideDocked = openViews.includes("sidechat");
+  // A minimized panel opened again, from its card or its title-bar button: its card goes.
+  useEffect(() => {
+    if (openViews.includes("preview")) forgetMinimized("preview");
+    if (openViews.includes("terminal")) forgetMinimized("terminal");
+  }, [openViews]);
   useEffect(() => { setSideChatDocked(sideDocked); }, [sideDocked]);
   const sideFloating = useSideChat().sessions[sideKey(activeId)]?.floating ?? false;
   // Only for a session with messages: there's nothing to ask about before, and a new session
@@ -1012,6 +1022,13 @@ export default function App() {
     if (reply) reply.files([file]);
     else attachFilesRef.current?.([file]);
   };
+  // The image viewer's "Add to message" (an annotated picture) lands where a page's screenshot does.
+  const attachPreviewImageRef = useRef(attachPreviewImage);
+  useEffect(() => { attachPreviewImageRef.current = attachPreviewImage; });
+  useEffect(() => {
+    setComposerAttach((files) => files.forEach((f) => attachPreviewImageRef.current(f)));
+    return () => setComposerAttach(null);
+  }, []);
 
   const applyPlan = () => {
     handlePermissionModeChange("acceptEdits");
@@ -1116,7 +1133,7 @@ export default function App() {
     onEdit: editUserMessage,
     onFork: forkMessage,
     onReviewChanges: openReview,
-    queue: { items: queue.items, delivering: queue.delivering, paused: queue.paused, onEdit: queue.edit, onRemove: queue.remove, onSendNow: queue.sendNow, onResume: queue.resume },
+    queue: { items: queue.items, delivering: queue.delivering, paused: queue.paused, onEdit: queue.edit, onRemove: queue.remove, onMove: queue.move, onSendNow: queue.sendNow, onResume: queue.resume },
     onReplyToSelection: (message: string, { files, pastedContent, elements }: { files: AttachedFile[]; pastedContent: PastedSnippet[]; elements: PickedElement[] }) => {
       const payload = { message, files, pastedContent, model: effectiveModel, isThinkingEnabled: false, elements: elements.length ? elements : undefined };
       if (busy) queue.enqueue(payload);
@@ -1159,6 +1176,8 @@ export default function App() {
       />
       <ChangelogModal open={whatsNewOpen} onClose={() => setWhatsNewOpen(false)} />
       <CornerNotices />
+      <ThemeSound />
+      <MinimizedViews onRestore={(v) => openView(v)} />
       <RagConsentDialog workspace={workspace} onIndex={(ws) => reindexRag(ws, true)} />
       <SshAskpassDialog />
       <TranscriptViewNotice />
@@ -1216,6 +1235,16 @@ export default function App() {
           const session = sessions.find((s) => s.id === id);
           startRoutineDraft({ name: session?.title || chats.find((c) => c.id === id)?.title || "", prompt: "", workspace: session?.workspace ?? workspace ?? undefined });
           setSection("routines");
+        }}
+        onSkillFromSession={(id) => {
+          // Opens the session, then its agent writes the skill from what it did there.
+          // A turn running there ends first, as for a queued message.
+          void (async () => {
+            await resumeSession(id, sessions.find((s) => s.id === id)?.workspace);
+            await turnDoneRef.current.get(id);
+            const shown = t.sidebarMenu.turnIntoSkillMessage;
+            await handleSendRef.current?.(textPayload(SKILL_FROM_SESSION_PROMPT, effectiveModel), shown, id);
+          })();
         }}
         onCopySession={(id, what) => {
           void sessionActions.sessionCopyText(id, what, sessionActionsEnv()).then((text) => {
@@ -1361,6 +1390,10 @@ export default function App() {
         open={viewsOpen && !computerControlled}
         views={openViews}
         onCloseView={(v) => (v === "sidechat" ? closeSideChat() : patchViews((cur) => withoutView(cur, v)))}
+        onMinimizeView={(v) => {
+          patchViews((cur) => withoutView(cur, v));
+          minimizeView(v);
+        }}
         sideChat={(pane) => <SideChatPane key={sideKey(activeId)} {...sideChatProps} {...pane} />}
         plan={activeChat?.plan ?? ""}
         workspace={workDir}

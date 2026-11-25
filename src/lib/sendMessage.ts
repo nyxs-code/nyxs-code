@@ -16,6 +16,7 @@ import { matchBuiltinPromptCommand, parseBuiltinCommand, resolvePromptCommand } 
 import { clampTitle, generateChatTitle } from "@/lib/titles";
 import { generateUniqueWordSlug } from "@/lib/words";
 import { takePendingGoal } from "@/lib/goalMode";
+import { userSpokeIn } from "@/lib/sessionMessageGuard";
 
 export const newChatId = (chats: Chat[]) => generateUniqueWordSlug(new Set(chats.map((c) => c.id)));
 
@@ -115,6 +116,8 @@ export async function sendMessage(
   }
   const out = await outgoingMessage(payload, displayText);
   if (!out) return;
+  // The user wrote here: agents messaging this session before isn't a loop any more.
+  if (chatId) userSpokeIn(chatId);
   const { userMessage: userMsg, modelImages, titleText } = out;
   let { modelText } = out;
 

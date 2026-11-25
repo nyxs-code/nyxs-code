@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { MascotMood } from "@/lib/mascotMood";
+import { reducedMotion } from "@/lib/appearance";
 
 /** Every clip, a lossless animated WebP with alpha, by file name. Lossless keeps every pixel's
  *  colour (VP9 video halves the colour resolution, which shows as steps on the edges), and WebKit
@@ -31,7 +32,6 @@ const LOOKS: Record<MascotMood, Look> = {
   intro: clip("dance", 3042),
 };
 
-const reducedMotion = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** Clips that play once and then settle into another look, instead of looping. */
 const THEN: Partial<Record<MascotMood, MascotMood>> = { wave: "rest", intro: "rest" };

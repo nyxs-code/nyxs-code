@@ -133,6 +133,8 @@ export interface PreviewProps {
   onAddServer?: () => void;
   onClose?: () => void;
   onToggleMaximize?: () => void;
+  /** Hides the panel and leaves a card in a corner of the chat to bring it back. */
+  onMinimize?: () => void;
   /** The panel covers the chat; the maximize button brings it back. */
   maximized?: boolean;
   onPickElement?: (element: PickedElement) => void;

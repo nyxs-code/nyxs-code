@@ -12,6 +12,8 @@ import { workspaceName } from "@/lib/workspace";
 import { useTranslations } from "@/lib/i18n";
 import type { AssistantTurn } from "@/lib/assistantTurn";
 import type { ChatHistory } from "@/lib/chatHistory";
+import { sessionTookMessages } from "@/lib/sessionMessageGuard";
+import { markRead, markReplied, noteDelivery } from "@/lib/sessionDelivery";
 
 interface Deps {
   streamAssistantTurn: (turn: AssistantTurn) => Promise<void>;
@@ -125,6 +127,8 @@ export function useSessionBridge(deps: Deps): void {
           // Taken when the turn starts, so everything that came in during the wait goes in it.
           const ready = waiting.get(id);
           waiting.delete(id);
+          sessionTookMessages(id);
+          if (ready?.messages.length) markRead(ready.messages.map((m) => m.id));
           if (ready?.messages.length) await runTurn(id, ready.modelId, ready.messages);
         });
       }
@@ -175,7 +179,12 @@ export function useSessionBridge(deps: Deps): void {
         if (summary(id)?.archived) return "missing";
         const from = fromId ? titleOf(fromId) : "";
         const card = fromId ? { id: fromId, title: from } : undefined;
-        return deliver(id, modelId, userMessage(attributedMessage(`Message from the session "${from}" (${fromId ?? ""}):`, text), card));
+        const message = userMessage(attributedMessage(`Message from the session "${from}" (${fromId ?? ""}):`, text), card);
+        const outcome = deliver(id, modelId, message);
+        noteDelivery(message.id, fromId, id, outcome === "queued");
+        // Writing back answers what that session had sent this one.
+        if (fromId) markReplied(fromId, id);
+        return outcome;
       },
 
       create: async (fromId, { title, message, model, effort, reportBack }) => {
@@ -225,6 +234,7 @@ export function useSessionBridge(deps: Deps): void {
           const parentModel = usableModel(live(fromId)?.model);
           if (!parentModel) return;
           deliver(fromId, parentModel, userMessage(reportMessage(titleOf(id), id, plainText(reply?.content ?? "")), { id, title: titleOf(id), reply: true }));
+          markReplied(id, fromId);
         })().catch(() => undefined);
         return { id, model: getModel(modelId, d().settings)?.name ?? modelId, effort: level };
       },

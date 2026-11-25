@@ -23,9 +23,9 @@ import {
   stopSideAnswer,
   takePendingQuestion,
   useSideChat,
-  type SideCorner,
 } from "@/lib/sideChat";
 import { cn } from "@/lib/utils";
+import { cornerStyle, MARGIN, useChatArea } from "@/components/chatAreaCorner";
 
 const clean = (s: string) => s.replace(/⟦(TOOL|TOOLEND|REASONING)⟧[\s\S]*?(⟦\/\1⟧|$)|⟦(?:TODO|PLAN)⟧/g, "");
 
@@ -179,49 +179,6 @@ export function SideChatPane(props: SideChatProps & { onToggleMaximize: () => vo
     </div>
   );
 }
-
-const MARGIN = 12;
-
-interface Area {
-  left: number;
-  top: number;
-  right: number;
-  bottom: number;
-}
-
-/** Where the card may sit: the chat's area (App marks it), between the sidebar and the side
- *  panel, so it never covers either. The whole window when the chat is hidden. */
-function useChatArea(): Area {
-  const measure = (): Area => {
-    const el = document.querySelector("[data-side-chat-area]");
-    const r = el?.getBoundingClientRect();
-    if (!r || r.width === 0) return { left: 0, top: 36, right: window.innerWidth, bottom: window.innerHeight };
-    return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
-  };
-  const [area, setArea] = useState<Area>(measure);
-  useEffect(() => {
-    const update = () => setArea((prev) => {
-      const next = measure();
-      return prev.left === next.left && prev.top === next.top && prev.right === next.right && prev.bottom === next.bottom ? prev : next;
-    });
-    update();
-    const el = document.querySelector("[data-side-chat-area]");
-    // The sidebar or the side panel opening, closing or being resized moves the chat's edges.
-    const ro = el ? new ResizeObserver(update) : null;
-    if (el && ro) ro.observe(el);
-    window.addEventListener("resize", update);
-    return () => {
-      ro?.disconnect();
-      window.removeEventListener("resize", update);
-    };
-  }, []);
-  return area;
-}
-
-const cornerStyle = (corner: SideCorner, a: Area) => ({
-  ...(corner.startsWith("top") ? { top: a.top + MARGIN } : { bottom: window.innerHeight - a.bottom + MARGIN }),
-  ...(corner.endsWith("left") ? { left: a.left + MARGIN } : { right: window.innerWidth - a.right + MARGIN }),
-});
 
 /** The minimized side chat: a card in a corner of the chat's area. Dragged by its header, it
  *  goes to the corner nearest to where it's let go. */

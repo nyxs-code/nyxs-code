@@ -7,6 +7,7 @@ import {
   promote,
   readyToSend,
   removeItem,
+  moveItem,
   setPaused,
   type QueueMap,
   type QueuedMessage,
@@ -225,6 +226,13 @@ export function useMessageQueue<P extends { message: string }>({
     [activeId, mutate, track],
   );
 
+  const move = useCallback(
+    (id: string, toIndex: number) => {
+      if (activeId) mutate((m) => moveItem(m, activeId, id, toIndex));
+    },
+    [activeId, mutate],
+  );
+
   const pause = useCallback(
     (chatId: string | null) => {
       if (chatId) mutate((m) => setPaused(m, chatId, true));
@@ -257,6 +265,7 @@ export function useMessageQueue<P extends { message: string }>({
     sendNow,
     remove,
     edit,
+    move,
     pause,
     resume,
     clear,

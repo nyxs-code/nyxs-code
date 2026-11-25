@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Paperclip, Pencil, X } from "lucide-react";
+import { GripVertical, Paperclip, Pencil, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "@/lib/i18n";
 import type { QueuedMessage } from "@/lib/messageQueue";
@@ -16,12 +16,15 @@ function QueuedBubble({
   onEdit,
   onRemove,
   onSendNow,
+  reorder,
 }: {
   item: QueuedMessage<SendPayload>;
   inFlight: boolean;
   onEdit: (text: string) => void;
   onRemove: () => void;
   onSendNow: () => void;
+  /** Set when the queue has more than one waiting message: drag or arrow keys to move it. */
+  reorder?: { onDragStart: () => void; onStep: (step: -1 | 1) => void };
 }) {
   const t = useTranslations().queue;
   const [editing, setEditing] = useState(false);
@@ -108,6 +111,27 @@ function QueuedBubble({
           <div className="mt-1 flex items-center gap-1.5 text-[12px] text-text-400">
             {!inFlight && (
               <>
+                {reorder && (
+                  <button
+                    type="button"
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.effectAllowed = "move";
+                      e.dataTransfer.setData("text/plain", item.id);
+                      reorder.onDragStart();
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+                      e.preventDefault();
+                      reorder.onStep(e.key === "ArrowUp" ? -1 : 1);
+                    }}
+                    className="cursor-grab rounded p-0.5 opacity-0 transition-opacity hover:text-text-100 group-hover:opacity-100 focus-visible:opacity-100 active:cursor-grabbing"
+                    data-tooltip={t.reorderHint}
+                    aria-label={t.reorder}
+                  >
+                    <GripVertical className="h-3 w-3" />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {
@@ -147,6 +171,7 @@ export function MessageQueue({
   paused,
   onEdit,
   onRemove,
+  onMove,
   onSendNow,
   onResume,
 }: {
@@ -155,22 +180,54 @@ export function MessageQueue({
   paused: boolean;
   onEdit: (id: string, text: string) => void;
   onRemove: (id: string) => void;
+  /** Moves a waiting message to another place in the queue. */
+  onMove?: (id: string, toIndex: number) => void;
   onSendNow: (id: string) => void;
   onResume: () => void;
 }) {
   const t = useTranslations().queue;
+  const [dragged, setDragged] = useState<string | null>(null);
+  const [dropAt, setDropAt] = useState<number | null>(null);
   if (!items.length && !delivering.length) return null;
+  const canReorder = !!onMove && items.length > 1;
+  const drop = () => {
+    if (dragged && dropAt !== null && onMove) {
+      const from = items.findIndex((i) => i.id === dragged);
+      // Dropping below itself counts the slot it leaves.
+      onMove(dragged, from >= 0 && from < dropAt ? dropAt - 1 : dropAt);
+    }
+    setDragged(null);
+    setDropAt(null);
+  };
   return (
-    <div>
-      {[...delivering, ...items].map((item) => (
-        <QueuedBubble
+    <div onDragEnd={() => { setDragged(null); setDropAt(null); }}>
+      {delivering.map((item) => (
+        <QueuedBubble key={item.id} item={item} inFlight onEdit={() => {}} onRemove={() => {}} onSendNow={() => onSendNow(item.id)} />
+      ))}
+      {items.map((item, index) => (
+        <div
           key={item.id}
-          item={item}
-          inFlight={delivering.includes(item)}
-          onEdit={(text) => onEdit(item.id, text)}
-          onRemove={() => onRemove(item.id)}
-          onSendNow={() => onSendNow(item.id)}
-        />
+          className={cn("border-t-2 border-transparent", dragged && dropAt === index && "border-accent", dragged && index === items.length - 1 && dropAt === items.length && "border-b-2 border-b-accent")}
+          onDragOver={(e) => {
+            if (!dragged) return;
+            e.preventDefault();
+            const box = e.currentTarget.getBoundingClientRect();
+            setDropAt(e.clientY < box.top + box.height / 2 ? index : index + 1);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            drop();
+          }}
+        >
+          <QueuedBubble
+            item={item}
+            inFlight={false}
+            onEdit={(text) => onEdit(item.id, text)}
+            onRemove={() => onRemove(item.id)}
+            onSendNow={() => onSendNow(item.id)}
+            reorder={canReorder ? { onDragStart: () => setDragged(item.id), onStep: (step) => onMove!(item.id, index + step) } : undefined}
+          />
+        </div>
       ))}
       {paused && items.length > 0 && (
         <div className={cn("flex justify-end gap-1.5 px-4 pb-2 text-[12px] text-text-400")}>
