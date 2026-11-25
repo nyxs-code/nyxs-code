@@ -801,7 +801,8 @@ const WORKED_AFTER_MERGE_MS = 15 * 60_000;
 const AUTO_ARCHIVED_KEY = "nyxs.prAutoArchived";
 const AUTO_ARCHIVED_MAX = 500;
 
-function autoArchivedIds(): Record<string, number> {
+/** Sessions archived on their own (by id, when), so one the user brings back isn't archived again. */
+export function autoArchivedIds(): Record<string, number> {
   try {
     const raw = JSON.parse(localStorage.getItem(AUTO_ARCHIVED_KEY) ?? "{}") as unknown;
     return raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, number>) : {};
@@ -810,7 +811,7 @@ function autoArchivedIds(): Record<string, number> {
   }
 }
 
-function rememberAutoArchived(id: string, at: number): void {
+export function rememberAutoArchived(id: string, at: number): void {
   try {
     const entries = Object.entries({ ...autoArchivedIds(), [id]: at })
       .sort((a, b) => b[1] - a[1])

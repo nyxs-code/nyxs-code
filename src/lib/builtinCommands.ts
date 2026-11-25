@@ -6,6 +6,9 @@ import type { CompactRun } from "@/lib/compactAborts";
 import { compactChat } from "@/lib/compactChat";
 import { closeClaudeCodeChat } from "@/lib/claudeCode";
 import { openSideChat } from "@/lib/sideChat";
+import { goalKickoff, isClearGoal, newGoal } from "@/lib/goal";
+import { setPendingGoal } from "@/lib/goalMode";
+import { getLanguage, getTranslations } from "@/lib/i18n";
 import { openCliResume } from "@/lib/cliSessions";
 import type { EffortLevel } from "@/lib/effort";
 import {
@@ -81,6 +84,26 @@ export async function runBuiltinCommand(name: string, args: string, ctx: Builtin
       // Claude Code sessions from the terminal or the Claude app, to continue here.
       openCliResume();
       return;
+    case "goal": {
+      // Like Claude's /goal: the agent keeps taking turns until a check finds the goal met.
+      const tg = getTranslations(getLanguage()).goal;
+      const text = args.trim();
+      if (!text) {
+        ctx.reply(chat?.goal ? tg.current.replace("{goal}", chat.goal.text) : tg.usage);
+        return;
+      }
+      if (isClearGoal(text)) {
+        if (chat) ctx.patchChat(chat.id, { goal: undefined });
+        return;
+      }
+      if (chat) {
+        ctx.patchChat(chat.id, { goal: newGoal(text) });
+        ctx.send(textPayload(goalKickoff(text), ctx.modelId), `/goal ${text}`);
+      } else {
+        ctx.send(textPayload(setPendingGoal(text), ctx.modelId), `/goal ${text}`);
+      }
+      return;
+    }
     case "btw":
       // A side question: answered apart, nothing added to this chat.
       openSideChat(args);

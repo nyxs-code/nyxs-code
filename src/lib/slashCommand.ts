@@ -28,6 +28,7 @@ export const BUILTIN_COMMANDS: SlashCommand[] = [
   { name: "preview", description: "Abrir la vista previa", kind: "builtin" },
   { name: "resume", description: "Continuar una sesión de Claude Code de la terminal o la app", kind: "builtin" },
   { name: "btw", description: "Pregunta rápida en un chat lateral sin guardar (Ctrl+J)", kind: "builtin" },
+  { name: "goal", description: "Fija un objetivo: el agente sigue trabajando hasta cumplirlo", kind: "builtin" },
 ];
 
 const BUILTIN_NAMES = new Set(BUILTIN_COMMANDS.map((c) => c.name));

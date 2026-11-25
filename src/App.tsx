@@ -120,6 +120,8 @@ import { newChatId, sendMessage, type SendEnv } from "@/lib/sendMessage";
 import * as sessionActions from "@/lib/sessionActions";
 import type { SessionActionsEnv } from "@/lib/sessionActions";
 import { continueCutTurn, resumeInterruptedTurns, wakeChatForShells, wakeClaudeCodeChat, type WakeEnv } from "@/lib/chatWake";
+import { goalTurnEnded, type GoalEnv } from "@/lib/goalMode";
+import { GoalCard } from "@/components/goal/GoalCard";
 import { draftModKey, matchModCommand, modKeyOf, useMods } from "@/lib/mods/useMods";
 import { useComputerControlLayout } from "@/lib/useComputerControlLayout";
 import { modHost } from "@/lib/mods/io";
@@ -269,6 +271,7 @@ export default function App() {
   const turnDoneRef = useRef<Map<string, Promise<void>>>(new Map());
   const handleSendRef = useRef<((payload: SendPayload, displayText?: string, chatId?: string | null) => Promise<void>) | null>(null);
   const wakeChatRef = useRef<((chatId: string, shells: FinishedShell[]) => Promise<void>) | null>(null);
+  const goalEnvRef = useRef<() => GoalEnv>(() => { throw new Error("goal env not ready"); });
   const backgroundWakerRef = useRef<BackgroundWaker | null>(null);
 
 
@@ -816,8 +819,10 @@ export default function App() {
     showPreview: showPreviewOf,
     filesChanged: () => setDiffNonce((n) => n + 1),
     backgroundShell: (chatId, event) => backgroundWakerRef.current?.onEvent(chatId, event),
-    turnEnded: (chatId) => {
+    turnEnded: (chatId, outcome) => {
       backgroundWakerRef.current?.turnEnded(chatId);
+      // A goal set with /goal: checked, and another turn while it isn't met.
+      void goalTurnEnded(chatId, outcome, goalEnvRef.current());
       // The session's mods hear the reply, and the ones the agent wrote load now.
       const last = liveChatsRef.current.find((c) => c.id === chatId)?.messages.at(-1);
       void (async () => {
@@ -854,6 +859,13 @@ export default function App() {
     streamTurn: streamAssistantTurn,
   });
   useEffect(() => { wakeChatRef.current = (chatId, shells) => wakeChatForShells(chatId, shells, wakeEnv()); });
+  useEffect(() => {
+    goalEnvRef.current = () => ({
+      ...wakeEnv(),
+      liveChat: (chatId) => liveChatsRef.current.find((c) => c.id === chatId),
+      queued: (chatId) => queue.hasQueued(chatId),
+    });
+  });
 
   useSessionBridge({
     streamAssistantTurn,
@@ -1295,7 +1307,15 @@ export default function App() {
                   transcript={paneTranscript}
                   prompts={panePrompts}
                   input={paneInput}
-                  topBar={<><ModBand sessionKey={chat.id} isWorking={streamingIds.has(chat.id)} />{usesClaudeCodeIn(chat) && <PlanLimitBar />}{chat.messages.length > 0 && gitBarOf(chat.worktree?.path ?? workspace, streamingIds.has(chat.id), { id: chat.id, workspace: chat.workspace ?? workspace })}</>}
+                  topBar={<><ModBand sessionKey={chat.id} isWorking={streamingIds.has(chat.id)} />{usesClaudeCodeIn(chat) && <PlanLimitBar />}{chat.goal && (
+                    <GoalCard
+                      chatId={chat.id}
+                      goal={chat.goal}
+                      working={streamingIds.has(chat.id)}
+                      onEdit={() => fillInputRef.current?.(`/goal ${chat.goal?.text ?? ""}`)}
+                      onClear={() => setChats((prev) => prev.map((c) => (c.id === chat.id ? { ...c, goal: undefined } : c)))}
+                    />
+                  )}{chat.messages.length > 0 && gitBarOf(chat.worktree?.path ?? workspace, streamingIds.has(chat.id), { id: chat.id, workspace: chat.workspace ?? workspace })}</>}
                 />
               ))}
             </div>

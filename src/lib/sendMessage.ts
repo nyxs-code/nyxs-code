@@ -15,6 +15,7 @@ import { sessionWorktreeOn } from "@/lib/sessionWorktree";
 import { matchBuiltinPromptCommand, parseBuiltinCommand, resolvePromptCommand } from "@/lib/slashCommand";
 import { clampTitle, generateChatTitle } from "@/lib/titles";
 import { generateUniqueWordSlug } from "@/lib/words";
+import { takePendingGoal } from "@/lib/goalMode";
 
 export const newChatId = (chats: Chat[]) => generateUniqueWordSlug(new Set(chats.map((c) => c.id)));
 
@@ -149,7 +150,9 @@ export async function sendMessage(
     const envId = pendingEnvironment();
     const environmentId = envId && savedEnvironments().some((e) => e.id === envId && e.folder === workspace) ? envId : undefined;
     if (environmentId) registerSessionEnvironment(chatId, environmentId);
-    const chat: Chat = { id: chatId, title: clampTitle(titleText, 35) || "Imagen", workspace, messages: [userMsg], model: env.effectiveModel, permissionMode: env.permissionMode(), worktree, environmentId };
+    // Started by /goal: the session gets its goal with its first message.
+    const goal = takePendingGoal(payload.message);
+    const chat: Chat = { id: chatId, title: clampTitle(titleText, 35) || "Imagen", workspace, messages: [userMsg], model: env.effectiveModel, permissionMode: env.permissionMode(), worktree, environmentId, ...(goal && { goal }) };
     env.chatCreated?.(chatId);
     env.openNewChat(chat);
     void saveSession(workspace, chat, Date.now()).then(env.refreshSessions);

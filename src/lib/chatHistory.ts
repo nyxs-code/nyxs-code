@@ -30,6 +30,8 @@ export function chatHistory(messages: ChatMessage[], summary = "", compactedUpTo
   // Only the latest tool screenshots, as the saved chat keeps: the older ones (a few hundred KB
   // each) went to the model on every turn until the context ran short.
   for (const m of withoutOldToolImages(messages).slice(compactedUpTo)) {
+    // A notice only for the user (a goal met): nothing for the model.
+    if (m.notice && !m.content.trim()) continue;
     if (m.role === "assistant" && m.responseMessages?.length) {
       history.push({ role: "assistant", content: m.content, messages: m.responseMessages });
     } else if (m.role === "assistant") {

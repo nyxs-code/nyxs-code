@@ -178,6 +178,70 @@
   animation: fadeIn 0.3s var(--ease-silk) both;
 }
 
+/* The goal card (GoalCard.tsx): a light runs around its border while the agent works toward the
+   goal, the status shimmers, and sparks fly from the icon when it's met. */
+@property --goal-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+.goal-card {
+  transition: background-color 0.4s;
+}
+.goal-card-live {
+  background: conic-gradient(from var(--goal-angle), transparent 0 62%, var(--accent) 76%, #b48cf0 86%, transparent 96%);
+  animation: goal-border 2.6s linear infinite;
+}
+@keyframes goal-border {
+  to {
+    --goal-angle: 360deg;
+  }
+}
+.goal-shimmer {
+  background: linear-gradient(90deg, var(--text-400) 0%, var(--text-400) 40%, var(--text-100) 50%, var(--text-400) 60%, var(--text-400) 100%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: goal-shimmer 2.2s linear infinite;
+}
+@keyframes goal-shimmer {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+.goal-check {
+  transition: opacity 0.35s, transform 0.35s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+.goal-check-on {
+  opacity: 1;
+  transform: none;
+}
+.goal-spark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 9999px;
+  background: var(--success);
+  pointer-events: none;
+  animation: goal-spark 0.8s ease-out forwards;
+}
+@keyframes goal-spark {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(var(--r)) translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(var(--r)) translateX(26px);
+  }
+}
+
 /* A word the model just wrote while a reply streams: it comes in blurred and clears. */
 @keyframes stream-word-in {
   from {

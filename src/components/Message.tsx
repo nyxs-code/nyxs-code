@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
-import { Circle, CircleDot, CheckCircle2 } from "lucide-react";
+import { Circle, CircleDot, CheckCircle2, Target } from "lucide-react";
 import type { ModelMessage } from "ai";
 import type { ToolDetail, Todo } from "@/lib/agentTools";
 import type { ImageAttachment } from "@/lib/ai";
@@ -39,6 +39,8 @@ import { CutOffNotice } from "./message/CutOffNotice";
 import { OutputLimitNotice } from "./message/OutputLimitNotice";
 import type { OutputLimitHit } from "@/lib/agentTurn";
 import { isComposingKey } from "@/lib/imeKeys";
+import { ariaKeys, useShortcutLabel } from "@/lib/keyBindings";
+import type { GoalNotice } from "@/lib/goal";
 
 export interface ChatMessage {
   id: string;
@@ -95,7 +97,12 @@ export interface ChatMessage {
 
   /** A turn the app started on the user's behalf: background work finished, or a reload of
    *  the app cut the previous reply short and the agent carries on ("resume"). */
-  notice?: { kind: "background" | "resume"; items: { id?: string; title: string; status: string; code: number | null; lines?: number }[] };
+  notice?: {
+    kind: "background" | "resume" | "goal";
+    items: { id?: string; title: string; status: string; code: number | null; lines?: number }[];
+    /** kind "goal": what a goal check found (goalMode.ts). */
+    goal?: GoalNotice;
+  };
 
   /** A message another session sent (SendToSession, or the reply of a session this one created):
    *  shown as a card naming that session, with a link to it. `content` keeps the quoted text the
@@ -668,6 +675,7 @@ function MessageBody({
   // as in Claude Code Desktop (Ctrl+B does the same from anywhere).
   const movable = useHasMovableCommand(streaming && !isUser ? chatId : undefined);
   const tBg = useTranslations().commandBackground;
+  const bgKeys = useShortcutLabel("moveToBackground");
 
   return (
     <div data-message-id={message.id} className={cn("group flex px-4 py-3.5", isUser ? "justify-end" : "justify-start")}>
@@ -749,8 +757,8 @@ function MessageBody({
               onClick={() => moveCommandsToBackground(chatId)}
               className="inline-flex items-center text-text-400 hover:text-text-200 transition-colors"
               data-tooltip={tBg.moveToBackground}
-              data-tooltip-kbd="Ctrl+B"
-              aria-keyshortcuts="Control+B"
+              data-tooltip-kbd={bgKeys}
+              aria-keyshortcuts={ariaKeys(bgKeys)}
               aria-label={tBg.moveToBackground}
             >
               <ListTodo className="w-3.5 h-3.5" />
@@ -809,6 +817,27 @@ function MessageBody({
 
 function NoticeLine({ notice }: { notice: NonNullable<ChatMessage["notice"]> }) {
   const t = useTranslations().chatUi;
+  const tg = useTranslations().goal;
+  if (notice.kind === "goal" && notice.goal) {
+    const g = notice.goal;
+    const text =
+      g.state === "met"
+        ? g.turns === 1
+          ? tg.noticeMetOne
+          : tg.noticeMetMany.replace("{count}", String(g.turns))
+        : g.state === "limit"
+          ? tg.noticeLimit.replace("{count}", String(g.turns)).replace("{reason}", g.reason ?? "")
+          : tg.noticeNotMet.replace("{reason}", g.reason ?? "");
+    const Icon = g.state === "met" ? CheckCircle2 : Target;
+    return (
+      <div className="flex justify-center px-4 py-2">
+        <span className="flex max-w-[90%] items-center gap-1.5 rounded-[6px] border border-bg-300 bg-bg-100 px-3 py-1 text-[12px] text-text-400" data-tooltip={text}>
+          <Icon className={cn("h-3.5 w-3.5 shrink-0", g.state === "met" ? "text-success" : g.state === "limit" ? "text-warning" : "text-accent")} aria-hidden />
+          <span className="truncate">{text}</span>
+        </span>
+      </div>
+    );
+  }
   if (notice.kind === "resume") {
     return (
       <div className="flex justify-center px-4 py-2">

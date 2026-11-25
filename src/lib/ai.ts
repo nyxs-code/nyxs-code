@@ -2,10 +2,10 @@ import type { ModelMessage } from "ai";
 import { callModel } from "./callModel";
 import { getModel, PROVIDERS, type ProviderId } from "./models";
 import { type Settings } from "./settings";
-import { effortRank } from "./effort";
+import { effortRank, type EffortLevel } from "./effort";
 import { COMPACT_PROMPT, formatCompactSummary } from "./compact";
 import { streamClaudeCode, ClaudeCodeAuthError } from "./claudeCode";
-import { MissingKeyError, buildModel } from "./modelClient";
+import { MissingKeyError, buildModel, thinkingOptions } from "./modelClient";
 import { serializeTurnsForSummary, type ChatTurn } from "./turnInput";
 import { dropOldest } from "./turnContext";
 import { collectText } from "./turnStream";
@@ -105,6 +105,41 @@ export async function summarizeConversation(
       parts = shorter;
     }
   }
+}
+
+/** One question to the chat's own model, whatever runs it (an API, Claude Code or another agent
+ *  CLI), with no tools and outside the chat's session: the answer's text. Low effort by default:
+ *  a quick check, not a turn of work. */
+export async function askModelOnce(
+  modelId: string,
+  settings: Settings,
+  prompt: string,
+  { effort = "low", signal }: { effort?: EffortLevel; signal?: AbortSignal } = {},
+): Promise<string> {
+  const model = getModel(modelId, settings);
+  if (!model) return "";
+  const history: ChatTurn[] = [{ role: "user", content: prompt }];
+  let text = "";
+  const onChunk = (delta: string) => {
+    text += delta;
+  };
+  if (model.provider === "claude-code") {
+    await streamClaudeCode({ model, history, workspace: null, signal, planMode: false, effort, ephemeral: true, onChunk });
+    return text;
+  }
+  const cli = agentCliOf(model.provider);
+  if (cli) {
+    await streamAgentCli(cli, { model, history, workspace: null, signal, env: cliEnv(model.provider, settings), planMode: false, effort, ephemeral: true, onChunk });
+    return text.replace(CLI_MARKER_RE, "").trim();
+  }
+  const result = callModel({
+    model: buildModel(model, settings),
+    messages: [{ role: "user", content: prompt }],
+    ...thinkingOptions(model, effort, false),
+    maxRetries: 1,
+    abortSignal: signal,
+  });
+  return collectText(result.fullStream);
 }
 
 export async function streamChat(chatOptions: StreamChatOptions): Promise<string> {

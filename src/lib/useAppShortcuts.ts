@@ -5,6 +5,7 @@ import { cycleComposerEffort, openComposerMenu } from "@/lib/composerMenus";
 import { cycleThemePreference } from "@/lib/theme";
 import { cycleTranscriptView } from "@/lib/transcriptView";
 import { toggleSideChat } from "@/lib/sideChat";
+import { isRecordingShortcut, shortcutFor, type ShortcutId } from "@/lib/keyBindings";
 
 export interface AppShortcutActions {
   /** A reply or `/compact` is running in the open chat (Escape stops it). */
@@ -27,13 +28,35 @@ export interface AppShortcutActions {
   moveToBackground: () => boolean;
 }
 
+/** What each changeable shortcut does. The terminal's two are caught on the way down (below)
+ *  and the element picker's by the browser view. */
+const ACTIONS: Partial<Record<ShortcutId, (a: AppShortcutActions) => void>> = {
+  openShortcuts: (a) => a.toggleShortcuts(),
+  openSettings: (a) => a.toggleSettings(),
+  newSession: (a) => a.newChat(),
+  find: (a) => a.openFind(),
+  searchSessions: (a) => a.toggleSessionSearch(),
+  toggleTheme: () => cycleThemePreference(),
+  toggleDiff: (a) => a.toggleView("diff"),
+  togglePreview: (a) => a.toggleView("preview"),
+  toggleFiles: (a) => a.toggleView("files"),
+  closePanel: (a) => a.closeViews(),
+  toggleSidebar: (a) => a.toggleSidebar(),
+  transcriptView: () => cycleTranscriptView(),
+  sideChat: () => toggleSideChat(),
+  moveToBackground: (a) => void a.moveToBackground(),
+  modeMenu: () => openComposerMenu("mode"),
+  modelMenu: () => openComposerMenu("model"),
+  effort: () => cycleComposerEffort(),
+};
+
 /** The app's keyboard shortcuts. The listeners are added once and call whatever actions the
  *  ref holds then; the caller fills it in an effect, so nothing here runs during render. */
 export function useAppShortcuts(ref: RefObject<AppShortcutActions | null>) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const a = ref.current;
-      if (!a) return;
+      if (!a || isRecordingShortcut()) return;
       const mod = e.ctrlKey || e.metaKey;
       if (e.key === "Escape") {
         if (!a.streaming || e.defaultPrevented) return;
@@ -53,63 +76,37 @@ export function useAppShortcuts(ref: RefObject<AppShortcutActions | null>) {
         else a.goForward();
         return;
       }
-      if (!mod) return;
       // AltGr arrives as Ctrl+Alt on Windows and types characters (\ @ # | on a Spanish
-      // keyboard): none of these shortcuts uses Alt, so it's never one of them.
+      // keyboard): no shortcut uses Alt, so it's never one of them.
       if (e.altKey || e.getModifierState?.("AltGraph")) return;
       // Session switching like Claude Code Desktop: Ctrl+Tab / Ctrl+Shift+Tab, and
       // Ctrl+Shift+] / [ by the key's place (its character changes with the layout and Shift).
-      if (e.key === "Tab" && !e.altKey) {
+      if (mod && e.key === "Tab") {
         e.preventDefault();
         a.cycleSession(e.shiftKey ? -1 : 1);
         return;
       }
-      if (e.shiftKey && !e.altKey && (e.code === "BracketRight" || e.code === "BracketLeft")) {
+      if (mod && e.shiftKey && (e.code === "BracketRight" || e.code === "BracketLeft")) {
         e.preventDefault();
         a.cycleSession(e.code === "BracketRight" ? 1 : -1);
         return;
       }
-      // Punctuation by the key's place (the US one), so the same key works on every layout, or
-      // by its character where the layout needs Shift to type it (Spanish: / is Shift+7).
-      const punctuation: [string, string, () => void][] = [
-        ["Slash", "/", a.toggleShortcuts],
-        ["Comma", ",", a.toggleSettings],
-        ["Semicolon", ";", a.toggleSidebar],
-        ["Backslash", "\\", a.closeViews],
-      ];
-      const hit = (!e.shiftKey ? punctuation.find(([code]) => code === e.code) : undefined) ?? punctuation.find(([, char]) => char === e.key);
-      if (hit) {
-        e.preventDefault();
-        hit[2]();
-        return;
-      }
-      const k = e.key.toLowerCase();
-      if (e.shiftKey) {
-        switch (k) {
-          case "d": e.preventDefault(); a.toggleView("diff"); return;
-          case "b": e.preventDefault(); a.toggleView("preview"); return;
-          case "f": e.preventDefault(); a.toggleView("files"); return;
-          case "l": e.preventDefault(); cycleThemePreference(); return;
-          case "m": e.preventDefault(); openComposerMenu("mode"); return;
-          case "i": e.preventDefault(); openComposerMenu("model"); return;
-          case "e": e.preventDefault(); cycleComposerEffort(); return;
-        }
-        return;
-      }
-      switch (e.key) {
-        case "n": case "N": e.preventDefault(); a.newChat(); return;
-        case "f": case "F": e.preventDefault(); a.openFind(); return;
-        case "k": case "K": e.preventDefault(); a.toggleSessionSearch(); return;
-        case "o": case "O": e.preventDefault(); cycleTranscriptView(); return;
-        // The side chat; Claude Code Desktop's Ctrl+; is the sidebar here.
-        case "j": case "J": e.preventDefault(); toggleSideChat(); return;
+      // The rest can be changed in Keyboard shortcuts (keyBindings.ts): Ctrl with a key, or an
+      // F key. Anything else is typing.
+      if (!mod && !/^F\d/.test(e.key)) return;
+      const id = shortcutFor(e);
+      if (!id) return;
+      const run = ACTIONS[id];
+      if (!run) return;
+      if (id === "moveToBackground") {
         // Like Claude Code Desktop: the open chat's running commands go on in the background.
-        // Only taken when there is one, so Ctrl+B stays the editor's and terminal's otherwise.
-        case "b": case "B":
-          if (e.target instanceof HTMLElement && e.target.closest(".xterm")) return;
-          if (a.moveToBackground()) e.preventDefault();
-          return;
+        // Only taken when there is one, so the key stays the editor's and terminal's otherwise.
+        if (e.target instanceof HTMLElement && e.target.closest(".xterm")) return;
+        if (a.moveToBackground()) e.preventDefault();
+        return;
       }
+      e.preventDefault();
+      run(a);
     };
     // Ctrl+` is caught on the way down (capture), before the focused element — the terminal
     // itself, an input — can swallow it, so it toggles the terminal from anywhere.

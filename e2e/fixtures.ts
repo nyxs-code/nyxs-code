@@ -38,6 +38,18 @@ export class FakeModel {
   readonly requests: { messages: { role: string; content: unknown }[]; tools?: { function: { name: string } }[] }[] = [];
   sideRequests = 0;
 
+  private side: { match: RegExp; turn: ModelTurn }[] = [];
+
+  /** Answers for side requests (no tools) whose body matches, in order: a goal check, say. */
+  queueSide(match: RegExp, ...turns: ModelTurn[]): void {
+    for (const turn of turns) this.side.push({ match, turn });
+  }
+
+  private takeSide(body: string): ModelTurn | undefined {
+    const i = this.side.findIndex((s) => s.match.test(body));
+    return i < 0 ? undefined : this.side.splice(i, 1)[0].turn;
+  }
+
   /** Queue the next turns. Without any left, the model answers "OK". */
   queue(...turns: ModelTurn[]): void {
     this.script.push(...turns);
@@ -58,7 +70,7 @@ export class FakeModel {
     const isAgentTurn = Array.isArray(body?.tools) && body.tools.length > 0;
     if (isAgentTurn) this.requests.push(body);
     else this.sideRequests += 1;
-    const turn = (isAgentTurn ? this.script.shift() : undefined) ?? { text: "OK" };
+    const turn = (isAgentTurn ? this.script.shift() : this.takeSide(JSON.stringify(body))) ?? { text: "OK" };
     if ("error" in turn) {
       const { status, message } = turn.error;
       await route.fulfill({ status, json: { error: { message, type: "invalid_request_error" } } });

@@ -42,6 +42,8 @@ export interface E2EState {
   /** sessionId → JSONL transcript lines. */
   transcripts: Map<string, string[]>;
   metas: Map<string, string>;
+  /** Session worktrees removed from Settings' cleanup. */
+  removedWorktrees: Set<string>;
   /** Every command the page invoked, in order. */
   calls: { cmd: string; args: Record<string, unknown> }[];
   /** Commands with no stub (answered with null). */
@@ -245,6 +247,15 @@ const handlers: Record<string, Handler> = {
   device_info: () => ({ os: "e2e", arch: "x64", hostname: "e2e", version: "0.0.0" }),
   keep_awake_get: () => false,
   worktree_supported: () => false,
+  // The worktrees sessions name are measured as a fixed size each; a removed one is gone.
+  session_worktrees_measure: ({ paths }, s) =>
+    (paths as string[]).map((path) => ({
+      path,
+      exists: !s.removedWorktrees.has(path),
+      bytes: 3 * 1024 ** 3,
+      uncommitted: path.endsWith("-dirty") ? 2 : 0,
+    })),
+  session_worktree_remove: ({ path }, s) => void s.removedWorktrees.add(String(path)),
   agent_shell_info: () => "bash",
   default_browser_name: () => null,
 
@@ -428,6 +439,7 @@ export function createBackend(seed: Partial<E2ESeed>) {
     backups: new Map(),
     trees: new Map(),
     claudeRuns: new Map(),
+    removedWorktrees: new Set(),
   };
 
   function handle(cmd: string, args: Args): unknown {

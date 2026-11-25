@@ -244,8 +244,12 @@ export function useMessageQueue<P extends { message: string }>({
 
   const current = activeId ? queues[activeId] : undefined;
   const inFlight = useMemo(() => (activeId ? delivering[activeId] ?? [] : []), [activeId, delivering]);
+  /** Messages wait in this chat's queue (any chat, not only the open one). */
+  const hasQueued = useCallback((chatId: string) => (queuesRef.current[chatId]?.items.length ?? 0) > 0, []);
+
   return {
     items: current?.items ?? [],
+    hasQueued,
     delivering: inFlight,
     paused: current?.paused ?? false,
     enqueue: enqueueMessage,

@@ -1,6 +1,7 @@
 import { noteVideoChatTurn } from "./video/videoControl";
 import type { Dispatch, SetStateAction } from "react";
 import type { ChatMessage } from "@/components/Message";
+import type { TurnOutcome } from "@/lib/goalMode";
 import type { PermissionMode } from "@/components/ui/claude-style-chat-input";
 import { MissingKeyError, streamChat, type CacheStats, type ChatTurn } from "@/lib/ai";
 import type { AskAnswer, AskQuestion } from "@/lib/agentTools";
@@ -105,7 +106,8 @@ export interface TurnEnv {
   filesChanged: () => void;
   backgroundShell: (chatId: string, event: BackgroundShellEvent) => void;
   /** The turn ended; background shells that finished meanwhile may wake the chat. */
-  turnEnded: (chatId: string) => void;
+  /** After every turn, with how it ended (the goal loop only checks a finished one). */
+  turnEnded: (chatId: string, outcome: TurnOutcome) => void;
   reindexRag: (workspace: string | null) => void;
   openProviderSettings: () => void;
 }
@@ -390,7 +392,8 @@ export async function runAssistantTurn(turn: AssistantTurn, env: TurnEnv): Promi
     setTurnAbort(chatId, null);
     releaseComputer(chatId);
     env.clearPreapproval(chatId);
-    setTimeout(() => env.turnEnded(chatId), 0);
+    const outcome: TurnOutcome = controller.signal.aborted ? "stopped" : turnErrorBody ? "error" : "done";
+    setTimeout(() => env.turnEnded(chatId, outcome), 0);
     env.filesChanged();
     if (turnEditedFiles) env.reindexRag(workspace);
     if (turnFiles.size) {

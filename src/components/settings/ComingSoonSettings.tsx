@@ -8,6 +8,8 @@ import { fieldInputClass } from "./fieldClasses";
 import { SettingSelect } from "./SettingSelect";
 import { ComputerUseSetting } from "./ComputerUseSetting";
 import { useSavedField } from "./useSaveOnLeave";
+import { SessionWorktreesRow } from "./worktrees/SessionWorktreesRow";
+import { INACTIVE_DAY_OPTIONS, inactiveDaysOf } from "@/lib/inactiveArchive";
 import type { FeatureSettings } from "@/lib/featureSettings";
 import { DEFAULT_SEARCH_ENGINE, SEARCH_ENGINES, isValidSearchTemplate, type SearchEngineId } from "@/lib/searchEngines";
 import { setTranscriptView, useTranscriptView, type TranscriptView } from "@/lib/transcriptView";
@@ -101,6 +103,18 @@ export function ComingSoonSettings() {
             className={`${fieldInputClass} w-52`}
             placeholder="~/.nyxs/worktree"
             {...locationField}
+          />
+        </SettingRow>
+        <SessionWorktreesRow />
+        <SettingRow title={cs.archiveInactiveTitle} desc={cs.archiveInactiveDesc}>
+          <SettingSelect
+            value={String(inactiveDaysOf(fs))}
+            ariaLabel={cs.archiveInactiveTitle}
+            onChange={(v) => setFeature("sessions", { archiveInactiveDays: Number(v) })}
+            options={INACTIVE_DAY_OPTIONS.map((d) => ({
+              id: String(d),
+              label: d === 0 ? cs.archiveNever : d === 1 ? cs.dayOne : cs.daysMany.replace("{count}", String(d)),
+            }))}
           />
         </SettingRow>
         <SettingRow title={cs.branchPrefixTitle} desc={cs.branchPrefixDesc}>

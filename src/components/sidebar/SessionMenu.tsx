@@ -31,6 +31,7 @@ import type { SessionCopy } from "@/lib/sessionExport";
 import { useMenuTop } from "@/lib/useMenuTop";
 import { cn } from "@/lib/utils";
 import { workspaceName } from "@/lib/workspace";
+import { useShortcutLabel } from "@/lib/keyBindings";
 
 export type { SessionCopy };
 
@@ -161,6 +162,7 @@ export function SessionMenu({
   onClose: () => void;
 }) {
   const tm = useTranslations().sidebarMenu;
+  const sideChatKeys = useShortcutLabel("sideChat");
   const ref = useRef<HTMLDivElement>(null);
   const top = useMenuTop(ref, y, above);
   const [sub, setSub] = useState<{ which: Sub; up: boolean } | null>(null);
@@ -214,7 +216,7 @@ export function SessionMenu({
         style={{ left: x, top: top ?? y }}
       >
         {canSplit && <Row icon={Columns2} label={tm.openInSplit} onHover={plain} onClick={() => pick("split")} />}
-        <Row icon={MessageSquarePlus} label={tm.newSideChat} hint="Ctrl+J" disabled={!hasMessages || !saved} onHover={plain} onClick={() => pick("sideChat")} />
+        <Row icon={MessageSquarePlus} label={tm.newSideChat} hint={sideChatKeys} disabled={!hasMessages || !saved} onHover={plain} onClick={() => pick("sideChat")} />
         <Row icon={GitFork} label={tm.fork} disabled={!saved || !hasMessages} onHover={plain} onClick={() => pick("fork")} />
         <Row icon={Clock} label={tm.addScheduledTask} disabled={!target.workspace} onHover={plain} onClick={() => pick("schedule")} />
         <Sep />

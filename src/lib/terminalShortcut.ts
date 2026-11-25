@@ -1,26 +1,14 @@
-/** Ctrl+` (Cmd+` on macOS) toggles the terminal, from any keyboard layout. "`" is a dead
- *  key on Spanish and other layouts, so the key that sits where "`" is on a US keyboard also
- *  counts: keyCode 192 (VK_OEM_3) is Ñ on a Spanish keyboard, which is why VS Code shows
- *  "Ctrl+Ñ" there. The physical key left of 1 (º) and the "`^" key next to P count too. */
+import { isRecordingShortcut, isShortcut } from "@/lib/keyBindings";
+
+/** The terminal's shortcut (Ctrl+` by default, Cmd+` on macOS) toggles it, from any keyboard
+ *  layout: see `isBackquoteKey` in keyBindings.ts for the keys that count as "`". */
 export function isTerminalShortcut(e: KeyboardEvent): boolean {
-  if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return false;
-  return isBackquoteKey(e);
+  return !isRecordingShortcut() && isShortcut("toggleTerminal", e);
 }
 
-/** Ctrl+Shift+` opens another terminal tab, like VS Code. Same key as above, plus Shift
- *  (which turns "`" into "~" on a US keyboard, hence matching the physical key too). */
+/** Ctrl+Shift+` (by default) opens another terminal tab, like VS Code. */
 export function isNewTerminalShortcut(e: KeyboardEvent): boolean {
-  if (!(e.ctrlKey || e.metaKey) || !e.shiftKey || e.altKey) return false;
-  return isBackquoteKey(e) || e.key === "~";
-}
-
-function isBackquoteKey(e: KeyboardEvent): boolean {
-  return (
-    e.key === "`" ||
-    e.code === "Backquote" ||
-    e.keyCode === 192 ||
-    (e.key === "Dead" && e.code === "BracketLeft")
-  );
+  return !isRecordingShortcut() && isShortcut("newTerminal", e);
 }
 
 /** Asks the terminal view for a new tab (sent by the app-wide Ctrl+Shift+` handler). */

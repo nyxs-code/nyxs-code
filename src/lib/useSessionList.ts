@@ -3,6 +3,8 @@ import { invoke } from "@/lib/ipc";
 import { DEFAULT_CLEANUP_PERIOD_DAYS } from "@/lib/configSchema";
 import { autoArchiveMergedSessions, onPrLinked } from "@/lib/prArchive";
 import { readSessionPrs } from "@/lib/sessionPrs";
+import { archiveInactiveSessions, inactiveDaysOf } from "@/lib/inactiveArchive";
+import { sessionsWithBackgroundWork, setSessionInUseCheck } from "@/lib/sessionsInUse";
 import { listSessionsByState, type SessionSummary } from "@/lib/sessionStorage";
 import { getMergedSettings } from "@/lib/settingsRuntime";
 import { loadRecentWorkspaces } from "@/lib/workspace";
@@ -62,17 +64,29 @@ export function useSessionList(workspace: string | null, idle: boolean, keepOpen
   useEffect(() => { sessionsRef.current = sessions; }, [sessions]);
   const keepOpenRef = useRef(keepOpen);
   useLayoutEffect(() => { keepOpenRef.current = keepOpen; }, [keepOpen]);
+  // Settings' worktree cleanup and the archiving below leave these sessions alone.
+  useEffect(() => {
+    setSessionInUseCheck((id) => keepOpenRef.current?.(id) ?? false);
+    return () => setSessionInUseCheck(() => false);
+  }, []);
   useEffect(() => {
     let cancelled = false;
+    const inUse = (id: string) => keepOpenRef.current?.(id) ?? false;
     const tick = async () => {
       try {
         const cfg = await getMergedSettings();
-        const on = (cfg as { pullRequests?: { autoArchive?: boolean } }).pullRequests?.autoArchive;
-        if (!on) return;
-        const archived = await autoArchiveMergedSessions(sessionsRef.current, (s) => readSessionPrs(s), {
-          skip: (id) => keepOpenRef.current?.(id) ?? false,
-        });
-        if (!cancelled && archived.length) refreshSessions();
+        let changed = false;
+        if ((cfg as { pullRequests?: { autoArchive?: boolean } }).pullRequests?.autoArchive) {
+          const archived = await autoArchiveMergedSessions(sessionsRef.current, (s) => readSessionPrs(s), { skip: inUse });
+          changed ||= archived.length > 0;
+        }
+        const days = inactiveDaysOf(cfg);
+        if (days > 0) {
+          const busy = await sessionsWithBackgroundWork();
+          const archived = await archiveInactiveSessions(sessionsRef.current, { days, inUse, busy });
+          changed ||= archived.length > 0;
+        }
+        if (!cancelled && changed) refreshSessions();
       } catch {
         // Retried on the next tick.
       }

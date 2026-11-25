@@ -203,6 +203,10 @@ export const SETTINGS_FIELDS = {
   // The composer's Enter writes a new line and Ctrl/⌘+Enter sends (Settings › General).
   enterNewline: z.boolean().default(false),
 
+  // The shortcuts changed in Keyboard shortcuts: an id (keyBindings.ts) to its keys
+  // ("Ctrl+Shift+D"), or null for none. Unknown ids and unusable keys are ignored.
+  shortcuts: z.record(z.string(), z.string().nullable()).optional(),
+
   // What goes to the Nyxs service with the user's account (Settings › Privacy). Read from the
   // user's own settings only (privacySettings.ts).
   privacy: z

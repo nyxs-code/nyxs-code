@@ -35,6 +35,7 @@ import { stripKeyChars } from "@/lib/macKeyGuard";
 import { deleteTargetOf, nestSessions } from "@/lib/sessionTree";
 import { SESSION_DRAG_TYPE } from "@/lib/useSplitView";
 import { isComposingKey } from "@/lib/imeKeys";
+import { useShortcutLabel } from "@/lib/keyBindings";
 
 /** How far each level of nested sessions is indented, in px. */
 const NEST_INDENT = 14;
@@ -245,6 +246,7 @@ function SidebarResizeHandle({
   label: string;
 }) {
   const [tip, setTip] = useState<{ x: number; y: number } | null>(null);
+  const keys = useShortcutLabel("toggleSidebar");
   const [dragging, setDragging] = useState(false);
   const startResize = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -293,7 +295,7 @@ function SidebarResizeHandle({
           >
             <span className="inline-flex items-center gap-2">
               <span className="font-semibold">{hint}</span>
-              <span className="app-tooltip-muted">Ctrl+;</span>
+              {keys && <span className="app-tooltip-muted">{keys}</span>}
             </span>
             <span className="app-tooltip-muted">{dragHint}</span>
           </span>,
@@ -364,6 +366,7 @@ export function Sidebar({
     e.dataTransfer.effectAllowed = "move";
   };
   const tSearch = useTranslations().search;
+  const searchKeys = useShortcutLabel("searchSessions");
   const tTitle = useTranslations().titleBar;
 
   const [changelogOpen, setChangelogOpen] = useState(false);
@@ -590,7 +593,7 @@ export function Sidebar({
             onClick={onOpenSearch}
             aria-label={tSearch.sessionsTitle}
             data-tooltip={tSearch.sessionsTitle}
-            data-tooltip-kbd="Ctrl+K"
+            data-tooltip-kbd={searchKeys}
             className="w-full flex items-center gap-2.5 px-2 py-1 rounded-[5px] text-sm leading-5 text-text-100 hover:bg-bg-200 transition-colors"
           >
             <Search className="w-4 h-4 shrink-0" />

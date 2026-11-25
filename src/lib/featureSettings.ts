@@ -8,7 +8,8 @@ export interface FeatureSettings {
   browser?: { followTheme?: boolean; reloadOnTheme?: boolean; searchEngine?: string; customSearchUrl?: string; customSuggestUrl?: string };
   chat?: { clickablePaths?: boolean; planLimitWarning?: boolean; splitView?: boolean };
   files?: { autoSave?: boolean };
-  sessions?: { warnUncommittedArchive?: boolean };
+  /** `archiveInactiveDays`: archive sessions unused this many days (0 or unset: never). */
+  sessions?: { warnUncommittedArchive?: boolean; archiveInactiveDays?: number };
   permissions?: { rememberModePerFolder?: boolean; defaultMode?: string; autoApproveReadOnly?: boolean };
 }
 

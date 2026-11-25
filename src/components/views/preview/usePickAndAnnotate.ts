@@ -3,6 +3,7 @@ import { invoke } from "@/lib/ipc";
 import { toPickedElement, type PickedElement } from "@/lib/pickedElement";
 import { previewMessageTarget, type Bounds } from "@/lib/previewWebview";
 import { ANNOT_COLORS, type AnnotShape, type AnnotTool } from "@/lib/annotations";
+import { isRecordingShortcut, isShortcut } from "@/lib/keyBindings";
 import { nextPaint } from "./helpers";
 
 /** The element picker (Ctrl+Shift+S) and the annotation toolbar shown with it: picks and
@@ -106,7 +107,7 @@ export function usePickAndAnnotate({
   useEffect(() => {
     if (!active || !hasPage) return;
     const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === "s") {
+      if (!isRecordingShortcut() && isShortcut("selectElement", e)) {
         e.preventDefault();
         togglePicker();
       }

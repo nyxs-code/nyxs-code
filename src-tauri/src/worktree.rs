@@ -606,6 +606,72 @@ pub fn session_worktree_remove(
     Ok(())
 }
 
+/// What the cleanup in Settings shows about one session's worktree.
+#[derive(Serialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct WorktreeUsage {
+    path: String,
+    exists: bool,
+    /// The files' sizes added up, ignored ones (node_modules, build output) included: removing
+    /// the worktree frees all of it.
+    bytes: u64,
+    /// Files changed and not committed, untracked ones included (`git status --porcelain`); None
+    /// when git couldn't say.
+    uncommitted: Option<u32>,
+}
+
+fn measure_worktree(path: &str) -> WorktreeUsage {
+    let dir = Path::new(path);
+    if !dir.is_dir() {
+        return WorktreeUsage {
+            path: path.to_string(),
+            exists: false,
+            bytes: 0,
+            uncommitted: Some(0),
+        };
+    }
+    let bytes = walkdir::WalkDir::new(dir)
+        .follow_links(false)
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|e| e.file_type().is_file())
+        .filter_map(|e| e.metadata().ok())
+        .map(|m| m.len())
+        .sum();
+    let uncommitted = git(dir, &["status", "--porcelain"])
+        .ok()
+        .map(|out| out.lines().filter(|l| !l.trim().is_empty()).count() as u32);
+    WorktreeUsage {
+        path: path.to_string(),
+        exists: true,
+        bytes,
+        uncommitted,
+    }
+}
+
+/// The size and uncommitted changes of sessions' worktrees on this computer, measured side by
+/// side (a worktree with node_modules has many files).
+#[tauri::command(async)]
+pub fn session_worktrees_measure(paths: Vec<String>) -> Vec<WorktreeUsage> {
+    std::thread::scope(|s| {
+        let jobs: Vec<_> = paths
+            .iter()
+            .map(|p| s.spawn(move || measure_worktree(p)))
+            .collect();
+        jobs.into_iter()
+            .zip(&paths)
+            .map(|(j, p)| {
+                j.join().unwrap_or(WorktreeUsage {
+                    path: p.clone(),
+                    exists: true,
+                    bytes: 0,
+                    uncommitted: None,
+                })
+            })
+            .collect()
+    })
+}
+
 #[tauri::command(async)]
 pub fn worktree_remove(
     workspace: String,
@@ -1052,6 +1118,47 @@ mod tests {
         )
         .unwrap();
         dir
+    }
+
+    #[test]
+    fn measuring_worktrees_adds_up_their_files_and_counts_uncommitted_ones() {
+        let repo = tmp_repo("measure");
+        let ws = repo.to_string_lossy().to_string();
+        // Its own location, not the user's ~/.nyxs/worktree, so a run before never gets in the way.
+        let location = std::env::temp_dir().join("nyxs-wt-test-measure-location");
+        let _ = fs::remove_dir_all(&location);
+        let path = session_worktree_create(
+            ws,
+            "calm-heron".into(),
+            "Nyxs/calm-heron".into(),
+            Some(location.to_string_lossy().to_string()),
+            None,
+        )
+        .unwrap();
+        let wt = Path::new(&path);
+        let clean = session_worktrees_measure(vec![path.clone()]);
+        assert!(clean[0].exists);
+        assert_eq!(clean[0].uncommitted, Some(0));
+        assert!(clean[0].bytes >= "line 1\n".len() as u64);
+
+        fs::write(wt.join("a.txt"), "changed\n").unwrap();
+        fs::write(wt.join("new.txt"), "x".repeat(1000)).unwrap();
+        let gone = std::env::temp_dir()
+            .join("nyxs-wt-test-not-there")
+            .to_string_lossy()
+            .to_string();
+        let both = session_worktrees_measure(vec![path.clone(), gone.clone()]);
+        assert_eq!(both[0].uncommitted, Some(2));
+        assert!(both[0].bytes >= clean[0].bytes + 1000);
+        assert_eq!(
+            both[1],
+            WorktreeUsage {
+                path: gone,
+                exists: false,
+                bytes: 0,
+                uncommitted: Some(0)
+            }
+        );
     }
 
     #[test]

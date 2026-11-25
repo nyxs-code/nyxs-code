@@ -369,6 +369,7 @@ pub fn run() {
             worktree::worktree_remove,
             worktree::session_worktree_create,
             worktree::session_worktree_remove,
+            worktree::session_worktrees_measure,
             logs_export::nyxs_export_logs,
             cli_sessions::claude_cli_sessions,
             cli_sessions::claude_cli_session_read,

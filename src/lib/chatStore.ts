@@ -5,6 +5,7 @@ import type { ChatMessage } from "@/components/Message";
 import type { SerializedFileHistory } from "@/lib/fileHistory";
 import type { PermissionMode } from "@/components/ui/claude-style-chat-input";
 import type { EffortLevel } from "@/lib/effort";
+import type { ChatGoal } from "@/lib/goal";
 
 export interface Chat {
   id: string;
@@ -31,6 +32,8 @@ export interface Chat {
   parentId?: string;
   /** The effort its agent-started turns run at (CreateSession picks it); the app's otherwise. */
   effort?: EffortLevel;
+  /** The goal set with `/goal`: the agent keeps working, turn after turn, until it is met. */
+  goal?: ChatGoal;
 }
 
 export interface CompactionMark {

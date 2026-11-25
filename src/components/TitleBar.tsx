@@ -6,6 +6,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@/lib/ipc";
 import { useTranslations } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
+import { useBindings } from "@/lib/keyBindings";
 
 /** The views the title bar opens: its own buttons, in the order shown, then the ⋮ menu. */
 export type TitleBarView = "terminal" | "diff" | "preview" | "files" | "background" | "plan" | "fleet" | "video" | "sidechat";
@@ -65,11 +66,12 @@ export function TitleBar({
   const tChangelog = useTranslations().changelog;
   const tVideo = useTranslations().videoPanel;
   const tSide = useTranslations().sideChat;
-  const viewButtons: { id: TitleBarView; icon: ComponentType<{ className?: string }>; label: string; kbd: string }[] = [
-    { id: "terminal", icon: Terminal, label: tViews.terminal, kbd: "Ctrl+`" },
-    ...(showChanges ? [{ id: "diff" as const, icon: ChangesIcon, label: tViews.diff, kbd: "Ctrl+Shift+D" }] : []),
-    { id: "preview", icon: Globe, label: t.browser, kbd: "Ctrl+Shift+B" },
-    { id: "files", icon: Folder, label: tViews.files, kbd: "Ctrl+Shift+F" },
+  const keys = useBindings();
+  const viewButtons: { id: TitleBarView; icon: ComponentType<{ className?: string }>; label: string; kbd?: string }[] = [
+    { id: "terminal", icon: Terminal, label: tViews.terminal, kbd: keys.toggleTerminal ?? undefined },
+    ...(showChanges ? [{ id: "diff" as const, icon: ChangesIcon, label: tViews.diff, kbd: keys.toggleDiff ?? undefined }] : []),
+    { id: "preview", icon: Globe, label: t.browser, kbd: keys.togglePreview ?? undefined },
+    { id: "files", icon: Folder, label: tViews.files, kbd: keys.toggleFiles ?? undefined },
   ];
   // Background tasks and the plan belong to a chat that has started; agents are always there.
   const menuViews: { id: TitleBarView; icon: ComponentType<{ className?: string }>; label: string }[] = [

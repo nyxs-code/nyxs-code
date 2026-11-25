@@ -10,7 +10,7 @@ test("the / menu filters as you type and /clear empties the chat", async ({ page
   await expect(page.getByText("Respuesta para borrar.")).toBeVisible();
 
   await box(page).fill("/");
-  await expect(menuRows(page).filter({ hasText: /^help$/ })).toBeVisible();
+  await expect(menuRows(page).filter({ hasText: /^clear$/ })).toBeVisible();
   await box(page).fill("/cle");
   await expect(menuRows(page)).toHaveText(["clear"]);
 

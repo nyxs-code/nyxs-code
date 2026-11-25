@@ -30,6 +30,7 @@ export interface SessionMeta {
   environmentId?: string;
   parentId?: string;
   effort?: Chat["effort"];
+  goal?: Chat["goal"];
   createdAt: number;
   updatedAt: number;
   archived?: boolean;
@@ -150,6 +151,7 @@ function metaFromChat(chat: Chat, createdAt: number, now: number): SessionMeta {
     environmentId: chat.environmentId,
     parentId: chat.parentId,
     effort: chat.effort,
+    goal: chat.goal,
     createdAt,
     updatedAt: now,
   };
@@ -374,6 +376,7 @@ export async function readSession(
     environmentId: m?.environmentId,
     parentId: m?.parentId,
     effort: m?.effort,
+    goal: m?.goal,
   };
 }
 
