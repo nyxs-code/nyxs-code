@@ -126,9 +126,11 @@ fn answer(mut stream: TcpStream, state: Option<&str>, texts: &CallbackPage) -> A
     // would fail before the browser has sent anything.
     let _ = stream.set_nonblocking(false);
     let _ = stream.set_read_timeout(Some(READ_TIMEOUT));
-    let mut buf = Vec::with_capacity(1024);
-    let mut chunk = [0u8; 1024];
-    while !buf.contains(&b'\n') && buf.len() < 8192 {
+    // Read the whole request, headers included: closing with any of it unread makes the OS
+    // reset the connection, and the browser then retries on a port that is already closed.
+    let mut buf = Vec::with_capacity(4096);
+    let mut chunk = [0u8; 4096];
+    while !buf.windows(4).any(|w| w == b"\r\n\r\n") && buf.len() < 64 * 1024 {
         match stream.read(&mut chunk) {
             Ok(0) | Err(_) => break,
             Ok(n) => buf.extend_from_slice(&chunk[..n]),
@@ -192,6 +194,14 @@ fn respond(stream: &mut TcpStream, status: &str, body: &str) {
     );
     let _ = stream.write_all(resp.as_bytes());
     let _ = stream.flush();
+    // Close gracefully: send our FIN, then take whatever the browser still sends (a body, a
+    // late packet) until it closes too, so nothing unread is left to turn the close into a reset.
+    let _ = stream.shutdown(std::net::Shutdown::Write);
+    // Bounded, so a peer that keeps sending can't hold the wait up.
+    let until = Instant::now() + Duration::from_secs(1);
+    let _ = stream.set_read_timeout(Some(Duration::from_millis(500)));
+    let mut sink = [0u8; 4096];
+    while Instant::now() < until && matches!(stream.read(&mut sink), Ok(n) if n > 0) {}
 }
 
 #[cfg(test)]
@@ -281,6 +291,29 @@ mod tests {
         let wait = std::thread::spawn(move || oauth_wait_blocking(port, 1_000, None, None));
         assert!(visit(port, "/callback").starts_with("HTTP/1.1 404"));
         assert_eq!(wait.join().unwrap().unwrap_err().code, "oauthNoParams");
+    }
+
+    /// A browser sends the callback with kilobytes of headers. Closing the socket with them
+    /// unread resets the connection, the browser retries on the port that is already closed
+    /// and shows "connection refused" although sign-in worked.
+    #[test]
+    fn a_browser_with_many_headers_gets_the_page_not_a_reset() {
+        let port = oauth_reserve().unwrap();
+        let wait = wait_in_background(port, None);
+        let mut s = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        let headers: String = (0..60)
+            .map(|i| format!("X-Header-{i}: {}\r\n", "v".repeat(100)))
+            .collect();
+        write!(
+            s,
+            "GET /callback?token=t HTTP/1.1\r\nHost: 127.0.0.1\r\n{headers}\r\n"
+        )
+        .unwrap();
+        let mut out = String::new();
+        s.read_to_string(&mut out)
+            .expect("the answer arrives whole, not reset");
+        assert!(out.contains("Connected"), "{out}");
+        assert_eq!(wait.join().unwrap().unwrap(), "token=t");
     }
 
     #[test]
