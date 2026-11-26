@@ -66,6 +66,7 @@ describe("the OAuth callback port", () => {
           failedTitle: es.signInFailedTitle,
           failedText: es.failedText,
           serviceIcon: expect.stringContaining("<svg"),
+          doneUrl: "https://api.nyxs.dev/auth/done/",
         },
         {
           connectedTitle: "Example conectado a Nyxs",
@@ -78,6 +79,45 @@ describe("the OAuth callback port", () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+
+  it("signs in with a one-time code that only this app can trade, with PKCE", async () => {
+    let opened = "";
+    invoke.mockImplementation(async (cmd: string, args: Record<string, unknown>) => {
+      if (cmd === "oauth_reserve") return 4321;
+      if (cmd === "agent_open_external") opened = String(args.url);
+      if (cmd === "oauth_wait") return "code=one-time&done=k3y";
+      return "";
+    });
+    let traded: { code?: string; verifier?: string } = {};
+    httpFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.endsWith("/auth/token")) {
+        traded = JSON.parse(String(init?.body));
+        return new Response(JSON.stringify({ token: "session.jwt" }), { status: 200 });
+      }
+      return new Response("", { status: 404 });
+    });
+    await signInWithGoogle();
+
+    const sent = new URL(opened).searchParams;
+    expect(sent.get("return")).toBe("http://127.0.0.1:4321/callback");
+    expect(traded.code).toBe("one-time");
+    // The challenge that went out is the SHA-256 of the verifier traded with the code.
+    const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(traded.verifier)));
+    const challenge = btoa(String.fromCharCode(...digest)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    expect(sent.get("challenge")).toBe(challenge);
+    expect(opened).not.toContain(String(traded.verifier));
+    const { setSecret } = await import("@/lib/secureStore");
+    expect(setSecret).toHaveBeenCalledWith("auth:session", "session.jwt");
+  });
+
+  it("doesn't take a session from the callback itself", async () => {
+    invoke.mockImplementation(async (cmd: string) => {
+      if (cmd === "oauth_reserve") return 4321;
+      if (cmd === "oauth_wait") return "token=forged";
+      return "";
+    });
+    await expect(signInWithGoogle()).rejects.toThrow();
   });
 
   it("shows the connector's own logo, drawn light when it is single-colour", async () => {

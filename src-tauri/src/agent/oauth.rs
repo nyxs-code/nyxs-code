@@ -54,6 +54,10 @@ pub struct CallbackPage {
     service_initial: Option<String>,
     #[serde(default)]
     service_color: Option<String>,
+    /// When the callback carries a `done` key, the tab is sent to this URL followed by the key
+    /// (the server's own page for that sign-in) instead of being shown this page.
+    #[serde(default)]
+    done_url: Option<String>,
 }
 
 impl Default for CallbackPage {
@@ -66,6 +70,7 @@ impl Default for CallbackPage {
             service_icon: None,
             service_initial: None,
             service_color: None,
+            done_url: None,
         }
     }
 }
@@ -174,9 +179,32 @@ fn answer(mut stream: TcpStream, state: Option<&str>, texts: &CallbackPage) -> A
             Answer::Other
         };
     }
-    let body = page(texts, param("error").is_none());
-    respond(&mut stream, "200 OK", &body);
+    if let Some(location) = done_location(texts.done_url.as_deref(), param("done")) {
+        respond_with(
+            &mut stream,
+            "302 Found",
+            &format!("Location: {location}\r\n"),
+            "",
+        );
+    } else {
+        let body = page(texts, param("error").is_none());
+        respond(&mut stream, "200 OK", &body);
+    }
     Answer::Callback(query.to_string())
+}
+
+/// Where to send the tab: the app's `done_url` (https, or the loopback a local test server
+/// uses) followed by the server's key, when both are there and the key is a plain token.
+fn done_location(done_url: Option<&str>, key: Option<&str>) -> Option<String> {
+    let base =
+        done_url.filter(|u| u.starts_with("https://") || u.starts_with("http://127.0.0.1:"))?;
+    let key = key.filter(|k| {
+        !k.is_empty()
+            && k.len() <= 128
+            && k.chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    })?;
+    Some(format!("{base}{key}"))
 }
 
 /// The texts come from the app, but go into HTML: they are written as text, never as markup.
@@ -260,8 +288,13 @@ fn safe_color(color: Option<&str>) -> &str {
 }
 
 fn respond(stream: &mut TcpStream, status: &str, body: &str) {
+    respond_with(stream, status, "", body);
+}
+
+/// `headers` are extra header lines, each ending in `\r\n`.
+fn respond_with(stream: &mut TcpStream, status: &str, headers: &str, body: &str) {
     let resp = format!(
-        "HTTP/1.1 {status}\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        "HTTP/1.1 {status}\r\n{headers}Content-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nCache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nConnection: close\r\n\r\n{body}",
         body.len()
     );
     let _ = stream.write_all(resp.as_bytes());
@@ -426,6 +459,36 @@ mod tests {
         let html = page(&CallbackPage::default(), true);
         assert!(html.contains(r#"<div class="solo">"#));
         assert!(!html.contains(r#"class="line""#));
+    }
+
+    #[test]
+    fn a_callback_with_a_done_key_sends_the_tab_to_the_servers_page() {
+        let port = oauth_reserve().unwrap();
+        let page = CallbackPage {
+            done_url: Some("https://api.nyxs.dev/auth/done/".into()),
+            ..CallbackPage::default()
+        };
+        let wait = std::thread::spawn(move || oauth_wait_blocking(port, 20_000, None, Some(page)));
+        let answer = visit(port, "/callback?code=c0de&done=K3y_-x");
+        assert!(answer.starts_with("HTTP/1.1 302"), "{answer}");
+        assert!(
+            answer.contains("Location: https://api.nyxs.dev/auth/done/K3y_-x\r\n"),
+            "{answer}"
+        );
+        assert_eq!(wait.join().unwrap().unwrap(), "code=c0de&done=K3y_-x");
+
+        // A key that isn't a plain token, or a base that isn't https: the page, not a redirect.
+        assert_eq!(
+            done_location(Some("https://api.nyxs.dev/auth/done/"), Some("a/../b")),
+            None
+        );
+        assert_eq!(done_location(Some("javascript:"), Some("k")), None);
+        assert_eq!(done_location(None, Some("k")), None);
+        assert_eq!(done_location(Some("https://x/"), None), None);
+        assert_eq!(
+            done_location(Some("http://127.0.0.1:9/d/"), Some("k")).as_deref(),
+            Some("http://127.0.0.1:9/d/k")
+        );
     }
 
     #[test]

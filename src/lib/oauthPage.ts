@@ -11,6 +11,8 @@ export interface OAuthCallbackPage {
   serviceIcon?: string;
   serviceInitial?: string;
   serviceColor?: string;
+  /** Where to send the tab, followed by the server's `done` key, instead of showing this page. */
+  doneUrl?: string;
 }
 
 /** Google's "G", for signing in to Nyxs. */

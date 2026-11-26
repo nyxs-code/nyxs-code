@@ -2,6 +2,7 @@ import { invoke } from "@/lib/ipc";
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import { getSecret, setSecret, deleteSecret } from "./secureStore";
 import { signInCallbackPage } from "./oauthPage";
+import { getLanguage } from "./i18n";
 
 /** The Nyxs backend. A build for the native end-to-end tests points it at their local scripted
  *  server instead (VITE_NYXS_API_BASE, set only by e2e-native/build.mjs). */
@@ -150,40 +151,55 @@ export async function deleteAccount(): Promise<void> {
   await authedFetch("/api/account", { method: "DELETE" });
 }
 
-/** Whether api.nyxs.dev hands the `state` it gets back on the callback. Until it does, the
- *  callback port takes the first callback with a token, which a local process could send; once
- *  it does, turning this on sends a random `state` and only that callback is taken. Off for now:
- *  the backend isn't in this repo, and sending a `state` it doesn't return would break sign-in. */
-const BACKEND_RETURNS_STATE = false;
-
 /** Closes a reserved callback port whose wait won't come (a wait of 0 just closes it). */
 export const closeOAuthPort = (port: number) => invoke("oauth_wait", { port, timeoutMs: 0 }).catch(() => {});
 
-function randomState(): string {
-  return Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join("");
+const base64url = (bytes: Uint8Array) =>
+  btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+
+/** PKCE: the verifier stays in the app; only its SHA-256 goes out with the sign-in. */
+async function pkcePair(): Promise<{ verifier: string; challenge: string }> {
+  const verifier = base64url(crypto.getRandomValues(new Uint8Array(32)));
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
+  return { verifier, challenge: base64url(new Uint8Array(digest)) };
 }
 
+/** Trades the one-time code the browser brought back for the session. Only this app knows the
+ *  verifier, so a code someone else got hold of (or sent to the port) is worth nothing. */
+async function sessionForCode(code: string, verifier: string): Promise<string> {
+  const res = await tauriFetch(`${AUTH_BASE}/auth/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code, verifier }),
+  });
+  const body = (await res.json().catch(() => null)) as { token?: unknown } | null;
+  if (!res.ok || typeof body?.token !== "string") throw new Error("auth_failed");
+  return body.token;
+}
+
+/** Signs in through the system browser. The session never passes through it: the loopback gets
+ *  a one-time code, and the tab is sent on to the server's own page for this sign-in. */
 export async function signInWithGoogle(): Promise<AuthUser> {
   const port = await invoke<number>("oauth_reserve");
-  const state = BACKEND_RETURNS_STATE ? randomState() : null;
+  const { verifier, challenge } = await pkcePair();
   try {
     const returnUrl = `http://127.0.0.1:${port}/callback`;
     const device = encodeURIComponent(appDeviceLabel());
-    const stateParam = state ? `&state=${state}` : "";
     await invoke("agent_open_external", {
-      url: `${AUTH_BASE}/auth/google?return=${encodeURIComponent(returnUrl)}&device=${device}${stateParam}`,
+      url: `${AUTH_BASE}/auth/google?return=${encodeURIComponent(returnUrl)}&device=${device}&challenge=${challenge}&lang=${encodeURIComponent(getLanguage())}`,
     });
   } catch (e) {
     await closeOAuthPort(port);
     throw e;
   }
 
-  const page = signInCallbackPage();
-  const query = await invoke<string>("oauth_wait", state ? { port, timeoutMs: 300_000, state, page } : { port, timeoutMs: 300_000, page });
+  const page = { ...signInCallbackPage(), doneUrl: `${AUTH_BASE}/auth/done/` };
+  const query = await invoke<string>("oauth_wait", { port, timeoutMs: 300_000, page });
   const params = new URLSearchParams(query);
   if (params.get("error")) throw new Error(params.get("error") || "auth_failed");
-  const token = params.get("token");
-  if (!token) throw new Error("El servidor no devolvió un token de sesión.");
+  const code = params.get("code");
+  if (!code) throw new Error("El servidor no devolvió un token de sesión.");
+  const token = await sessionForCode(code, verifier);
 
   await setSecret(SESSION_ACCOUNT, token);
   return (await getMe().catch(() => null)) ?? userFromToken(token) ?? { id: 0, email: "" };
