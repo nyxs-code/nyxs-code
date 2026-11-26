@@ -13,6 +13,167 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.8.62",
+    date: "November 26, 2026",
+    added: [
+      "Gmail and Google Calendar connect in one click: Connect, pick your Google account, and the agent can search and read your email, write reply drafts, apply labels, read your events and create them.",
+      "When Gmail or Google Calendar asks to confirm an action, the question appears in the chat with Allow once and Don't allow.",
+      "Claude Code models can use the connectors you added in Nyxs, such as Gmail and Google Calendar.",
+      "A connector's page shows its status, address, tools (with Show all and a search), how it signs in and who publishes it.",
+      "One menu button at the top left holds File, Edit, View, Go and Help.",
+    ],
+    improved: [
+      "Connectors ask Google only for the permissions they use.",
+      "The image viewer has its pencil and close buttons next to the image and a lighter background, and marking up an attached image saves over it instead of adding a new one.",
+      "Plugin themes only change the chat: Scheduled, Artifacts, Plugins, the sidebar and the title bar keep the app's look.",
+      "In a chat that used Gmail or Google Calendar, Nyxs doesn't suggest your next message, so nothing from that chat leaves for a helper model.",
+    ],
+    fixed: [
+      "Gmail no longer fails with \"Header mismatch\" when the agent uses it.",
+    ],
+    card: {
+      v: 1,
+      slides: [
+        {
+          title: {
+            "en-US": "Gmail and Calendar", "es-ES": "Gmail y Calendar", "fr-FR": "Gmail et Agenda",
+            "de-DE": "Gmail und Kalender", "it-IT": "Gmail e Calendar", "pt-BR": "Gmail e Agenda",
+            "id-ID": "Gmail dan Kalender", "ja-JP": "Gmail とカレンダー", "ko-KR": "Gmail과 캘린더", "hi-IN": "Gmail और कैलेंडर",
+          },
+          desc: {
+            "en-US": "Connect them in one click: the agent reads, drafts and schedules.",
+            "es-ES": "Conéctalos con un clic: el agente lee, redacta y agenda.",
+            "fr-FR": "Connecte-les en un clic : l'agent lit, rédige et planifie.",
+            "de-DE": "Mit einem Klick verbinden: der Agent liest, entwirft, plant.",
+            "it-IT": "Collegali con un clic: l'agente legge, scrive e pianifica.",
+            "pt-BR": "Conecte com um clique: o agente lê, rascunha e agenda.",
+            "id-ID": "Hubungkan sekali klik: agen membaca, menulis, menjadwalkan.",
+            "ja-JP": "ワンクリックで接続。エージェントが読み、書き、予定を入れます。",
+            "ko-KR": "한 번에 연결하면 에이전트가 읽고, 쓰고, 일정을 잡아요.",
+            "hi-IN": "एक क्लिक में जोड़ें: एजेंट पढ़ता, लिखता और शेड्यूल करता है।",
+          },
+          scene: {
+            kind: "mascot",
+            steps: [
+              {
+                pose: "search",
+                label: {
+                  "en-US": "Searching Gmail", "es-ES": "Buscando en Gmail", "fr-FR": "Parcourt Gmail",
+                  "de-DE": "Durchsuche Gmail", "it-IT": "Cerco in Gmail", "pt-BR": "Buscando no Gmail",
+                  "id-ID": "Mencari di Gmail", "ja-JP": "Gmail を検索中", "ko-KR": "Gmail 검색 중", "hi-IN": "Gmail में खोज",
+                },
+              },
+              {
+                pose: "code",
+                label: {
+                  "en-US": "Drafting a reply", "es-ES": "Redactando", "fr-FR": "Rédige une réponse",
+                  "de-DE": "Schreibe Entwurf", "it-IT": "Scrivo la bozza", "pt-BR": "Escrevendo resposta",
+                  "id-ID": "Menyusun balasan", "ja-JP": "返信を下書き中", "ko-KR": "답장 작성 중", "hi-IN": "जवाब लिख रहा है",
+                },
+              },
+              {
+                pose: "celebrate",
+                label: {
+                  "en-US": "Meeting created", "es-ES": "Reunión creada", "fr-FR": "Réunion créée",
+                  "de-DE": "Termin erstellt", "it-IT": "Riunione creata", "pt-BR": "Reunião criada",
+                  "id-ID": "Rapat dibuat", "ja-JP": "会議を作成", "ko-KR": "회의 생성됨", "hi-IN": "मीटिंग बनी",
+                },
+              },
+            ],
+          },
+        },
+        {
+          title: {
+            "en-US": "Claude Code connectors", "es-ES": "Conectores en Claude Code", "fr-FR": "Connecteurs Claude Code",
+            "de-DE": "Claude-Code-Konnektoren", "it-IT": "Connettori in Claude Code", "pt-BR": "Conectores no Claude Code",
+            "id-ID": "Konektor di Claude Code", "ja-JP": "Claude Code でコネクター", "ko-KR": "Claude Code 커넥터", "hi-IN": "Claude Code में कनेक्टर",
+          },
+          desc: {
+            "en-US": "Claude Code models now use the connectors you added in Nyxs.",
+            "es-ES": "Los modelos de Claude Code ya usan tus conectores de Nyxs.",
+            "fr-FR": "Les modèles Claude Code utilisent tes connecteurs Nyxs.",
+            "de-DE": "Claude-Code-Modelle nutzen jetzt deine Nyxs-Konnektoren.",
+            "it-IT": "I modelli Claude Code usano i tuoi connettori di Nyxs.",
+            "pt-BR": "Os modelos do Claude Code usam seus conectores do Nyxs.",
+            "id-ID": "Model Claude Code kini memakai konektor Nyxs Anda.",
+            "ja-JP": "Claude Code のモデルも Nyxs のコネクターを使えます。",
+            "ko-KR": "Claude Code 모델도 Nyxs 커넥터를 사용해요.",
+            "hi-IN": "Claude Code मॉडल अब आपके Nyxs कनेक्टर इस्तेमाल करते हैं।",
+          },
+          scene: { kind: "icon", icon: "bot" },
+        },
+        {
+          title: {
+            "en-US": "Everything in one menu", "es-ES": "Todo en un menú", "fr-FR": "Tout dans un menu",
+            "de-DE": "Alles in einem Menü", "it-IT": "Tutto in un menu", "pt-BR": "Tudo em um menu",
+            "id-ID": "Semua dalam satu menu", "ja-JP": "メニューをひとつに", "ko-KR": "메뉴를 하나로", "hi-IN": "सब एक मेनू में",
+          },
+          desc: {
+            "en-US": "File, Edit, View, Go and Help, in the button at the top left.",
+            "es-ES": "Archivo, Edición, Ver, Ir y Ayuda, en el botón de arriba.",
+            "fr-FR": "Fichier, Édition, Affichage, Aller et Aide, en haut à gauche.",
+            "de-DE": "Datei, Bearbeiten, Ansicht, Gehe zu und Hilfe oben links.",
+            "it-IT": "File, Modifica, Visualizza, Vai e Aiuto, in alto a sinistra.",
+            "pt-BR": "Arquivo, Editar, Exibir, Ir e Ajuda, no botão no topo.",
+            "id-ID": "File, Edit, Tampilan, Buka, dan Bantuan di kiri atas.",
+            "ja-JP": "ファイル・編集・表示・移動・ヘルプを左上のボタンに。",
+            "ko-KR": "파일, 편집, 보기, 이동, 도움말을 왼쪽 위 버튼에.",
+            "hi-IN": "फ़ाइल, संपादन, देखें, जाएँ और सहायता ऊपर बाएँ बटन में।",
+          },
+          scene: { kind: "icon", icon: "panel" },
+        },
+        {
+          title: {
+            "en-US": "And also", "es-ES": "Y además", "fr-FR": "Et aussi", "de-DE": "Außerdem", "it-IT": "E inoltre",
+            "pt-BR": "E também", "id-ID": "Dan juga", "ja-JP": "そのほか", "ko-KR": "그리고", "hi-IN": "और भी",
+          },
+          desc: {
+            "en-US": "Smaller changes in this version.", "es-ES": "Cambios más pequeños de esta versión.",
+            "fr-FR": "Petits changements de cette version.", "de-DE": "Kleinere Änderungen dieser Version.",
+            "it-IT": "Modifiche minori di questa versione.", "pt-BR": "Mudanças menores desta versão.",
+            "id-ID": "Perubahan kecil di versi ini.", "ja-JP": "このバージョンの小さな変更。",
+            "ko-KR": "이번 버전의 작은 변경 사항.", "hi-IN": "इस संस्करण के छोटे बदलाव।",
+          },
+          scene: {
+            kind: "list",
+            items: [
+              {
+                tag: "improved",
+                text: {
+                  "en-US": "Marking up an attached image saves over it",
+                  "es-ES": "Anotar una imagen adjunta guarda sobre ella",
+                  "fr-FR": "Annoter une image jointe l'enregistre sur place",
+                  "de-DE": "Markierungen speichern über dem Anhang",
+                  "it-IT": "Annotare un'immagine allegata la sovrascrive",
+                  "pt-BR": "Anotar uma imagem anexada salva sobre ela",
+                  "id-ID": "Menandai gambar lampiran menyimpan di atasnya",
+                  "ja-JP": "添付画像への書き込みは上書き保存",
+                  "ko-KR": "첨부 이미지에 그리면 그 위에 저장",
+                  "hi-IN": "संलग्न इमेज पर निशान उसी पर सहेजे जाते हैं",
+                },
+              },
+              {
+                tag: "improved",
+                text: {
+                  "en-US": "Plugin themes only change the chat",
+                  "es-ES": "Los temas de plugins solo cambian el chat",
+                  "fr-FR": "Les thèmes de plugins ne changent que le chat",
+                  "de-DE": "Plugin-Themes ändern nur den Chat",
+                  "it-IT": "I temi dei plugin cambiano solo la chat",
+                  "pt-BR": "Temas de plugins só mudam o chat",
+                  "id-ID": "Tema plugin hanya mengubah obrolan",
+                  "ja-JP": "プラグインのテーマはチャットだけに適用",
+                  "ko-KR": "플러그인 테마는 채팅에만 적용",
+                  "hi-IN": "प्लगइन थीम केवल चैट बदलती हैं",
+                },
+              },
+            ],
+          },
+        },
+      ],
+    },
+  },
+  {
     version: "0.8.61",
     date: "November 26, 2026",
     added: [
