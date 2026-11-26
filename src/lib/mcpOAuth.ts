@@ -1,7 +1,7 @@
 import { invoke } from "@/lib/ipc";
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import { closeOAuthPort } from "@/lib/auth";
-import { oauthCallbackPage } from "@/lib/oauthPage";
+import { connectorCallbackPage } from "@/lib/oauthPage";
 
 export interface OAuthTokens {
   accessToken: string;
@@ -31,6 +31,9 @@ export interface OAuthOptions {
   scopes?: string[];
   clientId?: string;
   clientSecret?: string;
+  /** The connector's logo and colour, for the page the browser shows when it comes back. */
+  logo?: string;
+  color?: string;
 }
 
 /**
@@ -203,7 +206,8 @@ async function authorize(
 
   // Only the callback carrying this state is taken: another local connection to the port isn't.
   waiting.started = true;
-  const query = await invoke<string>("oauth_wait", { port, timeoutMs: 300_000, state, page: oauthCallbackPage() });
+  const page = await connectorCallbackPage(connectorName, { logo: opts.logo, color: opts.color });
+  const query = await invoke<string>("oauth_wait", { port, timeoutMs: 300_000, state, page });
   const cb = new URLSearchParams(query);
   if (cb.get("error")) throw new Error(cb.get("error_description") || cb.get("error") || "OAuth error");
   if (cb.get("state") !== state) throw new Error("OAuth state mismatch (posible intento de fijación).");

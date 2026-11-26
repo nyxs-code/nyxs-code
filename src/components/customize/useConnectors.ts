@@ -157,7 +157,12 @@ export function useConnectors() {
     }
     set({ error: null, connecting: entry.name });
     try {
-      const tokens = await runMcpOAuth(entry.url, entry.name, { scopes: entry.oauthScopes, ...clientOpts });
+      const tokens = await runMcpOAuth(entry.url, entry.name, {
+        scopes: entry.oauthScopes,
+        logo: entry.logo,
+        color: entry.color,
+        ...clientOpts,
+      });
       // The tokens go to the keychain; the connector only says it signs in with OAuth.
       const id = crypto.randomUUID();
       await saveConnectorTokens(id, tokens);

@@ -1879,9 +1879,11 @@ const t: Translations = {
     devServerName: "開発サーバー（プレビュー）",
   },
   oauthPage: {
-    connectedTitle: "接続しました",
+    signedInTitle: "Nyxs にサインインしました",
+    signInFailedTitle: "サインインできませんでした",
+    connectedTitle: "{name} を Nyxs に接続しました",
     connectedText: "このタブを閉じてアプリに戻ってください。",
-    failedTitle: "接続できませんでした",
+    failedTitle: "{name} に接続できませんでした",
     failedText: "アプリに戻って何が起きたかを確認し、もう一度お試しください。",
   },
   pluginErrors: {

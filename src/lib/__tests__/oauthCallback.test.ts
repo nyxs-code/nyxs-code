@@ -60,9 +60,36 @@ describe("the OAuth callback port", () => {
       expect(es.failedTitle).not.toBe(getTranslations("en-US").oauthPage.failedTitle);
       const pages = waits().map((w) => w.page);
       expect(pages).toEqual([
-        { connectedTitle: es.connectedTitle, connectedText: es.connectedText, failedTitle: es.failedTitle, failedText: es.failedText },
-        { connectedTitle: es.connectedTitle, connectedText: es.connectedText, failedTitle: es.failedTitle, failedText: es.failedText },
+        {
+          connectedTitle: es.signedInTitle,
+          connectedText: es.connectedText,
+          failedTitle: es.signInFailedTitle,
+          failedText: es.failedText,
+          serviceIcon: expect.stringContaining("<svg"),
+        },
+        {
+          connectedTitle: "Example conectado a Nyxs",
+          connectedText: es.connectedText,
+          failedTitle: "No se pudo conectar Example",
+          failedText: es.failedText,
+          serviceInitial: "E",
+        },
       ]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("shows the connector's own logo, drawn light when it is single-colour", async () => {
+    const { connectorCallbackPage } = await import("@/lib/oauthPage");
+    const svg = '<svg fill="currentColor" viewBox="0 0 24 24"><path d="M0 0h24v24z"/></svg>';
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(svg)));
+    try {
+      const page = await connectorCallbackPage("GitHub", { logo: "/connector-icons/github.svg", color: "#e5e5e5" });
+      expect(page.serviceIcon).toBe(svg.replace("currentColor", "#ececec"));
+      // The catalog's colour for black logos isn't used for the initial.
+      expect(page.serviceColor).toBeUndefined();
+      expect((await connectorCallbackPage("Linear", { color: "#5e6ad2" })).serviceColor).toBe("#5e6ad2");
     } finally {
       vi.unstubAllGlobals();
     }

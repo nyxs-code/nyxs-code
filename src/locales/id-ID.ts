@@ -1879,9 +1879,11 @@ const t: Translations = {
     devServerName: "Server pengembangan (pratinjau)",
   },
   oauthPage: {
-    connectedTitle: "Terhubung",
+    signedInTitle: "Berhasil masuk ke Nyxs",
+    signInFailedTitle: "Tidak dapat masuk",
+    connectedTitle: "{name} terhubung ke Nyxs",
     connectedText: "Anda bisa menutup tab ini dan kembali ke aplikasi.",
-    failedTitle: "Tidak dapat terhubung",
+    failedTitle: "Tidak dapat menghubungkan {name}",
     failedText: "Kembali ke aplikasi untuk melihat apa yang terjadi, lalu coba lagi.",
   },
   pluginErrors: {

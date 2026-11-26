@@ -1879,9 +1879,11 @@ const t: Translations = {
     devServerName: "개발 서버 (미리보기)",
   },
   oauthPage: {
-    connectedTitle: "연결됨",
+    signedInTitle: "Nyxs에 로그인했습니다",
+    signInFailedTitle: "로그인하지 못했습니다",
+    connectedTitle: "{name}을(를) Nyxs에 연결했습니다",
     connectedText: "이 탭을 닫고 앱으로 돌아가도 됩니다.",
-    failedTitle: "연결할 수 없습니다",
+    failedTitle: "{name}에 연결하지 못했습니다",
     failedText: "앱으로 돌아가 무슨 일이 있었는지 확인하고 다시 시도하세요.",
   },
   pluginErrors: {

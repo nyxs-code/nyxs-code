@@ -1,7 +1,7 @@
 import { invoke } from "@/lib/ipc";
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import { getSecret, setSecret, deleteSecret } from "./secureStore";
-import { oauthCallbackPage } from "./oauthPage";
+import { signInCallbackPage } from "./oauthPage";
 
 /** The Nyxs backend. A build for the native end-to-end tests points it at their local scripted
  *  server instead (VITE_NYXS_API_BASE, set only by e2e-native/build.mjs). */
@@ -178,7 +178,7 @@ export async function signInWithGoogle(): Promise<AuthUser> {
     throw e;
   }
 
-  const page = oauthCallbackPage();
+  const page = signInCallbackPage();
   const query = await invoke<string>("oauth_wait", state ? { port, timeoutMs: 300_000, state, page } : { port, timeoutMs: 300_000, page });
   const params = new URLSearchParams(query);
   if (params.get("error")) throw new Error(params.get("error") || "auth_failed");

@@ -1864,6 +1864,10 @@ export interface Translations {
     devServerName: string;
   };
   oauthPage: {
+    /** Signing in to Nyxs with Google. */
+    signedInTitle: string;
+    signInFailedTitle: string;
+    /** Connecting a connector; `{name}` is its name. */
     connectedTitle: string;
     connectedText: string;
     failedTitle: string;

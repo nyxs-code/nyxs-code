@@ -1911,9 +1911,11 @@ const t: Translations = {
     devServerName: "Servidor de desarrollo (vista previa)",
   },
   oauthPage: {
-    connectedTitle: "Conectado",
+    signedInTitle: "Sesión iniciada en Nyxs",
+    signInFailedTitle: "No se pudo iniciar sesión",
+    connectedTitle: "{name} conectado a Nyxs",
     connectedText: "Puedes cerrar esta pestaña y volver a la app.",
-    failedTitle: "No se pudo conectar",
+    failedTitle: "No se pudo conectar {name}",
     failedText: "Vuelve a la app para ver qué pasó e inténtalo de nuevo.",
   },
   pluginErrors: {

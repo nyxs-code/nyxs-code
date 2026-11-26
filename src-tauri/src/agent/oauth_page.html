@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<style>
+@font-face{font-family:"Inter";font-weight:100 900;src:url(data:font/woff2;base64,{{FONT}}) format("woff2")}
+html,body{margin:0;height:100%}
+body{background:#212121;color:#ececec;font-family:Inter,"Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased;display:flex;align-items:center;justify-content:center;text-align:center}
+.icons{display:flex;align-items:center;justify-content:center;margin-bottom:30px}
+.tile{width:64px;height:64px;border-radius:8px;background:#262624;border:1px solid #30302e;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:600}
+.tile img.nyxs{width:40px;height:40px}
+.tile img.service{width:34px;height:34px}
+.line{position:relative;width:110px;height:2px;background:linear-gradient(90deg,#5cc98a 50%,transparent 50%) 0 0/12px 2px repeat-x;animation:flow .8s linear infinite}
+.badge{position:absolute;left:50%;top:50%;width:30px;height:30px;margin:-19px 0 0 -19px;border-radius:50%;background:#5cc98a;border:4px solid #212121;display:flex;align-items:center;justify-content:center;animation:pop .45s .2s cubic-bezier(.2,0,0,1) both}
+.badge path{stroke-dasharray:40;animation:draw .5s .3s ease-out both}
+.solo{position:relative}
+.solo .badge{left:auto;top:auto;right:-10px;bottom:-10px;margin:0}
+h1{font-size:26px;font-weight:600;letter-spacing:-.02em;margin:0 0 10px}
+p{font-size:15px;color:#b4b4b4;margin:0}
+h1,p{animation:rise .5s .1s cubic-bezier(.2,0,0,1) both}
+.failed .line{background:linear-gradient(90deg,#454540 50%,transparent 50%) 0 0/12px 2px repeat-x;animation:none}
+.failed .badge{background:#f07a6a;animation:none}
+.failed .badge path{animation:none;stroke-dasharray:none}
+.failed .tile img,.failed .tile span{filter:grayscale(.6) brightness(.8)}
+.failed h1,.failed p{animation:none}
+@keyframes flow{to{background-position:24px 0}}
+@keyframes pop{0%{transform:scale(.6);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes draw{from{stroke-dashoffset:40}to{stroke-dashoffset:0}}
+@keyframes rise{from{transform:translateY(10px);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body class="{{STATE}}">
+<main>
+{{ICONS}}
+<h1>{{TITLE}}</h1>
+<p>{{TEXT}}</p>
+</main>
+</body>
+</html>
