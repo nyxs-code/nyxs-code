@@ -437,8 +437,23 @@ export default function App() {
 
   /** The views menu and its shortcuts: closing a view (Files with an unsaved file) asks as its X does. */
   // The side chat has a conversation to forget on close and a minimized card besides the view.
-  const toggleViewOf = (v: ViewId) =>
-    v === "sidechat" ? toggleSideChat() : toggleViewGuarded(v, openViews.includes(v), () => patchViews((cur) => toggledView(cur, v)));
+  const toggleViewOf = (v: ViewId) => {
+    // The panel belongs to the session (see panelShown): from a full page (Plugins, Routines…)
+    // a view's button goes back to the session with that view open, instead of closing it
+    // unseen.
+    if (section !== "code") {
+      navigate(navSnapshot({ section: "code", settingsOpen: false, settingsSection: undefined }));
+      if (openViews.includes(v)) return;
+      if (v === "sidechat") toggleSideChat();
+      else patchViews((cur) => withView(cur, v));
+      return;
+    }
+    if (v === "sidechat") toggleSideChat();
+    else toggleViewGuarded(v, openViews.includes(v), () => patchViews((cur) => toggledView(cur, v)));
+  };
+  // The views panel (browser, previews, terminal…) shows beside a session only. Hidden, not
+  // closed: back in the session its pages and terminals are as they were.
+  const panelShown = viewsOpen && !computerControlled && section === "code";
 
   // Each session's side chat: a view of its own panel, so switching sessions hides it with the
   // rest of the panel; its minimized card shows only for the session on screen.
@@ -1166,7 +1181,7 @@ export default function App() {
         // Changes takes about a second of git runs to read: they start when the pointer reaches
         // its button, and the view usually opens with them done.
         onPrepareView={(v) => { if (v === "diff" && workDir) prefetchChanges(workDir, diffModeFor(workDir), loadDiffSettings().hideWhitespace); }}
-        openViews={openViews}
+        openViews={section === "code" ? openViews : []}
         showChanges={(activeChat?.messages.length ?? 0) > 0}
         onToggleSidebar={() => setSidebarOpen((o) => !o)}
         menu={{
@@ -1301,7 +1316,7 @@ export default function App() {
         onUnarchive={(s) => { void sessionActions.unarchiveSession(s, { refreshSessions }); }}
       />
 
-      <main data-side-chat-area className={cn("flex-1 flex flex-col min-w-0", panelMaximized && viewsOpen && !computerControlled && "hidden")}>
+      <main data-side-chat-area className={cn("flex-1 flex flex-col min-w-0", panelMaximized && panelShown && "hidden")}>
         {section === "customize" ? (
           <CustomizePanel workspace={workspace} onStartChat={startChatWithPrompt} />
         ) : section === "routines" ? (
@@ -1397,7 +1412,7 @@ export default function App() {
       </main>
 
       <ViewsPanel
-        open={viewsOpen && !computerControlled}
+        open={panelShown}
         views={openViews}
         onCloseView={(v) => (v === "sidechat" ? closeSideChat() : patchViews((cur) => withoutView(cur, v)))}
         onMinimizeView={(v) => {
