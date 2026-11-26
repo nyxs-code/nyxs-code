@@ -13,6 +13,161 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.8.63",
+    date: "November 26, 2026",
+    added: [
+      "Codex, Grok, Cursor and Antigravity chats suggest your next message too.",
+    ],
+    improved: [
+      "The suggested next message reads the whole conversation, including what the agent did: with Claude Code it comes from Claude Code itself, as in its desktop app.",
+      "Suggestions no longer offer options the reply never gave or steps already done, such as opening a pull request that was just opened.",
+      "Plugins, Scheduled, Artifacts and Customize hide the browser, previews and terminal; back in the chat they are as you left them.",
+      "Signing in is safer: your session no longer passes through the browser's address bar or history.",
+      "The page the browser shows after signing in or connecting a service shows Nyxs next to that service.",
+    ],
+    fixed: [
+      "Signing in no longer ends with \"connection refused\" in the browser although it worked.",
+    ],
+    card: {
+      v: 1,
+      slides: [
+        {
+          title: {
+            "en-US": "Smarter suggestions", "es-ES": "Sugerencias más listas", "fr-FR": "Suggestions plus fines",
+            "de-DE": "Bessere Vorschläge", "it-IT": "Suggerimenti migliori", "pt-BR": "Sugestões mais espertas",
+            "id-ID": "Saran lebih cerdas", "ja-JP": "賢くなった入力候補", "ko-KR": "더 똑똑한 추천", "hi-IN": "बेहतर सुझाव",
+          },
+          desc: {
+            "en-US": "Your next message, suggested from the whole chat. Press Tab to use it.",
+            "es-ES": "Tu siguiente mensaje, sugerido a partir de todo el chat. Pulsa Tab.",
+            "fr-FR": "Ton prochain message, suggéré d'après tout le chat. Appuie sur Tab.",
+            "de-DE": "Deine nächste Nachricht, aus dem ganzen Chat. Mit Tab übernehmen.",
+            "it-IT": "Il prossimo messaggio, suggerito da tutta la chat. Premi Tab.",
+            "pt-BR": "Sua próxima mensagem, sugerida pelo chat inteiro. Tecle Tab.",
+            "id-ID": "Pesan berikutnya, disarankan dari seluruh obrolan. Tekan Tab.",
+            "ja-JP": "チャット全体から次のメッセージを提案。Tab で入力できます。",
+            "ko-KR": "대화 전체를 보고 다음 메시지를 추천해요. Tab으로 입력하세요.",
+            "hi-IN": "पूरी चैट से अगला संदेश सुझाया जाता है। Tab दबाकर लें।",
+          },
+          scene: {
+            kind: "mascot",
+            steps: [
+              {
+                pose: "search",
+                label: {
+                  "en-US": "Reading the chat", "es-ES": "Leyendo el chat", "fr-FR": "Lit le chat",
+                  "de-DE": "Lese den Chat", "it-IT": "Leggo la chat", "pt-BR": "Lendo o chat",
+                  "id-ID": "Membaca obrolan", "ja-JP": "チャットを確認中", "ko-KR": "대화 읽는 중", "hi-IN": "चैट पढ़ रहा है",
+                },
+              },
+              {
+                pose: "celebrate",
+                label: {
+                  "en-US": "Suggestion ready", "es-ES": "Sugerencia lista", "fr-FR": "Suggestion prête",
+                  "de-DE": "Vorschlag bereit", "it-IT": "Ecco il consiglio", "pt-BR": "Sugestão pronta",
+                  "id-ID": "Saran siap", "ja-JP": "候補を用意", "ko-KR": "추천 준비됨", "hi-IN": "सुझाव तैयार",
+                },
+              },
+            ],
+            placeholder: {
+              "en-US": "Run the tests", "es-ES": "Ejecuta los tests", "fr-FR": "Lance les tests", "de-DE": "Starte die Tests",
+              "it-IT": "Esegui i test", "pt-BR": "Rode os testes", "id-ID": "Jalankan tes", "ja-JP": "テストを実行して",
+              "ko-KR": "테스트 실행해 줘", "hi-IN": "टेस्ट चलाओ",
+            },
+          },
+        },
+        {
+          title: {
+            "en-US": "Room for full pages", "es-ES": "Páginas a todo el ancho", "fr-FR": "Pages en pleine largeur",
+            "de-DE": "Seiten mit mehr Platz", "it-IT": "Pagine più ampie", "pt-BR": "Páginas mais amplas",
+            "id-ID": "Halaman lebih lega", "ja-JP": "ページを全幅で", "ko-KR": "페이지를 넓게", "hi-IN": "चौड़े पेज",
+          },
+          desc: {
+            "en-US": "Pages like Plugins hide the browser. Back in the chat, it's as you left it.",
+            "es-ES": "Páginas como Plugins ocultan el navegador. En el chat sigue como lo dejaste.",
+            "fr-FR": "Les pages comme Plugins masquent le navigateur, intact au retour au chat.",
+            "de-DE": "Seiten wie Plugins blenden den Browser aus; im Chat ist er wie zuvor.",
+            "it-IT": "Pagine come Plugin nascondono il browser; in chat lo ritrovi com'era.",
+            "pt-BR": "Páginas como Plugins ocultam o navegador; no chat ele volta como estava.",
+            "id-ID": "Halaman seperti Plugin menyembunyikan browser; di obrolan tetap sama.",
+            "ja-JP": "プラグインなどのページではブラウザを隠し、チャットで元どおりに。",
+            "ko-KR": "플러그인 같은 페이지에선 브라우저를 숨기고 채팅에선 그대로예요.",
+            "hi-IN": "प्लगइन जैसे पेज ब्राउज़र छिपाते हैं; चैट में वह पहले जैसा मिलता है।",
+          },
+          scene: { kind: "icon", icon: "panel" },
+        },
+        {
+          title: {
+            "en-US": "Safer sign-in", "es-ES": "Acceso más seguro", "fr-FR": "Connexion plus sûre",
+            "de-DE": "Sicherere Anmeldung", "it-IT": "Accesso più sicuro", "pt-BR": "Login mais seguro",
+            "id-ID": "Masuk lebih aman", "ja-JP": "より安全なログイン", "ko-KR": "더 안전한 로그인", "hi-IN": "सुरक्षित साइन-इन",
+          },
+          desc: {
+            "en-US": "Your session no longer passes through the browser's address bar or history.",
+            "es-ES": "Tu sesión ya no pasa por la barra de direcciones ni el historial.",
+            "fr-FR": "Ta session ne passe plus par la barre d'adresse ni l'historique.",
+            "de-DE": "Deine Sitzung landet nicht mehr in Adressleiste oder Verlauf.",
+            "it-IT": "La sessione non passa più dalla barra degli indirizzi né dalla cronologia.",
+            "pt-BR": "Sua sessão não passa mais pela barra de endereço nem pelo histórico.",
+            "id-ID": "Sesi Anda tak lagi lewat bilah alamat atau riwayat browser.",
+            "ja-JP": "セッションがブラウザのアドレスバーや履歴を通らなくなりました。",
+            "ko-KR": "세션이 더 이상 브라우저 주소창이나 기록을 거치지 않아요.",
+            "hi-IN": "आपका सेशन अब ब्राउज़र के एड्रेस बार या हिस्ट्री से नहीं गुज़रता।",
+          },
+          scene: { kind: "icon", icon: "shield" },
+        },
+        {
+          title: {
+            "en-US": "And also", "es-ES": "Y además", "fr-FR": "Et aussi", "de-DE": "Außerdem", "it-IT": "E inoltre",
+            "pt-BR": "E também", "id-ID": "Dan juga", "ja-JP": "そのほか", "ko-KR": "그리고", "hi-IN": "और भी",
+          },
+          desc: {
+            "en-US": "Smaller changes in this version.", "es-ES": "Cambios más pequeños de esta versión.",
+            "fr-FR": "Petits changements de cette version.", "de-DE": "Kleinere Änderungen dieser Version.",
+            "it-IT": "Modifiche minori di questa versione.", "pt-BR": "Mudanças menores desta versão.",
+            "id-ID": "Perubahan kecil di versi ini.", "ja-JP": "このバージョンの小さな変更。",
+            "ko-KR": "이번 버전의 작은 변경 사항.", "hi-IN": "इस संस्करण के छोटे बदलाव।",
+          },
+          scene: {
+            kind: "list",
+            items: [
+              {
+                tag: "new",
+                text: {
+                  "en-US": "Suggestions in Codex, Grok, Cursor and Antigravity",
+                  "es-ES": "Sugerencias en Codex, Grok, Cursor y Antigravity",
+                  "fr-FR": "Suggestions dans Codex, Grok, Cursor et Antigravity",
+                  "de-DE": "Vorschläge in Codex, Grok, Cursor und Antigravity",
+                  "it-IT": "Suggerimenti in Codex, Grok, Cursor e Antigravity",
+                  "pt-BR": "Sugestões no Codex, Grok, Cursor e Antigravity",
+                  "id-ID": "Saran di Codex, Grok, Cursor, dan Antigravity",
+                  "ja-JP": "Codex・Grok・Cursor・Antigravity でも候補",
+                  "ko-KR": "Codex, Grok, Cursor, Antigravity에서도 추천",
+                  "hi-IN": "Codex, Grok, Cursor और Antigravity में सुझाव",
+                },
+              },
+              {
+                tag: "fixed",
+                text: {
+                  "en-US": "Signing in no longer ends in \"connection refused\"",
+                  "es-ES": "Entrar ya no acaba en \"conexión rechazada\"",
+                  "fr-FR": "La connexion ne finit plus en « connexion refusée »",
+                  "de-DE": "Anmelden endet nicht mehr mit „Verbindung abgelehnt“",
+                  "it-IT": "L'accesso non finisce più con «connessione rifiutata»",
+                  "pt-BR": "O login não termina mais em \"conexão recusada\"",
+                  "id-ID": "Masuk tak lagi berakhir \"koneksi ditolak\"",
+                  "ja-JP": "ログイン後の「接続拒否」を修正",
+                  "ko-KR": "로그인 후 '연결 거부'가 뜨지 않아요",
+                  "hi-IN": "साइन-इन अब \"कनेक्शन अस्वीकृत\" पर खत्म नहीं होता",
+                },
+              },
+            ],
+          },
+        },
+      ],
+    },
+  },
+  {
     version: "0.8.62",
     date: "November 26, 2026",
     added: [
