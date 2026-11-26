@@ -8,6 +8,7 @@ import { getMergedSnapshot, settingsFor } from "./settingsRuntime";
 import { computerUseEnabled, musicToolEnabled } from "./featureSettings";
 import { COMPUTER_MCP_SERVER } from "@/tools/Computer/actions";
 import { MUSIC_MCP_SERVER } from "@/tools/Music/tool";
+import { connectorsPrompt, hostedConnectors, lendConnectorAsk } from "./connectorsMcp";
 import { priceForModel, costFromPrice } from "./pricing";
 import { VISUAL_PREVIEW_PROMPT } from "./prompts/visualPreview";
 import { PR_CREATED_PROMPT } from "./prCreatedTag";
@@ -210,7 +211,8 @@ async function runTurn(t: ClaudeCodeTurn, proc: LiveProcess, content: Json[] | n
   }
 
   let killTimer: ReturnType<typeof setTimeout> | null = null;
-  const unsubscribeInbox: (undefined | (() => void))[] = [];
+  // A connector's confirmations (Google's "Allow once") are asked in this chat while it runs.
+  const releaseOnEnd: (undefined | (() => void))[] = [lendConnectorAsk(t.chatKey, t.askUser)];
   const onAbort = () => {
     st.stopping = true;
     void sendTo(proc, { type: "control_request", request_id: `${proc.runId}-interrupt-${Date.now()}`, request: { subtype: "interrupt" } });
@@ -227,12 +229,12 @@ async function runTurn(t: ClaudeCodeTurn, proc: LiveProcess, content: Json[] | n
     if (t.signal?.aborted) onAbort();
     else t.signal?.addEventListener("abort", onAbort, { once: true });
     deliverInbox(c);
-    unsubscribeInbox.push(t.inbox?.onArrive(() => deliverInbox(c)), t.inbox?.onHurry(() => hurryInbox(c)));
+    releaseOnEnd.push(t.inbox?.onArrive(() => deliverInbox(c)), t.inbox?.onHurry(() => hurryInbox(c)));
     await done;
   } finally {
     setCompacting(c, false);
     setRetrying(c, null);
-    for (const off of unsubscribeInbox) off?.();
+    for (const off of releaseOnEnd) off?.();
     if (st.settleTimer) clearTimeout(st.settleTimer);
     t.signal?.removeEventListener("abort", onAbort);
     if (killTimer) clearTimeout(killTimer);
@@ -392,12 +394,15 @@ async function acquireProcess(t: ClaudeCodeTurn, resumeId: string | undefined, r
     // A chat without a folder can ask for music too; background helpers can't.
     ...(!ephemeral && musicToolEnabled() ? [MUSIC_MCP_SERVER] : []),
   ];
+  // The connectors the user signed in to in Nyxs (Gmail, Calendar…), which the CLI can't see.
+  const nyxsConnectors = noTools || ephemeral ? [] : [...hostedConnectors(hostedMcp).keys()];
+  hostedMcp.push(...nyxsConnectors);
   // Background helpers (titles, suggestions) don't answer the user, so they don't draw previews.
   // Claude Code loads CLAUDE.md and AGENTS.md itself, but not NYXS.md, so that goes in here too.
   const appendSystemPrompt = ephemeral
     ? null
     : appendPromptFor(
-        [VISUAL_PREVIEW_PROMPT, ...(sessions ? [CLAUDE_SESSIONS_PROMPT] : []), ...(video ? [CLI_VIDEO_PROMPT] : []), ...(noTools ? [] : [PR_CREATED_PROMPT])].join("\n\n"),
+        [VISUAL_PREVIEW_PROMPT, ...(sessions ? [CLAUDE_SESSIONS_PROMPT] : []), ...(video ? [CLI_VIDEO_PROMPT] : []), ...(nyxsConnectors.length ? [connectorsPrompt(nyxsConnectors)] : []), ...(noTools ? [] : [PR_CREATED_PROMPT])].join("\n\n"),
         workspace ? await cachedNyxsMemory(workspace).catch(() => "") : "",
       );
   // A session started from a saved environment runs Claude Code with its variables; changing

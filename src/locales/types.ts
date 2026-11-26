@@ -145,6 +145,35 @@ export interface Translations {
     maximize: string;
     close: string;
   };
+  menuBar: {
+    file: string;
+    edit: string;
+    view: string;
+    go: string;
+    help: string;
+    newSession: string;
+    openFolder: string;
+    newTerminal: string;
+    searchSessions: string;
+    settings: string;
+    quit: string;
+    undo: string;
+    redo: string;
+    cut: string;
+    copy: string;
+    paste: string;
+    selectAll: string;
+    find: string;
+    sidebar: string;
+    transcript: string;
+    closePanel: string;
+    toggleTheme: string;
+    shortcuts: string;
+    docs: string;
+    feedback: string;
+    checkUpdates: string;
+    about: string;
+  };
   chatInput: {
     placeholder: string;
     searchModels: string;
@@ -1545,7 +1574,6 @@ export interface Translations {
     verified: string;
     connectorKind: string;
     yourCustomConnectors: string;
-    connectWithNyxs: string;
     copyUrl: string;
     oauthBrowserHint: string;
     missingClientId: string;
@@ -1561,7 +1589,6 @@ export interface Translations {
     signInToken: string;
     signInNone: string;
     connectorUrl: string;
-    addedOn: string;
     moreInfo: string;
     documentation: string;
     website: string;
@@ -1585,6 +1612,27 @@ export interface Translations {
     repoHint: string;
     back: string;
     cancel: string;
+    notConnected: string;
+    connectionFailed: string;
+    turnedOff: string;
+    showDetails: string;
+    hideDetails: string;
+    showAllCount: string;
+    toolsOf: string;
+    searchTools: string;
+    noToolsMatch: string;
+    done: string;
+    verifiedHint: string;
+    securityAccess: string;
+    canSendDataTo: string;
+    authorization: string;
+    authSignIn: string;
+    authToken: string;
+    authNone: string;
+    published: string;
+    developerWebsite: string;
+    support: string;
+    privacyPolicy: string;
   };
   scheduled: {
     title: string;
@@ -1907,6 +1955,7 @@ export interface Translations {
     attachedImage: string;
     annotateImage: string;
     addToMessage: string;
+    saveAnnotations: string;
     pastedClickCollapse: string;
     pasted: string;
     copied: string;

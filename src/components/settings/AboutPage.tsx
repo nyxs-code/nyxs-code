@@ -7,6 +7,7 @@ import { invoke } from "@/lib/ipc";
 import { useTranslations } from "@/lib/i18n";
 import { userNyxsDir } from "@/lib/paths";
 import { useUpdater } from "@/lib/updater";
+import { takeUpdateCheckRequest, UPDATE_CHECK_EVENT } from "@/lib/updateCheckRequest";
 
 /** What `device_info` reports about this computer (snake_case, as the backend sends it). */
 interface DeviceDetails {
@@ -53,6 +54,18 @@ export function AboutPage({ onWhatsNew }: { onWhatsNew?: () => void }) {
     const id = window.setTimeout(() => setCopied(false), 1500);
     return () => window.clearTimeout(id);
   }, [copied]);
+
+  const recheck = u.recheck;
+  useEffect(() => {
+    const take = () => {
+      if (!takeUpdateCheckRequest()) return;
+      setAsked(true);
+      void recheck();
+    };
+    take();
+    window.addEventListener(UPDATE_CHECK_EVENT, take);
+    return () => window.removeEventListener(UPDATE_CHECK_EVENT, take);
+  }, [recheck]);
 
   // Outside the desktop app there is no installed version to show.
   if (!version) return null;

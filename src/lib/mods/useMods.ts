@@ -24,8 +24,16 @@ export function matchModCommand(text: string, key: string): { name: string; args
  * Runs the open session's mods: loads them when the session opens, paints its theme, keeps the
  * app's command names out of their reach, and lists their `/` commands for the chat box.
  */
-export function useMods(o: { activeId: string | null; workspace: string | null; chats: Chat[]; reservedCommands: string[] }) {
-  const { activeId, workspace, chats, reservedCommands } = o;
+export function useMods(o: {
+  activeId: string | null;
+  workspace: string | null;
+  chats: Chat[];
+  reservedCommands: string[];
+  /** The session is on screen. A theme dresses only its session, as in Claude's desktop app: the
+   *  app's own pages (Scheduled, Plugins…) keep the app's look. */
+  themed: boolean;
+}) {
+  const { activeId, workspace, chats, reservedCommands, themed } = o;
   const live = useRef({ chats, workspace });
   useEffect(() => {
     live.current = { chats, workspace };
@@ -72,8 +80,9 @@ export function useMods(o: { activeId: string | null; workspace: string | null; 
   // the app's own colors for a moment on every first switch to it.
   const known = theme !== null || modHost.isSettled(key);
   useEffect(() => {
-    if (known) paintModTheme(theme);
-  }, [theme, known]);
+    if (!themed) paintModTheme(null);
+    else if (known) paintModTheme(theme);
+  }, [theme, known, themed]);
 
   const commands = useMemo(
     () => modHost.commands(key).map((c) => ({ name: c.name, description: c.description })),

@@ -5,6 +5,7 @@ import { callModel } from "./callModel";
 import type { ToolAccessMode } from "./configSchema";
 import { DoomLoopGuard, loopStoppedMessage, type LoopDecision } from "./doomLoop";
 import { emitEvent } from "./events";
+import { askMcpApproval, withMcpApproval } from "./mcpElicitation";
 import { getLanguage, getTranslations } from "./i18n";
 import { anthropicTools, pickHelperModel } from "./modelClient";
 import type { ModelInfo } from "./models";
@@ -43,11 +44,13 @@ export function createExtractor(o: {
   };
 }
 
-/** Gates the MCP tools that loaded and reports the servers that didn't. */
+/** Gates the MCP tools that loaded and reports the servers that didn't. A server's own
+ *  confirmations (Gmail's "Allow once") are asked with the chat's question card. */
 export function connectMcpTools(
   loaded: { tools: ToolSet; errors: string[] },
   gate: PermissionGate | undefined,
   warn: (text: string) => void,
+  askUser?: AskUserFn,
 ): ToolSet {
   const { tools, errors } = loaded;
   for (const server of new Set(Object.keys(tools).map((k) => k.split("__")[1]).filter(Boolean))) {
@@ -59,7 +62,7 @@ export function connectMcpTools(
     const hint = finding ? ` — ${formatRecoveryHint(finding)}` : "";
     warn(`\n\n> ⚠️ MCP — couldn't connect to ${err}${hint}\n\n`);
   }
-  return gateToolSet(tools, gate);
+  return gateToolSet(withMcpApproval(tools, askUser ? askMcpApproval(askUser) : undefined), gate);
 }
 
 /** The Workflow tool, whose agents run as this turn's sub-agents without showing in its sub-agent

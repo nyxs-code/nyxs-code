@@ -1,14 +1,15 @@
-import { useEffect, useState } from "react";
-import { ArrowLeft, ArrowUpRight, BadgeCheck, Check, ChevronDown, Copy, Loader2, Power, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeft, ArrowUpRight, BadgeCheck, Check, ChevronDown, Copy, Info, Loader2, MoreHorizontal, Power, Trash2 } from "lucide-react";
 import { handleExternalLinkClick } from "@/lib/openExternal";
-import { cachedMcpTools, getOAuthClient, getOAuthClientSecret, type ConnectorCatalogEntry } from "@/lib/mcp";
+import { cachedMcpTools, type ConnectorCatalogEntry } from "@/lib/mcp";
 import { getLanguage, useTranslations } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { ConnectorLogo } from "./logos";
 import { isVerified, relatedConnectors } from "./connectorData";
-import { ConnectorRow, RowGrid } from "./ConnectorRow";
+import { ConnectorToolsDialog } from "./ConnectorToolsDialog";
+import { OAuthClientDialog } from "./OAuthClientDialog";
 import { Dropdown, MenuItem } from "./ui";
-import type { Connectors } from "./useConnectors";
+import type { Connectors, ManualClient } from "./useConnectors";
 
 function monthYear(iso: string | undefined, locale: string): string | null {
   if (!iso) return null;
@@ -17,13 +18,22 @@ function monthYear(iso: string | undefined, locale: string): string | null {
   return d.toLocaleDateString(locale, { month: "long", year: "numeric" });
 }
 
-function ExternalLinkText({ href, children }: { href: string; children: string }) {
+function hostOf(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
+}
+
+/** A blue link with an arrow, opened in the system browser (the "More information" list). */
+function ExternalLink({ href, children }: { href: string; children: string }) {
   return (
     <a
       href={href}
       onClick={handleExternalLinkClick}
       rel="noreferrer"
-      className="inline-flex items-center gap-0.5 text-[14px] text-text-100 underline underline-offset-2 decoration-text-400 hover:decoration-text-100"
+      className="inline-flex items-center gap-0.5 text-[14px] text-[color:var(--link)] underline underline-offset-2 hover:opacity-80"
     >
       {children}
       <ArrowUpRight className="w-3.5 h-3.5" />
@@ -40,7 +50,21 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
   );
 }
 
-/** One connector's page: what it does, its tools, who makes it and how it signs in. */
+/** A label and its value in the connector's card. */
+function CardRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-[150px_minmax(0,1fr)] gap-x-4 py-1.5">
+      <dt className="text-[13px] text-text-400 pt-px">{label}</dt>
+      <dd className="min-w-0 text-[14px] text-text-100">{children}</dd>
+    </div>
+  );
+}
+
+/**
+ * One connector's page, laid out like Claude's: who makes it and what it does on top, its
+ * connector as a card that opens to its address, tools and sign-in, the facts on the side,
+ * and related connectors below.
+ */
 export function ConnectorDetail({
   entry,
   connectors,
@@ -58,36 +82,40 @@ export function ConnectorDetail({
   const t = tr.customizePage;
   const server = connectors.serverFor(entry);
   const status = server ? connectors.statuses[server.id] : undefined;
-  const busy = connectors.connecting === entry.name;
+  const busy = connectors.connecting === entry.name || (!!server?.enabled && status?.state === "connecting");
   const [copied, setCopied] = useState(false);
-  const [showAllTools, setShowAllTools] = useState(false);
+  const [expanded, setExpanded] = useState(true);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [askClient, setAskClient] = useState(false);
   const needsClient = !!entry.oauthManualClient && !entry.oauthClientId?.trim();
-  const [clientId, setClientId] = useState(() => (needsClient ? getOAuthClient(entry.name).clientId : ""));
-  const [clientSecret, setClientSecret] = useState("");
 
-  // The client secret comes from the keychain, a moment after the page opens.
-  useEffect(() => {
-    if (!needsClient) return;
-    let alive = true;
-    void getOAuthClientSecret(entry.name).then((secret) => {
-      if (alive && secret) setClientSecret(secret);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [entry.name, needsClient]);
-
-  const tools = server && status?.state === "connected" ? cachedMcpTools([server], false).map((x) => x.name) : [];
-  const visibleTools = showAllTools ? tools : tools.slice(0, 18);
+  // Once connected, the server's own list; before, the one its makers publish.
+  const liveTools = server && status?.state === "connected" ? cachedMcpTools([server], false).map((x) => x.name) : [];
+  const tools = liveTools.length > 0 ? liveTools : (entry.tools ?? []);
   const error = connectors.error?.startsWith(`${entry.name}:`) ? connectors.error : null;
-  const authLabel: Record<ConnectorCatalogEntry["auth"], string> = {
+  const failed = !!server?.enabled && status?.state === "error";
+  const linked = !!server?.enabled && !failed && !busy;
+  const signIn: Record<ConnectorCatalogEntry["auth"], string> = {
     oauth: t.signInRequired,
     token: t.signInToken,
     none: t.signInNone,
   };
+  const authorization: Record<ConnectorCatalogEntry["auth"], string> = {
+    oauth: t.authSignIn,
+    token: t.authToken,
+    none: t.authNone,
+  };
 
-  const connect = () =>
-    void connectors.connect(entry, needsClient ? { clientId, clientSecret } : undefined, t.missingClientId);
+  const connect = (client?: ManualClient) => {
+    setAskClient(false);
+    void connectors.connect(entry, client, t.missingClientId);
+  };
+  /** Claude's "Connect": signs in at once, or first asks for the OAuth client a service needs. */
+  const onConnect = () => {
+    if (failed) connectors.retry();
+    else if (!server && needsClient) setAskClient(true);
+    else connect();
+  };
 
   const copyUrl = () => {
     void navigator.clipboard.writeText(entry.url);
@@ -95,218 +123,244 @@ export function ConnectorDetail({
     setTimeout(() => setCopied(false), 1200);
   };
 
-  const primaryLabel = busy
-    ? t.connecting
-    : server
-      ? server.enabled
-        ? t.connected
-        : t.turnOn
-      : t.connectWithNyxs;
+  const state = busy ? t.connecting : failed ? t.connectionFailed : linked ? t.connected : server ? t.turnedOff : t.notConnected;
+  const action = failed ? t.reconnect : server && !server.enabled ? t.turnOn : t.connect;
+  const published = monthYear(entry.addedAt, getLanguage());
+  const links = [
+    entry.developerUrl && { href: entry.developerUrl, label: t.developerWebsite },
+    entry.docsUrl && { href: entry.docsUrl, label: t.documentation },
+    entry.supportUrl && { href: entry.supportUrl, label: t.support },
+    entry.privacyUrl && { href: entry.privacyUrl, label: t.privacyPolicy },
+  ].filter((l): l is { href: string; label: string } => !!l);
 
   return (
     <div className="max-w-[960px] mx-auto">
       <button
         type="button"
         onClick={onBack}
-        className="inline-flex items-center gap-1.5 text-[14px] text-text-200 hover:text-text-100 mb-6"
+        className="inline-flex items-center gap-1.5 text-[14px] text-text-200 hover:text-text-100 mb-5"
       >
         <ArrowLeft className="w-4 h-4" />
         {backLabel}
       </button>
 
-      <div className="flex items-start gap-4 pb-8 border-b border-bg-300">
-        <ConnectorLogo entry={entry} size={48} />
+      <div className="flex items-center gap-4 pb-7 border-b border-bg-300">
+        <ConnectorLogo entry={entry} size={44} />
         <div className="flex-1 min-w-0">
-          <h1 className="text-[24px] leading-tight text-text-100">{entry.name}</h1>
-          <p className="text-[14px] text-text-400 mt-1">{entry.description}</p>
-        </div>
-        {/* A split button in the colors of the page's "Add" button: the tint goes on each half,
-            so hovering one doesn't light up the other. */}
-        <div className="self-center flex items-center shrink-0 h-9 rounded-[8px] bg-text-100 text-bg-0 shadow-sm">
-          <button
-            type="button"
-            disabled={busy || (!!server && server.enabled)}
-            onClick={connect}
-            className="inline-flex items-center gap-2 h-full pl-4 pr-3.5 rounded-l-[8px] text-[14px] font-medium transition-colors hover:bg-bg-0/10 disabled:hover:bg-transparent disabled:cursor-default"
-          >
-            {busy && <Loader2 className="w-4 h-4 animate-spin" />}
-            {server?.enabled && !busy && <Check className="w-4 h-4" />}
-            {primaryLabel}
-          </button>
-          <span aria-hidden className="w-px h-4 bg-current opacity-25" />
-          <Dropdown
-            trigger={(open, toggle) => (
-              <button
-                type="button"
-                onClick={toggle}
-                aria-label={t.moreOptions}
-                aria-expanded={open}
-                className={cn(
-                  "h-9 px-2.5 rounded-r-[8px] transition-colors hover:bg-bg-0/10",
-                  open && "bg-bg-0/10",
-                )}
-              >
-                <ChevronDown className="w-4 h-4" />
-              </button>
-            )}
-          >
-            {(close) => (
+          <h1 className="text-[22px] leading-tight text-text-100">{entry.name}</h1>
+          <p className="text-[14px] text-text-400 mt-0.5 truncate">
+            {entry.developer && (
               <>
-                <MenuItem icon={<Copy className="w-4 h-4" />} label={t.copyUrl} onClick={() => { copyUrl(); close(); }} />
-                {server && (
-                  <MenuItem
-                    icon={<Power className="w-4 h-4" />}
-                    label={server.enabled ? t.turnOff : t.turnOn}
-                    onClick={() => { connectors.toggle(server.id); close(); }}
-                  />
-                )}
-                {server && (
-                  <MenuItem
-                    danger
-                    icon={<Trash2 className="w-4 h-4" />}
-                    label={t.removeConnector}
-                    onClick={() => { connectors.remove(server.id); close(); }}
-                  />
-                )}
+                {t.byDeveloper.replace("{name}", entry.developer)}
+                <span className="mx-1.5">·</span>
               </>
             )}
-          </Dropdown>
+            {entry.description}
+          </p>
         </div>
+        <Dropdown
+          trigger={(open, toggle) => (
+            <button
+              type="button"
+              onClick={toggle}
+              aria-label={t.moreOptions}
+              aria-expanded={open}
+              className={cn(
+                "h-8 w-8 inline-flex items-center justify-center rounded-[6px] text-text-300 hover:text-text-100 hover:bg-bg-200 transition-colors",
+                open && "bg-bg-200 text-text-100",
+              )}
+            >
+              <MoreHorizontal className="w-4 h-4" />
+            </button>
+          )}
+        >
+          {(close) => (
+            <>
+              <MenuItem icon={<Copy className="w-4 h-4" />} label={t.copyUrl} onClick={() => { copyUrl(); close(); }} />
+              {server && (
+                <MenuItem
+                  icon={<Power className="w-4 h-4" />}
+                  label={server.enabled ? t.turnOff : t.turnOn}
+                  onClick={() => { connectors.toggle(server.id); close(); }}
+                />
+              )}
+              {server && (
+                <MenuItem
+                  danger
+                  icon={<Trash2 className="w-4 h-4" />}
+                  label={t.removeConnector}
+                  onClick={() => { connectors.remove(server.id); close(); }}
+                />
+              )}
+            </>
+          )}
+        </Dropdown>
+        {linked ? (
+          <span className="inline-flex items-center gap-1.5 h-8 px-3 rounded-[6px] bg-bg-200 text-[14px] text-text-200">
+            <Check className="w-4 h-4 text-green-500" />
+            {t.connected}
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={onConnect}
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-[6px] bg-text-100 text-bg-0 text-[14px] font-medium transition-opacity hover:opacity-90 disabled:opacity-60"
+          >
+            {busy && <Loader2 className="w-4 h-4 animate-spin" />}
+            {busy ? t.connecting : action}
+          </button>
+        )}
       </div>
 
       {busy && <p className="text-[13px] text-text-400 mt-4">{t.oauthBrowserHint}</p>}
       {error && <p className="text-[13px] text-red-400 mt-4 break-words">{error}</p>}
-      {server && status?.state === "error" && (
-        <p className="text-[13px] text-amber-500 mt-4 break-words">{status.error}</p>
-      )}
+      {failed && status?.state === "error" && <p className="text-[13px] text-amber-500 mt-4 break-words">{status.error}</p>}
 
-      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_260px] gap-x-12 gap-y-8 pt-8">
+      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_260px] gap-x-10 gap-y-8 pt-7">
         <div className="min-w-0">
-          <p className="text-[14px] text-text-200 leading-relaxed">{entry.longDescription ?? entry.description}</p>
+          <p className="text-[14px] text-text-100 leading-relaxed">{entry.longDescription ?? entry.description}</p>
 
-          {needsClient && !server && (
-            <div className="mt-6 rounded-[8px] border border-bg-300 p-4 space-y-3">
-              <div>
-                <p className="text-[14px] font-medium text-text-100">{t.oauthCredentials}</p>
-                <p className="text-[12.5px] text-text-400 mt-1">
-                  {t.oauthCredentialsHint}{" "}
-                  <a
-                    href="https://console.cloud.google.com/apis/credentials"
-                    onClick={handleExternalLinkClick}
-                    rel="noreferrer"
-                    className="underline underline-offset-2"
-                  >
-                    Google Cloud Console
-                  </a>
-                </p>
-              </div>
-              <input
-                value={clientId}
-                onChange={(e) => setClientId(e.target.value)}
-                placeholder="Client ID"
-                className="w-full h-9 px-3 text-[13px] rounded-[6px] bg-bg-200 border border-bg-300 text-text-100 placeholder:text-text-400 outline-none focus:border-accent font-mono"
-              />
-              <input
-                type="password"
-                value={clientSecret}
-                onChange={(e) => setClientSecret(e.target.value)}
-                placeholder="Client secret"
-                className="w-full h-9 px-3 text-[13px] rounded-[6px] bg-bg-200 border border-bg-300 text-text-100 placeholder:text-text-400 outline-none focus:border-accent font-mono"
-              />
-            </div>
-          )}
-
-          <h3 className="text-[14px] text-text-200 mt-8 mb-3">{t.tools}</h3>
-          {tools.length > 0 ? (
-            <>
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2.5">
-                {visibleTools.map((name) => (
-                  <span key={name} className="justify-self-start max-w-full truncate px-3 py-1 rounded-[6px] bg-bg-200 text-[13px] text-text-200">
-                    {name}
-                  </span>
-                ))}
-              </div>
-              {tools.length > visibleTools.length && (
+          <h2 className="text-[15px] font-medium text-text-100 mt-8 mb-3">{t.connectors}</h2>
+          <div className="rounded-[8px] bg-bg-200/60">
+            <div className="flex items-center gap-2.5 pl-4 pr-2 py-2">
+              <ConnectorLogo entry={entry} size={20} />
+              <span className="flex-1 min-w-0 truncate text-[14px] font-medium text-text-100">{entry.name}</span>
+              <span className={cn("text-[13px]", failed ? "text-amber-500" : "text-text-400")}>{state}</span>
+              {!linked && !busy && (
                 <button
                   type="button"
-                  onClick={() => setShowAllTools(true)}
-                  className="mt-5 text-[14px] text-text-100 hover:underline"
+                  onClick={onConnect}
+                  className="h-7 px-2.5 rounded-[6px] bg-bg-300/70 text-[14px] text-text-100 hover:bg-bg-300 transition-colors"
                 >
-                  {t.showAll}
+                  {action}
                 </button>
               )}
-            </>
-          ) : (
-            <p className="text-[13px] text-text-400">{server ? t.toolsLoading : t.toolsAfterConnect}</p>
-          )}
+              <button
+                type="button"
+                onClick={() => setExpanded((e) => !e)}
+                aria-label={expanded ? t.hideDetails : t.showDetails}
+                aria-expanded={expanded}
+                className="h-7 w-7 inline-flex items-center justify-center rounded-[6px] text-text-400 hover:text-text-100 hover:bg-bg-300/60 transition-colors"
+              >
+                <ChevronDown className={cn("w-4 h-4 transition-transform", expanded && "rotate-180")} />
+              </button>
+            </div>
+            {expanded && (
+              <dl className="pl-12 pr-4 pb-3">
+                <CardRow label={t.connectorUrl}>
+                  <span className="inline-flex items-start gap-1.5 max-w-full">
+                    <span className="break-all">{entry.url}</span>
+                    <button
+                      type="button"
+                      onClick={copyUrl}
+                      aria-label={t.copyUrl}
+                      className="mt-0.5 shrink-0 text-text-400 hover:text-text-100 transition-colors"
+                    >
+                      {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </span>
+                </CardRow>
+                <CardRow label={t.tools}>
+                  {tools.length > 0 ? (
+                    <>
+                      <p className="line-clamp-3 break-words">{tools.join(", ")}</p>
+                      <button
+                        type="button"
+                        onClick={() => setToolsOpen(true)}
+                        className="mt-1.5 h-6 px-2 rounded-[6px] bg-bg-300/70 text-[13px] text-text-100 hover:bg-bg-300 transition-colors"
+                      >
+                        {t.showAllCount.replace("{count}", String(tools.length))}
+                      </button>
+                    </>
+                  ) : (
+                    <span className="text-[13px] text-text-400">{server ? t.toolsLoading : t.toolsAfterConnect}</span>
+                  )}
+                </CardRow>
+                <CardRow label={t.signIn}>{signIn[entry.auth]}</CardRow>
+              </dl>
+            )}
+          </div>
         </div>
 
-        <aside className="space-y-6">
+        <aside className="space-y-5">
           {entry.developer && (
             <Fact label={t.developer}>
               <div className="flex items-center gap-2 flex-wrap">
-                {entry.developerUrl ? (
-                  <ExternalLinkText href={entry.developerUrl}>{entry.developer}</ExternalLinkText>
-                ) : (
-                  <span className="text-[14px] text-text-100">{entry.developer}</span>
-                )}
+                <span className="text-[14px] text-text-100">{entry.developer}</span>
                 {isVerified(entry) && (
-                  <span className="inline-flex items-center gap-1 h-6 px-2 rounded-[6px] bg-blue-500/10 text-[12px] font-medium text-blue-500">
-                    <BadgeCheck className="w-3.5 h-3.5" />
-                    {t.verified}
-                  </span>
+                  <>
+                    <span className="inline-flex items-center gap-1 h-6 px-2 rounded-[6px] bg-blue-500/10 text-[12px] font-medium text-blue-500">
+                      <BadgeCheck className="w-3.5 h-3.5" />
+                      {t.verified}
+                    </span>
+                    <span aria-label={t.verifiedHint} data-tooltip={t.verifiedHint} className="text-text-400 hover:text-text-100">
+                      <Info className="w-4 h-4" />
+                    </span>
+                  </>
                 )}
               </div>
             </Fact>
           )}
+          <Fact label={t.securityAccess}>
+            <p className="text-[14px] text-text-100 break-words">{t.canSendDataTo.replace("{host}", hostOf(entry.url))}</p>
+          </Fact>
+          <Fact label={t.authorization}>
+            <p className="text-[14px] text-text-100">{authorization[entry.auth]}</p>
+          </Fact>
           {entry.category && (
             <Fact label={t.category}>
-              <span className="inline-flex h-7 items-center px-2.5 rounded-[6px] bg-bg-200 text-[13px] text-text-200">
+              <span className="inline-flex h-7 items-center px-2.5 rounded-[6px] bg-bg-200 text-[13px] text-text-100">
                 {entry.category}
               </span>
             </Fact>
           )}
-          <Fact label={t.signIn}>
-            <p className="text-[14px] text-text-100">{authLabel[entry.auth]}</p>
-          </Fact>
-          <Fact label={t.connectorUrl}>
-            <button
-              type="button"
-              onClick={copyUrl}
-              className="group text-left font-mono text-[12.5px] text-text-100 break-all leading-relaxed"
-            >
-              {entry.url}
-              <span className="inline-flex align-middle ml-1.5 text-text-400 group-hover:text-text-100">
-                {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-              </span>
-            </button>
-          </Fact>
-          {monthYear(entry.addedAt, getLanguage()) && (
-            <Fact label={t.addedOn}>
-              <p className="text-[14px] text-text-100 first-letter:uppercase">
-                {monthYear(entry.addedAt, getLanguage())}
-              </p>
+          {published && (
+            <Fact label={t.published}>
+              <p className="text-[14px] text-text-100">{published}</p>
             </Fact>
           )}
-          {(entry.docsUrl || entry.developerUrl) && (
+          {links.length > 0 && (
             <Fact label={t.moreInfo}>
-              <div className="flex flex-col items-start gap-1">
-                {entry.docsUrl && <ExternalLinkText href={entry.docsUrl}>{t.documentation}</ExternalLinkText>}
-                {entry.developerUrl && <ExternalLinkText href={entry.developerUrl}>{t.website}</ExternalLinkText>}
+              <div className="flex flex-col items-start gap-1.5">
+                {links.map((l) => (
+                  <ExternalLink key={l.label} href={l.href}>{l.label}</ExternalLink>
+                ))}
               </div>
             </Fact>
           )}
         </aside>
       </div>
 
-      <div className="border-t border-bg-300 mt-10 pt-10">
-        <h2 className="text-[22px] text-text-100 mb-4">{t.relatedConnectors}</h2>
-        <RowGrid>
+      <div className="border-t border-bg-300 mt-10 pt-8">
+        <h2 className="text-[15px] font-medium text-text-100 mb-2">{t.relatedConnectors}</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10">
           {relatedConnectors(entry).map((c) => (
-            <ConnectorRow key={c.url} entry={c} connectors={connectors} onOpen={() => onOpen(c)} />
+            <button
+              key={c.url}
+              type="button"
+              onClick={() => onOpen(c)}
+              className="flex items-start gap-3 py-3.5 border-b border-bg-300 text-left outline-none focus-visible:bg-bg-200/50"
+            >
+              <ConnectorLogo entry={c} size={28} />
+              <span className="flex-1 min-w-0">
+                <span className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-[14px] font-medium text-text-100 truncate">{c.name}</span>
+                  {isVerified(c) && <BadgeCheck className="w-4 h-4 shrink-0 text-text-400" aria-label={t.verified} strokeWidth={1.75} />}
+                </span>
+                <span className="block text-[13px] text-text-300 leading-snug mt-0.5 line-clamp-2">{c.description}</span>
+                <span className="block text-[13px] text-text-400 mt-0.5 truncate">
+                  {t.connectorKind}
+                  {c.developer && ` · ${t.byDeveloper.replace("{name}", c.developer)}`}
+                </span>
+              </span>
+            </button>
           ))}
-        </RowGrid>
+        </div>
       </div>
+
+      <ConnectorToolsDialog name={entry.name} tools={tools} open={toolsOpen} onClose={() => setToolsOpen(false)} />
+      {needsClient && <OAuthClientDialog entry={entry} open={askClient} onClose={() => setAskClient(false)} onConnect={connect} />}
     </div>
   );
 }

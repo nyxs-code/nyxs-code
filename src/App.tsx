@@ -64,7 +64,7 @@ import { setVideoAgentStopper } from "@/lib/video/videoControl";
 import { useChatStore } from "@/lib/useChatStore";
 import { usePromptSuggestion } from "@/lib/usePromptSuggestion";
 import { outgoingMessage } from "@/lib/outgoingMessage";
-import { useAppShortcuts, type AppShortcutActions } from "@/lib/useAppShortcuts";
+import { runShortcutAction, useAppShortcuts, type AppShortcutActions } from "@/lib/useAppShortcuts";
 import { adjacentSession } from "@/lib/sessionOrder";
 import { setShownChats } from "@/lib/streamBuffer";
 import { setNotifyContext } from "@/lib/notify";
@@ -641,7 +641,7 @@ export default function App() {
     });
   }, [skillCommands, fileCommands, t, hasMessages]);
   const appCommandNames = useMemo(() => [...BUILTIN_COMMANDS.map((c) => c.name), ...appCommands.map((c) => c.name)], [appCommands]);
-  const { modKey, modCommands } = useMods({ activeId, workspace, chats, reservedCommands: appCommandNames });
+  const { modKey, modCommands } = useMods({ activeId, workspace, chats, reservedCommands: appCommandNames, themed: section === "code" });
   const allCommands = useMemo<SlashCommand[]>(() => [...appCommands, ...modCommands], [appCommands, modCommands]);
 
   /** A message from Nyxs in `chatId`, or in a new chat when there is none. */
@@ -1159,7 +1159,7 @@ export default function App() {
 
   return (
     <div className="isolate flex flex-col h-full w-full bg-bg-0 text-text-100">
-      <ModBackdrop />
+      <ModBackdrop hidden={section !== "code"} />
       <TitleBar
         onWhatsNew={() => setWhatsNewOpen(true)}
         onToggleView={toggleViewOf}
@@ -1169,6 +1169,16 @@ export default function App() {
         openViews={openViews}
         showChanges={(activeChat?.messages.length ?? 0) > 0}
         onToggleSidebar={() => setSidebarOpen((o) => !o)}
+        menu={{
+          runShortcut: (id) => { if (shortcutsRef.current) runShortcutAction(id, shortcutsRef.current); },
+          newTerminal: () => shortcutsRef.current?.openNewTerminal(),
+          openFolder: chooseWorkspace,
+          openSettings: (s) => navigate(navSnapshot({ settingsOpen: true, settingsSection: s })),
+          whatsNew: () => setWhatsNewOpen(true),
+          goBack,
+          goForward,
+          cycleSession: (step) => shortcutsRef.current?.cycleSession(step),
+        }}
         onBack={goBack}
         onForward={goForward}
         canGoBack={canGoBack}

@@ -1,7 +1,7 @@
 import { Channel } from "@tauri-apps/api/core";
 import { invoke } from "@/lib/ipc";
 import { observeClaudeCodeMessage, runningClaudeCodeTasks, setRunCwd, stopClaudeCodeTasksOfRun } from "./claudeCodeTasks";
-import { HOSTED_MCP_SERVERS } from "./browserMcp";
+import { hostedMcpHandler } from "./browserMcp";
 import { sweepAcpRuns } from "./acpProcesses";
 import { noteClaudeRateLimit } from "./claudeCodeUsage";
 import { loadReloadState, saveReloadState } from "./reloadState";
@@ -125,7 +125,7 @@ export interface SpawnOptions {
   effort: string | null;
   noTools: boolean;
   ephemeral: boolean;
-  /** MCP servers Nyxs hosts for this chat (see HOSTED_MCP_SERVERS). */
+  /** MCP servers Nyxs hosts for this chat (see hostedMcpHandler). */
   hostedMcp: string[];
   /** Nyxs' instructions added to Claude Code's own system prompt. */
   appendSystemPrompt: string | null;
@@ -460,7 +460,7 @@ function channelFor(proc: LiveProcess): Channel<ProcessEvent> {
 
 async function answerHostedMcp(proc: LiveProcess, msg: Json): Promise<void> {
   const request = (msg.request ?? {}) as Json;
-  const handler = HOSTED_MCP_SERVERS[String(request.server_name)];
+  const handler = hostedMcpHandler(String(request.server_name));
   let response: Json;
   try {
     if (!handler) throw new Error(`Unknown MCP server: ${String(request.server_name)}`);

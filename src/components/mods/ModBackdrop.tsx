@@ -111,9 +111,10 @@ function sceneSvg(tree: RenderNode | null): { source: string; alt: string } | nu
 /**
  * What a mod's theme draws behind the whole window: a live scene its `Backdrop` hook draws, or a
  * still ground. It sits under everything (the app's root is its own stacking context) and lets
- * every click through; the panels over it are frosted by the `mod-glass` styles.
+ * every click through; the panels over it are frosted by the `mod-glass` styles. `hidden` takes
+ * it off the app's own pages (Scheduled, Plugins…), which a theme doesn't dress.
  */
-export function ModBackdrop() {
+export function ModBackdrop({ hidden = false }: { hidden?: boolean }) {
   useSyncExternalStore(modHost.subscribe, modHost.getVersion);
   const key = modHost.activeKey;
   const theme = modHost.theme(key);
@@ -141,7 +142,8 @@ export function ModBackdrop() {
     };
   }, [key, theme, settled]);
 
-  if (!shown) return null;
+  // Hidden on the app's own pages, with the scene kept for coming back to the session.
+  if (!shown || hidden) return null;
   const scene = sceneOf(shown);
   const ground = scene ? null : groundStyle(shown);
   if (!ground && !(scene && svg)) return null;

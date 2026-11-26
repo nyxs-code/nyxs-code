@@ -35,17 +35,21 @@ function MarkSvg({ m }: { m: Mark }) {
 }
 
 /** The image with drawing tools over it (pen, shapes, numbered steps), like Claude's image
- *  annotations; "Add to message" attaches the drawn copy as a PNG. */
+ *  annotations; "Add to message" attaches the drawn copy as a PNG (or, with `saveLabel`, the
+ *  button says that and the copy replaces the image it was drawn on). */
 export function ImageAnnotator({
   src,
   name,
   onDone,
   onClose,
+  saveLabel,
 }: {
   src: string;
   name: string;
   onDone: (file: File) => void;
   onClose: () => void;
+  /** The finish button's text, when it saves over the image instead of adding a copy. */
+  saveLabel?: string;
 }) {
   const t = useTranslations().messageExtra;
   const imgRef = useRef<HTMLImageElement>(null);
@@ -144,7 +148,7 @@ export function ImageAnnotator({
       </div>
       <AnnotationBar
         pageTools={false}
-        addLabel={t.addToMessage}
+        addLabel={saveLabel ?? t.addToMessage}
         tool={tool}
         shape={shape}
         color={color}

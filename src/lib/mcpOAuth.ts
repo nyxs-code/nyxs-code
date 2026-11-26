@@ -33,6 +33,20 @@ export interface OAuthOptions {
   clientSecret?: string;
 }
 
+/**
+ * The scopes to ask for: the ones the connector chose come first. A server lists every scope it
+ * accepts (Gmail's include deleting the whole mailbox), and asking for all of them asks the user
+ * for far more than the connector uses, and Google for scopes the app never declared.
+ */
+export function oauthScopesFor(
+  chosen: string[] | undefined,
+  meta: Pick<AuthServerMeta, "resourceScopes" | "scopes_supported">,
+): string[] | undefined {
+  if (chosen?.length) return chosen;
+  if (meta.resourceScopes?.length) return meta.resourceScopes;
+  return meta.scopes_supported;
+}
+
 async function httpJson(url: string, init?: RequestInit): Promise<unknown> {
   const res = await (tauriFetch as unknown as typeof fetch)(url, init);
   if (!res.ok) {
@@ -170,11 +184,7 @@ async function authorize(
   const { verifier, challenge } = await pkce();
   const state = randomString(16);
 
-  const scopes = meta.resourceScopes?.length
-    ? meta.resourceScopes
-    : opts.scopes?.length
-      ? opts.scopes
-      : meta.scopes_supported;
+  const scopes = oauthScopesFor(opts.scopes, meta);
 
   const authParams = new URLSearchParams({
     response_type: "code",

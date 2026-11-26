@@ -7,6 +7,7 @@ import { chatInPlanMode } from "@/lib/video/videoControl";
 import { VIDEO_MCP_SERVER, VIDEO_RULES, VIDEO_TOOLS, videoCallReadOnly } from "@/lib/videoTools";
 import { handleMusicMcp } from "@/lib/musicMcp";
 import { MUSIC_MCP_SERVER } from "@/tools/Music/tool";
+import { connectorMcpHandler } from "@/lib/connectorsMcp";
 
 // The built-in browser as an MCP server that Nyxs hosts itself, for Claude Code. The CLI is
 // started with `--mcp-config {"mcpServers":{"nyxs-browser":{"type":"sdk",...}}}` and sends each
@@ -200,3 +201,8 @@ export const HOSTED_MCP_SERVERS: Record<string, (message: Json, chat?: string) =
   [VIDEO_MCP_SERVER]: handleVideoMcp,
   [MUSIC_MCP_SERVER]: handleMusicMcp,
 };
+
+/** The handler of a hosted server: one of Nyxs' own, else one of the user's connectors. */
+export function hostedMcpHandler(name: string): ((message: Json, chat?: string) => Promise<Json>) | undefined {
+  return Object.hasOwn(HOSTED_MCP_SERVERS, name) ? HOSTED_MCP_SERVERS[name] : connectorMcpHandler(name);
+}

@@ -2,6 +2,7 @@ import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import { AUTH_BASE, getToken } from "./auth";
 import { callModel } from "./callModel";
 import { CLAUDE_CODE_MODELS, claudePlanRefused, streamClaudeCode } from "./claudeCode";
+import { chatUsedGoogleData } from "./connectorsMcp";
 import { buildModel, pickHelperModel } from "./modelClient";
 import { getModel, PROVIDERS, type ModelInfo } from "./models";
 import type { Settings } from "./settings";
@@ -108,6 +109,9 @@ export async function suggestNextPrompt(
   turns: SuggestionTurn[],
   signal?: AbortSignal,
 ): Promise<string> {
+  // Every path below sends the chat to a model the user didn't pick for it (Nyxs' service, or a
+  // helper), which Google doesn't allow for what Gmail or Calendar returned.
+  if (chatUsedGoogleData(turns.map((t) => t.content))) return "";
   const model = getModel(modelId, settings);
   const conversation = transcript(turns);
   if (!model || !conversation) return "";

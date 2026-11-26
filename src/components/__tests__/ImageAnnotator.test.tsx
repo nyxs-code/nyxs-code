@@ -74,6 +74,33 @@ describe("annotating an image", () => {
   });
 });
 
+describe("annotating an attachment in the message box", () => {
+  it("saves over it instead of adding another image to the message", async () => {
+    const attach = vi.fn();
+    setComposerAttach(attach);
+    const onSave = vi.fn();
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
+      new Proxy({}, { get: () => () => {} }) as never,
+    );
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation((done) => done(new Blob(["png"], { type: "image/png" })));
+    const onClose = vi.fn();
+    render(<ImageLightbox src="data:image/png;base64," alt="screen.png" onClose={onClose} onSave={onSave} />);
+    await act(async () => {});
+    fireEvent.click(screen.getByRole("button", { name: tx.annotateImage }));
+    const img = screen.getByRole("img", { name: "screen.png" }) as HTMLImageElement;
+    Object.defineProperty(img, "naturalWidth", { value: 200 });
+    Object.defineProperty(img, "naturalHeight", { value: 100 });
+    fireEvent.load(img);
+    expect(screen.queryByRole("button", { name: tx.addToMessage })).toBeNull();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: tx.saveAnnotations })));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect((onSave.mock.calls[0][0] as File).type).toBe("image/png");
+    expect(attach).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
+    vi.restoreAllMocks();
+  });
+});
+
 describe("the annotated copy", () => {
   it("draws every mark on the canvas, with the steps numbered", () => {
     const calls: string[] = [];

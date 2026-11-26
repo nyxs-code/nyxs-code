@@ -5,6 +5,15 @@ import { SOURCE_PRECEDENCE, getPerSourceSnapshot, settingsSnapshotFor } from "@/
 import { getCachedPluginComponents } from "@/lib/plugins/pluginLoader";
 import { connectorAccessToken, renewConnectorToken } from "@/lib/connectorTokens";
 import { getSecret, setSecret } from "@/lib/secureStore";
+import {
+  answerInputRequests,
+  isGoogleWorkspaceMcp,
+  isInputRequired,
+  MCP_CALL,
+  workspaceHeaders,
+  workspaceMcpMeta,
+  type McpApprovalAsk,
+} from "@/lib/mcpElicitation";
 
 export type McpTransportKind = "http" | "stdio";
 
@@ -46,11 +55,18 @@ export interface ConnectorCatalogEntry {
   oauthManualClient?: boolean;
   oauthClientId?: string;
   oauthClientSecret?: string;
+  /** The tools its makers publish, shown before it's connected; the server's own list replaces them after. */
+  tools?: string[];
+  supportUrl?: string;
+  privacyUrl?: string;
 }
 
+/** Nyxs's own Google OAuth client (a desktop one, marked for an AI agent), so Gmail and Google Calendar
+ *  connect in one click as in Claude. It comes from the build's environment (.env.local, CI secrets)
+ *  and stays out of the public repo; without it the page asks for the user's own client. */
 const GOOGLE_OAUTH = {
-  clientId: "", // ← pega aquí tu Client ID (…apps.googleusercontent.com)
-  clientSecret: "", // ← pega aquí tu Client Secret
+  clientId: import.meta.env.VITE_GOOGLE_OAUTH_CLIENT_ID ?? "",
+  clientSecret: import.meta.env.VITE_GOOGLE_OAUTH_CLIENT_SECRET ?? "",
 };
 
 const OAUTH_CLIENTS_KEY = "optimicer.oauthClients.v1";
@@ -111,8 +127,8 @@ export const CONNECTOR_CATALOG: ConnectorCatalogEntry[] = [
   { name: "Notion", url: "https://mcp.notion.com/mcp", description: "Search, read and update pages in your Notion workspace.", auth: "oauth", logo: `${CN_ICON}/notion.svg`, color: "#e5e5e5", developer: "Notion", developerUrl: "https://notion.so", docsUrl: "https://developers.notion.com", category: "Productividad", type: "web", popularity: 85, trending: true, addedAt: "2025-03-01" },
   { name: "Sentry", url: "https://mcp.sentry.dev/mcp", description: "Inspect errors, issues and releases tracked in Sentry.", auth: "oauth", logo: `${CN_ICON}/sentry.svg`, color: "#8d5494", developer: "Sentry", developerUrl: "https://sentry.io", docsUrl: "https://docs.sentry.io", category: "Estado", type: "web", popularity: 55, addedAt: "2025-04-01" },
   { name: "Stripe", url: "https://mcp.stripe.com", description: "Query payments, customers and invoices in Stripe.", auth: "token", logo: `${CN_ICON}/stripe.svg`, color: "#635bff", developer: "Stripe", developerUrl: "https://stripe.com", docsUrl: "https://docs.stripe.com", category: "Servicios financieros", type: "web", popularity: 75, addedAt: "2025-05-01" },
-  { name: "Gmail", url: "https://gmailmcp.googleapis.com/mcp/v1", description: "Draft replies, summarize threads and search your inbox.", auth: "oauth", logo: `${CN_ICON}/gmail.svg`, color: "#ea4335", developer: "Google", developerUrl: "https://google.com", docsUrl: "https://developers.google.com/workspace/gmail/api/guides/configure-mcp-server", longDescription: "Connect Gmail so the agent can find important emails, read whole threads for context, draft replies and stay on top of your inbox — all from the chat. Official Google Workspace remote MCP server.", category: "Correo y mensajes", type: "web", popularity: 95, trending: true, addedAt: "2025-05-20", oauthScopes: ["https://www.googleapis.com/auth/gmail.modify"], oauthManualClient: true, oauthClientId: GOOGLE_OAUTH.clientId, oauthClientSecret: GOOGLE_OAUTH.clientSecret },
-  { name: "Google Calendar", url: "https://calendarmcp.googleapis.com/mcp/v1", description: "Manage your schedule and coordinate meetings.", auth: "oauth", logo: `${CN_ICON}/googlecalendar.svg`, color: "#4285f4", developer: "Google", developerUrl: "https://google.com", docsUrl: "https://developers.google.com/workspace/calendar/api/guides/configure-mcp-server", longDescription: "Connect Google Calendar so the agent can check your availability, create and update events, and coordinate meetings effortlessly. Official Google Workspace remote MCP server.", category: "Productividad", type: "web", popularity: 90, trending: true, addedAt: "2025-05-20", oauthScopes: ["https://www.googleapis.com/auth/calendar.events"], oauthManualClient: true, oauthClientId: GOOGLE_OAUTH.clientId, oauthClientSecret: GOOGLE_OAUTH.clientSecret },
+  { name: "Gmail", url: "https://gmailmcp.googleapis.com/mcp/v1", description: "Draft replies, summarize threads and search your inbox.", auth: "oauth", logo: `${CN_ICON}/gmail.svg`, color: "#ea4335", developer: "Google", developerUrl: "https://google.com", docsUrl: "https://developers.google.com/workspace/gmail/api/guides/configure-mcp-server", longDescription: "Connect Gmail so the agent can find important emails, read whole threads for context, draft replies and stay on top of your inbox — all from the chat. Official Google Workspace remote MCP server.", category: "Correo y mensajes", type: "web", popularity: 95, trending: true, addedAt: "2025-05-20", oauthScopes: ["https://www.googleapis.com/auth/gmail.modify"], oauthManualClient: true, oauthClientId: GOOGLE_OAUTH.clientId, oauthClientSecret: GOOGLE_OAUTH.clientSecret, supportUrl: "https://support.google.com/mail", privacyUrl: "https://policies.google.com/privacy", tools: ["apply_sensitive_message_label", "apply_sensitive_thread_label", "create_draft", "create_label", "get_draft", "get_message", "get_thread", "label_message", "label_thread", "list_drafts", "list_labels", "mark_message_spam", "mark_thread_spam", "search_threads", "trash_message", "trash_thread", "unlabel_message", "unlabel_thread", "unmark_message_spam", "unmark_thread_spam", "untrash_message", "untrash_thread", "update_message_labels"] },
+  { name: "Google Calendar", url: "https://calendarmcp.googleapis.com/mcp/v1", description: "Manage your schedule and coordinate meetings.", auth: "oauth", logo: `${CN_ICON}/googlecalendar.svg`, color: "#4285f4", developer: "Google", developerUrl: "https://google.com", docsUrl: "https://developers.google.com/workspace/calendar/api/guides/configure-mcp-server", longDescription: "Connect Google Calendar so the agent can check your availability, create and update events, and coordinate meetings effortlessly. Official Google Workspace remote MCP server.", category: "Productividad", type: "web", popularity: 90, trending: true, addedAt: "2025-05-20", oauthScopes: ["https://www.googleapis.com/auth/calendar.calendarlist.readonly", "https://www.googleapis.com/auth/calendar.events.freebusy", "https://www.googleapis.com/auth/calendar.events"], oauthManualClient: true, oauthClientId: GOOGLE_OAUTH.clientId, oauthClientSecret: GOOGLE_OAUTH.clientSecret, supportUrl: "https://support.google.com/calendar", privacyUrl: "https://policies.google.com/privacy", tools: ["create_event", "delete_event", "get_event", "list_calendars", "list_events", "respond_to_event", "search_events", "suggest_time", "update_event"] },
   { name: "Atlassian", url: "https://mcp.atlassian.com/v2/mcp", description: "Search and update Jira issues and Confluence pages.", auth: "oauth", logo: `${CN_ICON}/atlassian.svg`, color: "#0052cc", developer: "Atlassian", developerUrl: "https://www.atlassian.com", docsUrl: "https://support.atlassian.com/rovo/docs/getting-started-with-the-atlassian-remote-mcp-server/", longDescription: "Connect Atlassian so the agent can search, create and update Jira issues and read or write Confluence pages. Summarize work, file tickets from the chat and keep documentation in sync, with the same permissions as your Atlassian account.", category: "Productividad", type: "web", popularity: 88, trending: true, addedAt: "2025-05-01" },
   { name: "Canva", url: "https://mcp.canva.com/mcp", description: "Create, find and edit designs in Canva.", auth: "oauth", logo: `${CN_ICON}/canva.svg`, color: "#8b3dff", developer: "Canva", developerUrl: "https://www.canva.com", docsUrl: "https://www.canva.com/help/mcp-agent-setup/", longDescription: "Connect Canva so the agent can generate designs, search your existing ones, fill brand templates and export the results. Useful for turning a brief written in the chat into presentations, social posts and documents.", category: "Diseño", type: "web", popularity: 82, trending: true, addedAt: "2025-06-17" },
   { name: "Supabase", url: "https://mcp.supabase.com/mcp", description: "Manage Supabase projects, databases and edge functions.", auth: "oauth", logo: `${CN_ICON}/supabase.svg`, color: "#3ecf8e", developer: "Supabase", developerUrl: "https://supabase.com", docsUrl: "https://supabase.com/docs/guides/ai-tools/mcp", longDescription: "Connect Supabase so the agent can design tables, run SQL, apply migrations, read logs and deploy edge functions. Point it at a development project: it acts with the same rights as your Supabase account.", category: "Bases de datos", type: "web", popularity: 78, trending: true, addedAt: "2025-10-03" },
@@ -267,7 +283,7 @@ export function parseEnvLines(text: string): Record<string, string> | null {
   return env;
 }
 
-function normalizeNameForMCP(name: string): string {
+export function normalizeNameForMCP(name: string): string {
   return name.replace(/[^a-zA-Z0-9_-]/g, "_");
 }
 
@@ -307,16 +323,21 @@ interface McpToolDef {
 interface McpClient {
   initialize(): Promise<void>;
   listTools(): Promise<McpToolDef[]>;
-  callTool(name: string, args: unknown): Promise<unknown>;
+  /** `ask` shows the confirmations a server asks for before acting (see mcpElicitation.ts). */
+  callTool(name: string, args: unknown, ask?: McpApprovalAsk): Promise<unknown>;
 }
 
 const PROTOCOL_VERSION = "2025-06-18";
+const CLIENT_VERSION = "0.1.0";
 
 const INITIALIZE_PARAMS = {
   protocolVersion: PROTOCOL_VERSION,
   capabilities: {},
-  clientInfo: { name: "Nyxs", version: "0.1.0" },
+  clientInfo: { name: "Nyxs", version: CLIENT_VERSION },
 };
+
+/** How many times one call may come back asking for confirmation before Nyxs gives up. */
+const MAX_CONFIRMATION_ROUNDS = 3;
 
 export const MCP_TIMEOUTS = { initialize: 60_000, list: 30_000, call: 300_000 };
 
@@ -374,12 +395,23 @@ class McpHttpClient implements McpClient {
   private readonly headers: Record<string, string>;
   private readonly fetchImpl: FetchImpl;
   private readonly auth: McpHttpAuth | undefined;
+  private readonly serverName: string;
+  /** Google Workspace's stateless servers: they're told on each tools call that Nyxs can show
+   *  their confirmations, in the protocol they speak. Other servers get what they always got. */
+  private readonly workspace: boolean;
 
-  constructor(url: string, headers: Record<string, string>, fetchImpl: FetchImpl, auth?: McpHttpAuth) {
+  constructor(url: string, headers: Record<string, string>, fetchImpl: FetchImpl, auth?: McpHttpAuth, serverName = "") {
     this.url = url;
     this.headers = headers;
     this.fetchImpl = fetchImpl;
     this.auth = auth;
+    this.serverName = serverName;
+    this.workspace = isGoogleWorkspaceMcp(url);
+  }
+
+  /** `params` with the confirmation support a Workspace server needs to see. */
+  private withMeta(params: Record<string, unknown>): Record<string, unknown> {
+    return this.workspace ? { ...params, _meta: workspaceMcpMeta(CLIENT_VERSION) } : params;
   }
 
   private async send(method: string, params: unknown, notification: boolean, signal: AbortSignal, mayRenew = true): Promise<unknown> {
@@ -396,6 +428,7 @@ class McpHttpClient implements McpClient {
         "Content-Type": "application/json",
         Accept: "application/json, text/event-stream",
         ...(this.sessionId ? { "Mcp-Session-Id": this.sessionId } : {}),
+        ...(this.workspace && method.startsWith("tools/") ? workspaceHeaders(method, params) : {}),
         ...this.headers,
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
@@ -452,11 +485,20 @@ class McpHttpClient implements McpClient {
   }
 
   listTools(): Promise<McpToolDef[]> {
-    return collectTools((cursor) => this.rpc("tools/list", cursor ? { cursor } : {}, { timeoutMs: MCP_TIMEOUTS.list }));
+    return collectTools((cursor) => this.rpc("tools/list", this.withMeta(cursor ? { cursor } : {}), { timeoutMs: MCP_TIMEOUTS.list }));
   }
 
-  callTool(name: string, args: unknown): Promise<unknown> {
-    return this.rpc("tools/call", { name, arguments: args ?? {} }, { timeoutMs: MCP_TIMEOUTS.call });
+  /** A call that needs the user's approval comes back asking; it's asked in the chat and the
+   *  same call goes again with the answer and the server's state, unchanged. */
+  async callTool(name: string, args: unknown, ask?: McpApprovalAsk): Promise<unknown> {
+    let retry: Record<string, unknown> = {};
+    for (let round = 0; round <= MAX_CONFIRMATION_ROUNDS; round++) {
+      const result = await this.rpc("tools/call", this.withMeta({ name, arguments: args ?? {}, ...retry }), { timeoutMs: MCP_TIMEOUTS.call });
+      if (!isInputRequired(result)) return result;
+      const inputResponses = await answerInputRequests(result.inputRequests, ask, { server: this.serverName, tool: name });
+      retry = { requestState: result.requestState, inputResponses };
+    }
+    throw new Error(`${this.serverName || "The MCP server"} kept asking for confirmation`);
   }
 }
 
@@ -525,7 +567,7 @@ export function createMcpClient(server: McpServer, deps: McpDeps = {}): McpClien
     return new McpStdioClient(server, deps.invokeImpl ?? invoke);
   }
   const auth = server.oauth ? { token: () => connectorAccessToken(server.id), renew: () => renewConnectorToken(server.id) } : undefined;
-  return new McpHttpClient(server.url, server.headers ?? {}, deps.fetchImpl ?? fetch, auth);
+  return new McpHttpClient(server.url, server.headers ?? {}, deps.fetchImpl ?? fetch, auth, server.name);
 }
 
 export async function stopMcpServer(server: McpServer, deps: McpDeps = {}): Promise<void> {
@@ -736,12 +778,15 @@ export function cachedMcpTools(servers: McpServer[], toolImages: boolean): Cache
 }
 
 function buildMcpTool(server: McpServer, def: McpToolDef, client: McpClient, toolImages: boolean) {
-  return dynamicTool({
+  const call = async (args: unknown, ask?: McpApprovalAsk) => formatMcpOutput(convertMcpResult(await client.callTool(def.name, args, ask)), toolImages);
+  const tool = dynamicTool({
     description: def.description ?? `Tool "${def.name}" from MCP server "${server.name}".`,
     inputSchema: jsonSchema(def.inputSchema ?? { type: "object", properties: {} }),
-    execute: async (args: unknown) => formatMcpOutput(convertMcpResult(await client.callTool(def.name, args)), toolImages),
+    // Without a turn to ask in (withMcpApproval), a confirmation is declined.
+    execute: (args: unknown) => call(args),
     toModelOutput: ({ output }) => mcpToolModelOutput(output),
   });
+  return Object.assign(tool, { [MCP_CALL]: call });
 }
 
 export async function loadMcpTools(

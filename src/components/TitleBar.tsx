@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ComponentType } from "react";
-import { Menu, PanelLeft, Search, ArrowLeft, ArrowRight, Minus, Square, X, Terminal, Globe, Folder, MoreVertical, Diamond, ListChecks, Bot, Clapperboard, MessageCircleQuestion } from "lucide-react";
+import { PanelLeft, ArrowLeft, ArrowRight, Minus, Square, X, Terminal, Globe, Folder, MoreVertical, Diamond, ListChecks, Bot, Clapperboard, MessageCircleQuestion } from "lucide-react";
 import { MusicPlayerBar } from "@/components/music/MusicPlayerBar";
 import { ACTIVE_TOGGLE } from "@/lib/uiClasses";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -7,12 +7,13 @@ import { invoke } from "@/lib/ipc";
 import { useTranslations } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { useBindings } from "@/lib/keyBindings";
+import { MenuBar, type MenuBarActions } from "@/components/titlebar/MenuBar";
 
 /** The views the title bar opens: its own buttons, in the order shown, then the ⋮ menu. */
 export type TitleBarView = "terminal" | "diff" | "preview" | "files" | "background" | "plan" | "fleet" | "video" | "sidechat";
 
 /** Changes: a square with a plus over a minus. */
-function ChangesIcon({ className }: { className?: string }) {
+export function ChangesIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" className={className} aria-hidden>
       <rect x="2.5" y="2.5" width="11" height="11" rx="2" />
@@ -30,8 +31,7 @@ const isMac = typeof navigator !== "undefined" && /Mac/i.test(navigator.platform
 
 export function TitleBar({
   onToggleSidebar,
-  onSearch,
-  onMenu,
+  menu,
   onBack,
   onForward,
   canGoBack = false,
@@ -44,8 +44,8 @@ export function TitleBar({
   showChanges = false,
 }: {
   onToggleSidebar?: () => void;
-  onSearch?: () => void;
-  onMenu?: () => void;
+  /** The ☰ menu (File, Edit, View, Go, Help); none without it. */
+  menu?: MenuBarActions;
   onBack?: () => void;
   onForward?: () => void;
   canGoBack?: boolean;
@@ -131,9 +131,7 @@ export function TitleBar({
     };
   }, [optionsOpen]);
   const buttons = [
-    { id: "menu", icon: Menu, label: t.menu, onClick: onMenu, disabled: false },
     { id: "panel", icon: PanelLeft, label: t.togglePanel, onClick: onToggleSidebar, disabled: false },
-    { id: "search", icon: Search, label: t.search, onClick: onSearch, disabled: false },
     { id: "back", icon: ArrowLeft, label: t.back, onClick: onBack, disabled: !canGoBack, kbd: "Alt+Left" },
     { id: "forward", icon: ArrowRight, label: t.forward, onClick: onForward, disabled: !canGoForward, kbd: "Alt+Right" },
   ];
@@ -147,6 +145,9 @@ export function TitleBar({
       className={cn("relative z-[60] flex items-center justify-between h-9 shrink-0 pl-2 select-none bg-bg-0", isMac ? "pr-2" : "pr-0", isMac && appWindow && !fullscreen && "pl-[78px]")}
     >
       <div className="flex shrink-0 items-center gap-0.5">
+        {!minimal && menu && onToggleView && (
+          <MenuBar actions={menu} onToggleView={onToggleView} hasMessages={showChanges} canGoBack={canGoBack} canGoForward={canGoForward} />
+        )}
         {!minimal && buttons.map((b) => (
           <button
             key={b.id}

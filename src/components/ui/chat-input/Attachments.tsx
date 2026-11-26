@@ -8,7 +8,12 @@ import { formatFileSize } from "@/lib/fileAttachments";
 import { Icons } from "./icons";
 import type { AttachedFile, PastedSnippet } from "./types";
 
-const FilePreviewCard: React.FC<{ file: AttachedFile; onRemove: (id: string) => void }> = ({ file, onRemove }) => {
+const FilePreviewCard: React.FC<{
+    file: AttachedFile;
+    onRemove: (id: string) => void;
+    /** Puts the image drawn on in the viewer in this one's place. */
+    onReplace: (file: File) => void;
+}> = ({ file, onRemove, onReplace }) => {
     const isImage = file.type.startsWith("image/") && file.preview;
     const [viewing, setViewing] = useState(false);
     return (
@@ -42,7 +47,7 @@ const FilePreviewCard: React.FC<{ file: AttachedFile; onRemove: (id: string) => 
                     <Icons.Loader2 className="w-5 h-5 text-white animate-spin" />
                 </div>
             )}
-            {viewing && isImage && <ImageLightbox src={file.preview!} alt={file.file.name} onClose={() => setViewing(false)} />}
+            {viewing && isImage && <ImageLightbox src={file.preview!} alt={file.file.name} onClose={() => setViewing(false)} onSave={onReplace} />}
         </div>
     );
 };
@@ -101,6 +106,10 @@ export const ComposerAttachments: React.FC<{
                             // message keeps its own until it goes), so its memory can go now.
                             releasePreviews([file]);
                             setFiles((prev) => prev.filter((f) => f.id !== id));
+                        }}
+                        onReplace={(drawn) => {
+                            releasePreviews([file]);
+                            setFiles((prev) => prev.map((f) => (f.id === file.id ? { ...f, file: drawn, preview: URL.createObjectURL(drawn) } : f)));
                         }}
                     />
                 ))}

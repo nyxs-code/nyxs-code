@@ -50,6 +50,11 @@ const ACTIONS: Partial<Record<ShortcutId, (a: AppShortcutActions) => void>> = {
   effort: () => cycleComposerEffort(),
 };
 
+/** Does what a changeable shortcut does, as its keys would (the title bar's menus use it). */
+export function runShortcutAction(id: ShortcutId, a: AppShortcutActions): void {
+  ACTIONS[id]?.(a);
+}
+
 /** The app's keyboard shortcuts. The listeners are added once and call whatever actions the
  *  ref holds then; the caller fills it in an effect, so nothing here runs during render. */
 export function useAppShortcuts(ref: RefObject<AppShortcutActions | null>) {

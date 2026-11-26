@@ -382,7 +382,7 @@ For a multi-dimension code review, or whenever the user asks to "use Workflow", 
       })
     : {};
 
-  const mcpTools = isTauri && enabledMcpServers.length > 0 ? connectMcpTools(mcpLoaded, gate, onChunk) : {};
+  const mcpTools = isTauri && enabledMcpServers.length > 0 ? connectMcpTools(mcpLoaded, gate, onChunk, askUser) : {};
 
   const tools: ToolSet = { ...localTools, ...mcpTools, ...(deps.extraTools ?? {}) };
 

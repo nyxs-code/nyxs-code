@@ -72,6 +72,18 @@ describe("suggestNextPrompt with Claude Code", () => {
     expect(claude.runs).toBe(2);
   });
 
+  it("sends nothing anywhere once the chat used Gmail or Google Calendar", async () => {
+    const withGmail = [
+      { role: "user" as const, content: "Show me my emails with [Demo] in the subject" },
+      { role: "assistant" as const, content: "\n\n⟦TOOL⟧t1⟦SEP⟧search_threads⟦SEP⟧Gmail (MCP)⟦/TOOL⟧\n\nYou have 3 emails." },
+      { role: "user" as const, content: "Summarize the second one again" },
+      { role: "assistant" as const, content: "It asks whether you are free on Friday." },
+    ];
+    expect(await suggestNextPrompt(model.id, settings, withGmail)).toBe("");
+    expect(backend.calls).toHaveLength(0);
+    expect(claude.runs).toBe(0);
+  });
+
   it("gives no suggestion when the backend fails, without starting the CLI", async () => {
     backend.status = 502;
     expect(await suggestNextPrompt(model.id, settings, turns)).toBe("");
