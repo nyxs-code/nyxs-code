@@ -1088,7 +1088,7 @@ const t: Translations = {
       chatTitlesTitle: "Judul chat",
       chatTitlesDesc: "Mengirim pesan pertama setiap chat untuk memberinya judul. Mati: judul diambil dari pesan itu sendiri.",
       suggestionsTitle: "Saran pesan berikutnya",
-      suggestionsDesc: "Dengan Claude Code, mengirim pesan terakhir chat untuk menyarankan apa yang ditulis. Ini pengaturan yang sama dengan di Umum.",
+      suggestionsDesc: "Dengan Codex, Grok, Cursor, atau Antigravity, mengirim pesan terakhir chat untuk menyarankan apa yang ditulis, kecuali Anda memilih model pembantu sendiri. Ini pengaturan yang sama dengan di Umum.",
       imagesTitle: "Gambar untuk model yang tidak bisa melihatnya",
       imagesDesc: "Mengirim gambar untuk mendeskripsikannya kepada model. Mati: model tidak menerimanya dan diberi tahu.",
       semanticTitle: "Pencarian semantik di layanan Nyxs",

@@ -1088,7 +1088,7 @@ const t: Translations = {
       chatTitlesTitle: "Titoli delle chat",
       chatTitlesDesc: "Invia il primo messaggio di ogni chat per darle un titolo. Disattivato: il titolo viene dal messaggio stesso.",
       suggestionsTitle: "Suggerimenti per il messaggio successivo",
-      suggestionsDesc: "Con Claude Code, invia gli ultimi messaggi della chat per suggerirti cosa scrivere. È la stessa impostazione di Generale.",
+      suggestionsDesc: "Con Codex, Grok, Cursor o Antigravity, invia gli ultimi messaggi della chat per suggerirti cosa scrivere, a meno che tu non abbia scelto un tuo modello ausiliario. È la stessa impostazione di Generale.",
       imagesTitle: "Immagini per i modelli che non le vedono",
       imagesDesc: "Invia l'immagine per descriverla al modello. Disattivato: il modello non la riceve e ne viene avvisato.",
       semanticTitle: "Ricerca semantica sul servizio Nyxs",

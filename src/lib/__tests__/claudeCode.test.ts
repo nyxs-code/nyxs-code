@@ -102,12 +102,13 @@ vi.mock("@tauri-apps/api/core", () => {
   };
 });
 
-// The built-in browser is on by default; the fake CLI never answers its initialize request.
+// The built-in browser and prompt suggestions are on by default; the fake CLI never answers their
+// initialize request.
 vi.mock("@/lib/settingsRuntime", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/settingsRuntime")>()),
-  getMergedSnapshot: () => ({ allowPreview: false, allowMusic: false, allowVideoTools: false, claudeAiConnectors: fake.connectors }),
+  getMergedSnapshot: () => ({ allowPreview: false, allowMusic: false, allowVideoTools: false, promptSuggestions: false, claudeAiConnectors: fake.connectors }),
   settingsFor: async (ws?: string | null) => ({
-    merged: { allowPreview: false, allowMusic: false, allowVideoTools: false, claudeAiConnectors: fake.connectors, ...fake.folderSettings[ws ?? ""] },
+    merged: { allowPreview: false, allowMusic: false, allowVideoTools: false, promptSuggestions: false, claudeAiConnectors: fake.connectors, ...fake.folderSettings[ws ?? ""] },
     perSource: {},
     projectTrusted: !fake.untrustedFolders.has(ws ?? ""),
   }),
@@ -136,6 +137,7 @@ const {
 const { resumePointOf } = await import("@/lib/claudeCodeText");
 const { closeClaudeCodeChat } = await import("@/lib/claudeCode");
 const { sessionHead } = await import("@/lib/claudeCodeHeads");
+const { onClaudeCodeSuggestion } = await import("@/lib/claudeCodeProcesses");
 
 const opus = CLAUDE_CODE_MODELS.find((m) => m.apiModel === "opus")!;
 
@@ -255,6 +257,29 @@ describe("what Claude Code is started with", () => {
       [null, true],
       ["sess-cloned", false],
     ]);
+  });
+
+  it("asks the CLI for its next-prompt guess and hands it to the chat, as Claude Code Desktop does", async () => {
+    fake.folderSettings["C:/ws-guess"] = { promptSuggestions: true };
+    const controls: Json[] = [];
+    fake.onInterrupt = (msg) => {
+      controls.push(msg.request as Json);
+      out({ type: "control_response", response: { subtype: "success", request_id: msg.request_id, response: {} } });
+    };
+    const heard: [string, string][] = [];
+    const stop = onClaudeCodeSuggestion((chatKey, text) => void heard.push([chatKey, text]));
+    try {
+      fake.onUser = () => {
+        init("sess-guess");
+        result("sess-guess");
+        out({ type: "prompt_suggestion", suggestion: " Run the tests ", uuid: "u1", session_id: "sess-guess" });
+      };
+      await streamClaudeCode({ model: opus, history: [userTurn("a")], workspace: "C:/ws-guess", planMode: false, effort: "medium", chatKey: "chat-guess", onChunk: () => {} });
+      await vi.waitFor(() => expect(heard).toEqual([["chat-guess", "Run the tests"]]));
+      expect(controls).toEqual([expect.objectContaining({ subtype: "initialize", promptSuggestions: true })]);
+    } finally {
+      stop();
+    }
   });
 
   it("caps the process's turns when asked (headless --max-steps), in a process of its own", async () => {

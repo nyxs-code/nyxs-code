@@ -1088,7 +1088,7 @@ const t: Translations = {
       chatTitlesTitle: "채팅 제목",
       chatTitlesDesc: "제목을 붙이기 위해 각 채팅의 첫 메시지를 보냅니다. 끔: 제목은 메시지 자체에서 만들어집니다.",
       suggestionsTitle: "다음 메시지 제안",
-      suggestionsDesc: "Claude Code에서 무엇을 쓸지 제안하기 위해 채팅의 최근 메시지를 보냅니다. 일반에 있는 설정과 같습니다.",
+      suggestionsDesc: "Codex, Grok, Cursor 또는 Antigravity에서 무엇을 쓸지 제안하기 위해 채팅의 최근 메시지를 보냅니다. 직접 보조 모델을 고른 경우는 제외합니다. 일반에 있는 설정과 같습니다.",
       imagesTitle: "이미지를 볼 수 없는 모델을 위한 이미지",
       imagesDesc: "모델에게 설명하기 위해 이미지를 보냅니다. 끔: 모델은 이미지를 받지 않으며 그 사실을 안내받습니다.",
       semanticTitle: "Nyxs 서비스의 시맨틱 검색",

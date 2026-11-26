@@ -50,8 +50,9 @@ impl RunSink {
             }) {
                 self.session_id = h.session_id.clone().or(self.session_id.take());
             }
-            // Answers to the app's own requests (usage, context) are only for whoever asked.
-            if kind != "control_response" {
+            // Answers to the app's own requests (usage, context) are only for whoever asked, and
+            // the guessed next prompt comes after the turn's result without starting a new one.
+            if kind != "control_response" && kind != "prompt_suggestion" {
                 if self.after_result {
                     self.log.clear();
                     self.log_bytes = 0;
@@ -145,6 +146,13 @@ mod run_sink_tests {
         // The app's own requests while idle neither start a turn nor clear the last one.
         sink.emit(out(
             r#"{"type":"control_response","response":{"request_id":"nyxs-1"}}"#,
+        ));
+        assert!(!sink.busy());
+        assert_eq!(sink.log.len(), 3);
+
+        // Nor does the next-prompt guess the CLI sends once the turn is over.
+        sink.emit(out(
+            r#"{"type":"prompt_suggestion","suggestion":"Run the tests","session_id":"s-1"}"#,
         ));
         assert!(!sink.busy());
         assert_eq!(sink.log.len(), 3);

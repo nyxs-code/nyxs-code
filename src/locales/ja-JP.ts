@@ -1088,7 +1088,7 @@ const t: Translations = {
       chatTitlesTitle: "チャットのタイトル",
       chatTitlesDesc: "タイトルを付けるために各チャットの最初のメッセージを送信します。オフ:タイトルはメッセージ自体から作られます。",
       suggestionsTitle: "次のメッセージの提案",
-      suggestionsDesc: "Claude Code で、入力内容を提案するためにチャットの最新メッセージを送信します。一般 と同じ設定です。",
+      suggestionsDesc: "Codex、Grok、Cursor、Antigravity で、入力内容を提案するためにチャットの最新メッセージを送信します（自分の補助モデルを選んでいる場合を除く）。一般 と同じ設定です。",
       imagesTitle: "画像を見られないモデル向けの画像",
       imagesDesc: "モデルに説明するために画像を送信します。オフ:モデルは画像を受け取らず、そのことが伝えられます。",
       semanticTitle: "Nyxs サービスでのセマンティック検索",

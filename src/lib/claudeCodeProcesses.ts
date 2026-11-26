@@ -135,6 +135,8 @@ export interface SpawnOptions {
   maxTurns?: number;
   /** The folder's own Claude Code config isn't trusted: the CLI loads only the user's. */
   untrustedProject?: boolean;
+  /** Claude Code guesses the user's next message after each turn (see onClaudeCodeSuggestion). */
+  promptSuggestions?: boolean;
 }
 
 export interface AttemptOutcome {
@@ -356,9 +358,29 @@ export async function spawnLive(o: SpawnOptions): Promise<LiveProcess> {
     onEvent: channel,
   });
   persistRuns();
-  // The CLI only connects to the servers we host once the initialize request names them.
-  if (o.hostedMcp.length) await controlRequest(proc, { subtype: "initialize", sdkMcpServers: o.hostedMcp });
+  // The CLI only connects to the servers we host once the initialize request names them. The
+  // next-prompt guess is turned on there too, as Claude Code Desktop does: the CLI forks the turn
+  // it just ran (its cache included), so the guess sees the whole session, tools and all. A CLI
+  // that doesn't know the option ignores it.
+  if (o.hostedMcp.length || o.promptSuggestions) {
+    await controlRequest(proc, {
+      subtype: "initialize",
+      ...(o.hostedMcp.length ? { sdkMcpServers: o.hostedMcp } : {}),
+      ...(o.promptSuggestions ? { promptSuggestions: true } : {}),
+    });
+  }
   return proc;
+}
+
+type SuggestionListener = (chatKey: string, suggestion: string) => void;
+let suggestionListener: SuggestionListener | null = null;
+
+/** Hears the next message Claude Code guesses for a chat once a turn of it ends. */
+export function onClaudeCodeSuggestion(listener: SuggestionListener): () => void {
+  suggestionListener = listener;
+  return () => {
+    if (suggestionListener === listener) suggestionListener = null;
+  };
 }
 
 /** Picks up the Claude Code processes that kept running while the page reloaded. Idle ones wait
@@ -440,6 +462,13 @@ function channelFor(proc: LiveProcess): Channel<ProcessEvent> {
     // A tool call for an MCP server Nyxs hosts: answered at once, whether or not a turn is running.
     if (msg.type === "control_request" && (msg.request as Json | undefined)?.subtype === "mcp_message") {
       void answerHostedMcp(proc, msg);
+      return;
+    }
+    // Sent after the turn's result: queued behind it, so the reply is finished in the chat first.
+    if (msg.type === "prompt_suggestion") {
+      const chatKey = proc.chatKey;
+      const text = typeof msg.suggestion === "string" ? msg.suggestion.trim() : "";
+      if (chatKey && text) proc.queue = proc.queue.then(() => suggestionListener?.(chatKey, text)).catch(() => undefined);
       return;
     }
     if (msg.type === "control_response") {

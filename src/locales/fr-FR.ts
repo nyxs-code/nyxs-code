@@ -1088,7 +1088,7 @@ const t: Translations = {
       chatTitlesTitle: "Titres des chats",
       chatTitlesDesc: "Envoie le premier message de chaque chat pour lui donner un titre. Désactivé : le titre vient du message lui-même.",
       suggestionsTitle: "Suggestions du prochain message",
-      suggestionsDesc: "Avec Claude Code, envoie les derniers messages du chat pour vous suggérer quoi écrire. C'est le même réglage que dans Général.",
+      suggestionsDesc: "Avec Codex, Grok, Cursor ou Antigravity, envoie les derniers messages du chat pour vous suggérer quoi écrire, sauf si vous avez choisi votre propre modèle auxiliaire. C'est le même réglage que dans Général.",
       imagesTitle: "Images pour les modèles qui ne les voient pas",
       imagesDesc: "Envoie l'image pour la décrire au modèle. Désactivé : le modèle ne la reçoit pas et en est averti.",
       semanticTitle: "Recherche sémantique sur le service Nyxs",

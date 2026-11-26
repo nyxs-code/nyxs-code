@@ -411,6 +411,8 @@ async function acquireProcess(t: ClaudeCodeTurn, resumeId: string | undefined, r
   // The connectors of the user's claude.ai account load into every run otherwise, their tool
   // list and instructions with them; --strict-mcp-config doesn't reach them.
   const connectors = (settings as { claudeAiConnectors?: boolean }).claudeAiConnectors === true;
+  // The chat box's guess of the next message; background helpers have no chat box.
+  const promptSuggestions = !ephemeral && (settings as { promptSuggestions?: boolean }).promptSuggestions !== false;
   // The user's hooks (~/.claude/settings.json) run inside Nyxs' sessions too; this lets one tell
   // and step aside: `[ -n "$NYXS_CLAUDE_CODE" ] && exit 0`.
   const env = { NYXS_CLAUDE_CODE: "1", ...(connectors ? {} : { ENABLE_CLAUDEAI_MCP_SERVERS: "false" }), ...sessionEnv };
@@ -418,7 +420,7 @@ async function acquireProcess(t: ClaudeCodeTurn, resumeId: string | undefined, r
   // So do the variables: `config` is kept in sessionStorage to find the process after a reload,
   // and a saved environment's values are often keys.
   // Trusting the folder, or its config changing, starts a fresh process the same way.
-  const config = JSON.stringify([workspace ?? "", t.model.apiModel, permissionMode, effort, noTools, hostedMcp, appendSystemPrompt && fingerprint(appendSystemPrompt), envFingerprint(env), t.maxTurns ?? null, untrustedProject]);
+  const config = JSON.stringify([workspace ?? "", t.model.apiModel, permissionMode, effort, noTools, hostedMcp, appendSystemPrompt && fingerprint(appendSystemPrompt), envFingerprint(env), t.maxTurns ?? null, untrustedProject, promptSuggestions]);
 
   const existing = resumeId && !ephemeral && !resumeAt ? live.get(resumeId) : undefined;
   // Closing a process ends the background commands it runs. One running some takes the new
@@ -436,7 +438,7 @@ async function acquireProcess(t: ClaudeCodeTurn, resumeId: string | undefined, r
     // One that couldn't switch is left to finish its tasks; its idle timer lets it go after.
     if (existing && !existing.sink && !busy) retire(existing);
     await readyRemoteMachine(t);
-    proc = await spawnLive({ config, cwd: workspace, model: t.model.apiModel, resume: resumeId, resumeAt, permissionMode, effort, noTools, ephemeral, hostedMcp, appendSystemPrompt, env, maxTurns: t.maxTurns, untrustedProject });
+    proc = await spawnLive({ config, cwd: workspace, model: t.model.apiModel, resume: resumeId, resumeAt, permissionMode, effort, noTools, ephemeral, hostedMcp, appendSystemPrompt, env, maxTurns: t.maxTurns, untrustedProject, promptSuggestions });
   }
   if (t.chatKey && proc.chatKey !== t.chatKey) {
     proc.chatKey = t.chatKey;

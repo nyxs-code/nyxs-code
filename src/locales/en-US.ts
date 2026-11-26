@@ -1088,7 +1088,7 @@ const t: Translations = {
       chatTitlesTitle: "Chat titles",
       chatTitlesDesc: "Sends each chat's first message to give it a title. Off: the title comes from the message itself.",
       suggestionsTitle: "Next message suggestions",
-      suggestionsDesc: "With Claude Code, sends the chat's latest messages to suggest what to write. It's the same setting as in General.",
+      suggestionsDesc: "With Codex, Grok, Cursor or Antigravity, sends the chat's latest messages to suggest what to write, unless you picked a helper model of your own. It's the same setting as in General.",
       imagesTitle: "Images for models that can't see them",
       imagesDesc: "Sends the image to describe it to the model. Off: the model doesn't get it and is told so.",
       semanticTitle: "Semantic search on the Nyxs service",
