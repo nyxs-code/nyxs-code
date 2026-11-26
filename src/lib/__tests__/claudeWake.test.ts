@@ -39,11 +39,12 @@ vi.mock("@tauri-apps/api/core", () => {
   };
 });
 
-// The built-in browser is on by default; the fake CLI never answers its initialize request.
+// The built-in browser and prompt suggestions are on by default; the fake CLI never answers
+// their initialize request.
 vi.mock("@/lib/settingsRuntime", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/settingsRuntime")>()),
-  getMergedSnapshot: () => ({ allowPreview: false, allowMusic: false, allowVideoTools: false }),
-  settingsFor: async () => ({ merged: { allowPreview: false, allowMusic: false, allowVideoTools: false }, perSource: {}, projectTrusted: true }),
+  getMergedSnapshot: () => ({ allowPreview: false, allowMusic: false, allowVideoTools: false, promptSuggestions: false }),
+  settingsFor: async () => ({ merged: { allowPreview: false, allowMusic: false, allowVideoTools: false, promptSuggestions: false }, perSource: {}, projectTrusted: true }),
 }));
 
 const { streamClaudeCode, onClaudeCodeWake, onClaudeCodeUnattendedPermission, CLAUDE_CODE_MODELS } = await import("@/lib/claudeCode");
