@@ -9,6 +9,8 @@ vi.mock("@/lib/secureStore", () => ({ getSecret: vi.fn(async () => null), setSec
 const { signInWithGoogle } = await import("@/lib/auth");
 const { runMcpOAuth } = await import("@/lib/mcpOAuth");
 
+// The example server has no dynamic registration, so the sign-in goes with a registered app.
+const app = { clientId: "example-app" };
 const waits = () => invoke.mock.calls.filter(([cmd]) => cmd === "oauth_wait").map(([, args]) => args);
 
 beforeEach(() => {
@@ -28,7 +30,7 @@ describe("the OAuth callback port", () => {
     await expect(signInWithGoogle()).rejects.toThrow("no browser");
     expect(waits()).toEqual([{ port: 4321, timeoutMs: 0 }]);
     invoke.mockClear();
-    await expect(runMcpOAuth("https://mcp.example.com/mcp", "Example")).rejects.toThrow("no browser");
+    await expect(runMcpOAuth("https://mcp.example.com/mcp", "Example", app)).rejects.toThrow("no browser");
     expect(waits()).toEqual([{ port: 4321, timeoutMs: 0 }]);
   });
 
@@ -40,7 +42,7 @@ describe("the OAuth callback port", () => {
       if (cmd === "oauth_wait") return "error=access_denied";
       return "";
     });
-    await expect(runMcpOAuth("https://mcp.example.com/mcp", "Example")).rejects.toThrow("access_denied");
+    await expect(runMcpOAuth("https://mcp.example.com/mcp", "Example", app)).rejects.toThrow("access_denied");
     expect(sent).not.toBe("");
     expect(waits()).toEqual([{ port: 4321, timeoutMs: 300_000, state: sent, page: expect.any(Object) }]);
   });
@@ -55,7 +57,7 @@ describe("the OAuth callback port", () => {
         return "";
       });
       await expect(signInWithGoogle()).rejects.toThrow("access_denied");
-      await expect(runMcpOAuth("https://mcp.example.com/mcp", "Example")).rejects.toThrow("access_denied");
+      await expect(runMcpOAuth("https://mcp.example.com/mcp", "Example", app)).rejects.toThrow("access_denied");
       const es = getTranslations("es-ES").oauthPage;
       expect(es.failedTitle).not.toBe(getTranslations("en-US").oauthPage.failedTitle);
       const pages = waits().map((w) => w.page);
