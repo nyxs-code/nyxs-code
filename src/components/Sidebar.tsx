@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { useCloseOnBlur } from "@/lib/useCloseOnBlur";
 import { createPortal } from "react-dom";
-import { Plus, Search, Settings, Code2, Clock, Plug, Copy, ChevronDown, ChevronRight, Check, Languages, LifeBuoy, History, LogOut, EllipsisVertical, MessageSquareHeart, GitPullRequest, GitPullRequestDraft, GitPullRequestClosed, GitMerge, Folder, FolderKanban, FolderOpen, Layers, Pin, Pencil, Trash2, X } from "lucide-react";
+import { Plus, Search, Settings, Code2, Clock, Plug, Copy, ChevronDown, ChevronRight, Check, Languages, LifeBuoy, History, LogOut, EllipsisVertical, MessageSquareHeart, GitPullRequest, GitPullRequestDraft, GitPullRequestClosed, GitMerge, Folder, FolderOpen, Layers, Pin, Pencil, Trash2, X } from "lucide-react";
 import { LearnMoreMenu } from "@/components/sidebar/LearnMoreMenu";
 import { NavRows } from "@/components/sidebar/NavRows";
 import { ProjectsList } from "@/components/sidebar/ProjectsList";
+import { ProjectIcon } from "@/components/projects/ProjectIcon";
 import { SessionMenu, type SessionCopy, type SessionMenuAction, type SessionMenuTarget } from "@/components/sidebar/SessionMenu";
 import { createSection, deleteSection, moveToSection, renameSection, setPinned, setUnread, useSessionMarks } from "@/lib/sessionMarks";
 import { shortAge } from "@/lib/time";
@@ -166,7 +167,7 @@ const OPTIONAL_ITEMS: {
   section: Section;
   badge?: string;
 }[] = [
-  { id: "projects", label: "Projects", icon: FolderKanban, section: "projects", badge: "Beta" },
+  { id: "projects", label: "Projects", icon: ProjectIcon, section: "projects", badge: "Beta" },
   { id: "routines", label: "Scheduled", icon: Clock, section: "routines" },
   { id: "artifacts", label: "Artifacts", icon: ArtifactsIcon, section: "artifacts" },
   { id: "customize", label: "Plugins", icon: PluginsIcon, section: "customize" },

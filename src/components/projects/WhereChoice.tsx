@@ -5,7 +5,7 @@ import type { ThreadWhere } from "@/lib/projects/types";
 
 /** Where a project's threads run by default: this computer, or the Nyxs cloud when the project
  *  and its model can (`cloudBlocked` says why not). */
-export function WhereChoice({ value, onChange, cloudBlocked }: { value: ThreadWhere; onChange: (v: ThreadWhere) => void; cloudBlocked?: string }) {
+export function WhereChoice({ value, onChange, cloudBlocked, localBlocked }: { value: ThreadWhere; onChange: (v: ThreadWhere) => void; cloudBlocked?: string; localBlocked?: string }) {
   const t = useTranslations().projects;
   const option = (where: ThreadWhere, Icon: typeof Laptop, label: string, disabled = false) => (
     <button
@@ -26,7 +26,7 @@ export function WhereChoice({ value, onChange, cloudBlocked }: { value: ThreadWh
   );
   return (
     <div role="radiogroup" aria-label={t.whereLabel} className="inline-flex items-center gap-0.5 rounded-[6px] bg-bg-200 p-0.5">
-      {option("local", Laptop, t.thisComputer)}
+      {option("local", Laptop, t.thisComputer, !!localBlocked)}
       {option("cloud", Cloud, t.cloud, !!cloudBlocked)}
     </div>
   );

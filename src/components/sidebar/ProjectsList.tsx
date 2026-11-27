@@ -1,4 +1,4 @@
-import { FolderKanban } from "lucide-react";
+import { ProjectIcon } from "@/components/projects/ProjectIcon";
 import { useTranslations } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { useProjectDirectory } from "@/lib/projects/projectDirectory";
@@ -24,7 +24,7 @@ export function ProjectsList({ activeProjectId, onOpen }: { activeProjectId?: st
             e.project.id === activeProjectId ? "bg-bg-200 text-text-100" : "text-text-300 hover:bg-bg-200",
           )}
         >
-          <FolderKanban className="w-4 h-4 shrink-0" />
+          <ProjectIcon className="w-4 h-4 shrink-0" />
           <span className="flex-1 min-w-0 truncate text-left">{e.project.name}</span>
           {e.dot && <span className={cn("h-2 w-2 shrink-0 rounded-full", GROUP_DOT[e.dot])} />}
         </button>

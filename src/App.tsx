@@ -136,6 +136,7 @@ import { ProjectsPage } from "@/components/projects/ProjectsPage";
 import { ProjectFrame } from "@/components/projects/ProjectFrame";
 import { useProjects, type ProjectAppActions } from "@/lib/projects/useProjects";
 import { projectTurnEnded } from "@/lib/projects/projectHost";
+import { isProjectHubDir } from "@/lib/projects/projectStore";
 
 const uid = () => Math.random().toString(36).slice(2, 11);
 
@@ -1313,7 +1314,8 @@ export default function App() {
         onOpenHelp={() => setHelpOpen(true)}
         onOpenArchived={() => { refreshSessions(); setArchivedOpen(true); }}
         archivedCount={archivedSessions.length}
-        projects={[...new Set([workspace, ...recentWorkspaces].filter((w): w is string => !!w))]}
+        // A project's own data folder (its coordinator's, when it has no folder) isn't one of the user's.
+        projects={[...new Set([workspace, ...recentWorkspaces].filter((w): w is string => !!w && !isProjectHubDir(w)))]}
         currentWorkspace={workspace}
         onNewSessionIn={(ws) => {
           void ensureWorkspaceActive(ws).then((ok) => {
@@ -1347,7 +1349,13 @@ export default function App() {
         {section === "customize" ? (
           <CustomizePanel workspace={workspace} onStartChat={startChatWithPrompt} />
         ) : section === "projects" ? (
-          <ProjectsPage loaded={projectsApi.loaded} models={modelOptions} defaultModel={effectiveModel} onOpen={projectsApi.openProject} onCreate={projectsApi.createProject} />
+          <ProjectsPage
+            loaded={projectsApi.loaded}
+            recentFolders={[workspace, ...recentWorkspaces].filter((w): w is string => !!w)}
+            onOpen={projectsApi.openProject}
+            onCreate={projectsApi.createProject}
+            onOpenCloudSettings={() => navigate(navSnapshot({ settingsOpen: true, settingsSection: "nube" }))}
+          />
         ) : section === "routines" ? (
           <RoutinesPanel
             onRun={runRoutine}

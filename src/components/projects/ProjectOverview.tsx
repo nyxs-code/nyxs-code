@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Clock, ExternalLink, Folder } from "lucide-react";
+import { Clock, ExternalLink, FilePlus, FileText, Folder, FolderPlus, GitFork, X } from "lucide-react";
+import { open } from "@tauri-apps/plugin-dialog";
 import { Button } from "@/components/ui/button";
-import { getLanguage, useTranslations } from "@/lib/i18n";
+import { getLanguage, localizedError, useTranslations } from "@/lib/i18n";
 import { invoke } from "@/lib/ipc";
 import { cn } from "@/lib/utils";
 import { relativeTime } from "@/lib/time";
@@ -10,7 +11,8 @@ import { workspaceName } from "@/lib/workspace";
 import { openSession } from "@/lib/sessionDirectory";
 import { loadRoutines, type ScheduledTask } from "@/lib/scheduledTasks";
 import type { ProjectEntry } from "@/lib/projects/projectDirectory";
-import { projectFolder, useProjectMemory, writeProjectMemory } from "@/lib/projects/projectStore";
+import { addProjectFiles, projectFilesDir, projectFolder, removeProjectFile, useProjectFiles, useProjectMemory, writeProjectMemory } from "@/lib/projects/projectStore";
+import { repoLabel } from "@/lib/projects/repoSuggestions";
 import { GROUP_DOT, THREAD_GROUPS, type ThreadGroup } from "@/lib/projects/threadStatus";
 import { PROJECT_MEMORY_MAX } from "@/lib/projects/types";
 
@@ -93,6 +95,16 @@ function ThreadsTab({ entry, activeId }: { entry: ProjectEntry; activeId: string
 
 function FilesTab({ entry }: { entry: ProjectEntry }) {
   const t = useTranslations().projects;
+  const id = entry.project.id;
+  const files = useProjectFiles(id);
+  const [error, setError] = useState("");
+  const dir = projectFilesDir(id);
+  const add = async (directory: boolean) => {
+    const picked = await open({ multiple: true, directory }).catch(() => null);
+    const paths = Array.isArray(picked) ? picked : typeof picked === "string" ? [picked] : [];
+    setError("");
+    await addProjectFiles(id, paths).catch((e) => setError(localizedError(e)));
+  };
   return (
     <div className="px-2 py-3">
       <p className="px-2 pb-2 text-[12px] text-text-400">{t.filesHint}</p>
@@ -111,13 +123,46 @@ function FilesTab({ entry }: { entry: ProjectEntry }) {
             </div>
           )}
           {r.gitUrl && (
-            <button type="button" onClick={() => openExternalUrl(r.gitUrl!)} className="mt-1 flex w-full items-center gap-2 rounded-[6px] text-left text-[12px] text-text-300 hover:text-text-100">
-              <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">{r.gitUrl.replace(/^https?:\/\//, "").replace(/\.git$/, "")}</span>
+            <button type="button" onClick={() => openExternalUrl(r.gitUrl!)} className="flex w-full items-center gap-2 rounded-[6px] text-left text-[13px] text-text-100 hover:text-text-200">
+              <GitFork className="h-4 w-4 shrink-0 text-text-400" />
+              <span className="truncate">{repoLabel(r.gitUrl)}</span>
+              <ExternalLink className="h-3 w-3 shrink-0 text-text-400" />
             </button>
           )}
         </div>
       ))}
+
+      <div className="mt-3 flex items-center gap-1 px-2 pb-1">
+        <h3 className="flex-1 text-[12px] font-medium text-text-400">{t.contextFiles}</h3>
+        <Button variant="ghost" icon aria-label={t.addFile} onClick={() => void add(false)}>
+          <FilePlus className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" icon aria-label={t.addFolder} onClick={() => void add(true)}>
+          <FolderPlus className="h-4 w-4" />
+        </Button>
+        {dir && files.length > 0 && (
+          <Button variant="ghost" icon aria-label={t.openFolder} onClick={() => void invoke("agent_open_path", { path: dir }).catch(() => {})}>
+            <ExternalLink className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+      {files.length === 0 && <p className="px-2 py-1 text-[12px] leading-relaxed text-text-400">{t.noContextFiles}</p>}
+      {files.map((f) => (
+        <div key={f.rel} className="group flex items-center gap-2 rounded-[6px] px-2 py-1 hover:bg-bg-200/70">
+          <FileText className="h-4 w-4 shrink-0 text-text-400" />
+          <span className="min-w-0 flex-1 truncate text-[13px] text-text-100">{f.rel}</span>
+          <span className="shrink-0 text-[11px] text-text-500">{Math.max(1, Math.round(f.size / 1024))} KB</span>
+          <button
+            type="button"
+            aria-label={`${t.remove}: ${f.rel}`}
+            onClick={() => void removeProjectFile(id, f.rel).catch((e) => setError(localizedError(e)))}
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[6px] text-text-400 opacity-0 hover:bg-bg-300 hover:text-text-100 group-hover:opacity-100 focus-visible:opacity-100"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      ))}
+      {error && <p role="alert" className="px-2 pt-1 text-[12px] text-red-400">{error}</p>}
     </div>
   );
 }

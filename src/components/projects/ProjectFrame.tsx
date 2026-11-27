@@ -13,10 +13,10 @@ import { projectEntry, useProjectDirectory } from "@/lib/projects/projectDirecto
 import type { Project } from "@/lib/projects/types";
 import { ProjectDialog } from "./ProjectDialog";
 import { ProjectOverview } from "./ProjectOverview";
+import { repoLabel } from "@/lib/projects/repoSuggestions";
 
 const PANEL_KEY = "nyxs.projectOverview.hidden";
 
-const repoLabel = (url: string) => url.replace(/^https?:\/\/(www\.)?/, "").replace(/^github\.com\//, "").replace(/\.git$/, "");
 
 /** A project's session on screen: the header (project › thread, its repos and where it runs),
  *  the conversation, and the overview panel at its right. */
