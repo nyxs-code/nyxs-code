@@ -114,6 +114,10 @@ export interface ChatMessage {
   /** A project thread's report (its `report` tool, or its turn ending), in the coordinator's
    *  conversation: drawn as the thread's card with the text under it. */
   threadReport?: { status: ThreadStatus; text: string };
+
+  /** Sent to a project's cloud thread from this app and not yet seen in its events: the event's
+   *  `user` copy clears it instead of showing the message twice (cloudThreads.ts). */
+  cloudPending?: boolean;
 }
 
 function MessageImages({ images }: { images: ImageAttachment[] }) {

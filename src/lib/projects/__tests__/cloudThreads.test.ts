@@ -54,6 +54,43 @@ describe("applyCloudEvents", () => {
   });
 });
 
+describe("user events", () => {
+  it("clear a message sent from here instead of showing it twice", () => {
+    const sent: ChatMessage = { id: "u1", role: "user", content: "Message from the session…\n\n> Fix the login", cloudPending: true };
+    const { messages } = applyCloudEvents([sent], [ev(1, "user", { text: "Fix the login", turn: 1 }), ev(2, "start"), ev(3, "text", { text: "On it" })], 0, idFor);
+    expect(messages.map((m) => [m.id, m.role])).toEqual([["u1", "user"], ["m2", "assistant"]]);
+    expect(messages[0].cloudPending).toBeUndefined();
+  });
+
+  it("add one this transcript lacks, under an id from its seq, once", () => {
+    const turn1 = applyCloudEvents([], [ev(1, "user", { text: "Fix the login", turn: 1 }), ev(2, "start"), ev(3, "text", { text: "Done" }), ev(4, "done", { status: "review" })], 0, idFor);
+    const follow = [ev(5, "user", { text: "Also the logout", turn: 2 }), ev(6, "start"), ev(7, "text", { text: "Also done" })];
+    const turn2 = applyCloudEvents(turn1.messages, follow, turn1.seq, idFor);
+    const again = applyCloudEvents(turn2.messages, follow, turn2.seq, idFor);
+    expect(turn2.messages.map((m) => [m.id, m.role, m.content])).toEqual([
+      ["m1", "user", "Fix the login"],
+      ["m2", "assistant", "Done"],
+      ["m5", "user", "Also the logout"],
+      ["m6", "assistant", "Also done"],
+    ]);
+    expect(again.messages).toBe(turn2.messages);
+  });
+});
+
+describe("a done with an error", () => {
+  it("shows the error in the thread and hands it on, the status unchanged", () => {
+    const { messages, effects } = applyCloudEvents(
+      [first],
+      [ev(1, "start"), ev(2, "text", { text: "Fixed." }), ev(3, "done", { status: "review", preview: "Fixed.", branch: "nyxs/x", error: "push failed" })],
+      0,
+      idFor,
+    );
+    expect(messages[1].content).toBe("Fixed.\n\n> push failed");
+    expect(messages[1].streaming).toBe(false);
+    expect(effects).toEqual([{ kind: "done", status: "review", preview: "Fixed.", branch: "nyxs/x", error: "push failed" }]);
+  });
+});
+
 describe("threadStatusOfCloud", () => {
   it("maps the cloud's statuses to the app's", () => {
     expect(threadStatusOfCloud("queued")).toBe("working");

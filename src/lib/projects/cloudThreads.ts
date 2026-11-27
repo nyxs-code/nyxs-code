@@ -28,7 +28,10 @@ export function threadStatusOfCloud(s: CloudThreadStatus | string | undefined): 
 export type CloudEffect =
   | { kind: "status"; status: ThreadStatus }
   | { kind: "report"; text: string; status: ThreadStatus }
-  | { kind: "done"; status: ThreadStatus; preview: string; prUrl?: string; branch?: string };
+  | { kind: "done"; status: ThreadStatus; preview: string; prUrl?: string; branch?: string; error?: string };
+
+/** A failure as the transcript shows it: quoted, line by line. */
+const quoted = (text: string) => `> ${text.replace(/\n/g, "\n> ")}`;
 
 const str = (v: unknown) => (typeof v === "string" ? v : "");
 const REPORTABLE: ThreadStatus[] = ["working", "needs_input", "review", "failed"];
@@ -62,6 +65,22 @@ export function applyCloudEvents(
     last = ev.seq;
     const d = ev.data ?? {};
     switch (ev.type) {
+      // A prompt or follow-up. One sent from this app is in the transcript already, marked as
+      // waiting for its event: it takes the mark off instead of showing twice. Any other (from a
+      // catch-up, another computer) comes in under an id from its seq.
+      case "user": {
+        const text = str(d.text);
+        const pending = out.find((m) => m.role === "user" && m.cloudPending);
+        if (pending) {
+          out = out.map((m) => (m.id === pending.id ? { ...m, cloudPending: undefined } : m));
+          break;
+        }
+        if (!text) break;
+        const tail = out[out.length - 1];
+        if (tail?.role === "assistant") patch(tail, { streaming: false });
+        out = [...out, { id: idFor(ev.seq), role: "user", content: text, createdAt: Date.parse(ev.at) || Date.now() }];
+        break;
+      }
       case "start":
         reply(ev, true);
         break;
@@ -95,7 +114,7 @@ export function applyCloudEvents(
       case "error": {
         const m = reply(ev);
         const message = str(d.message);
-        if (message) patch(m, { content: `${m.content}${m.content.trim() ? "\n\n" : ""}> ${message.replace(/\n/g, "\n> ")}` });
+        if (message) patch(m, { content: `${m.content}${m.content.trim() ? "\n\n" : ""}${quoted(message)}` });
         break;
       }
       case "status": {
@@ -109,6 +128,13 @@ export function applyCloudEvents(
         break;
       }
       case "done": {
+        // Publishing can fail with the turn's work done ("push failed", "no GitHub token"): the
+        // status stays, and the reason shows, so the user knows why there's no pull request.
+        const error = str(d.error);
+        if (error) {
+          const m = reply(ev);
+          if (!m.content.includes(quoted(error))) patch(m, { content: `${m.content}${m.content.trim() ? "\n\n" : ""}${quoted(error)}` });
+        }
         const tail = out[out.length - 1];
         if (tail?.role === "assistant") patch(tail, { streaming: false });
         effects.push({
@@ -117,6 +143,7 @@ export function applyCloudEvents(
           preview: str(d.preview),
           ...(str(d.prUrl) ? { prUrl: str(d.prUrl) } : {}),
           ...(str(d.branch) ? { branch: str(d.branch) } : {}),
+          ...(error ? { error } : {}),
         });
         break;
       }

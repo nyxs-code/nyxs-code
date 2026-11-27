@@ -63,10 +63,11 @@ export function createCloudThreads(h: CloudHelpers) {
     }));
     await h.setStatus(id, effect.status, effect.preview);
     const said = reportedTurn.delete(id);
-    if (!said) {
-      const pr = effect.prUrl ? `\n\nPull request: ${effect.prUrl}` : "";
-      await h.deliver(id, `${effect.preview || "(it ended its turn without a reply)"}${pr}`, effect.status);
-    }
+    const pr = effect.prUrl ? `\n\nPull request: ${effect.prUrl}` : "";
+    const failed = effect.error ? `> ${effect.error.replace(/\n/g, "\n> ")}` : "";
+    // A thread that reported already says nothing more, unless publishing its work failed.
+    if (!said) await h.deliver(id, `${effect.preview || "(it ended its turn without a reply)"}${failed ? `\n\n${failed}` : ""}${pr}`, effect.status);
+    else if (failed) await h.deliver(id, failed, effect.status);
     await h.save(id);
   };
 
@@ -108,7 +109,8 @@ export function createCloudThreads(h: CloudHelpers) {
   const send = async (id: string, message: ChatMessage, text: string): Promise<boolean> => {
     const cloudId = cloudIdOf(h.live(id));
     if (!cloudId) return false;
-    h.patchChat(id, (c) => ({ ...c, messages: [...c.messages, message] }));
+    // Marked until its `user` event comes back, so the transcript shows it once.
+    h.patchChat(id, (c) => ({ ...c, messages: [...c.messages, { ...message, cloudPending: true }] }));
     try {
       await sendCloudMessage(cloudId, text);
       await h.setStatus(id, "working");
@@ -164,6 +166,10 @@ export function createCloudThreads(h: CloudHelpers) {
         memory: projectMemory(project.id),
       });
     } catch (e) {
+      if (e instanceof CloudError && (e.code === "not_allowed" || e.status === 403)) {
+        return { error: 'La nube está en beta privada: the Nyxs cloud is in a private beta and this account isn\'t in it yet. Tell the user so, and run the thread on this computer ("where": "local") if they want.' };
+      }
+      if (e instanceof CloudError && e.status === 401) return { error: "The user isn't signed in to Nyxs, which the cloud needs. Ask them to sign in, or run the thread on this computer." };
       return { error: `The Nyxs cloud didn't take the thread: ${failureText(e)}` };
     }
     const id = h.newId();
@@ -177,6 +183,7 @@ export function createCloudThreads(h: CloudHelpers) {
       content: attributedMessage(`Message from the session "${from}" (${coordinatorId}), which created this one:`, req.instructions),
       createdAt: Date.now(),
       fromSession: { id: coordinatorId, title: from },
+      cloudPending: true,
     };
     await h.addChat({
       id,

@@ -2,19 +2,31 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Chat } from "@/lib/chatStore";
 import type { CloudEvent } from "@/lib/cloud/cloudApi";
 
+/** What the mocked turn's `done` says: a publishing error, or a pull request. */
+const turn = vi.hoisted(() => ({ doneError: "" }));
+
 const api = vi.hoisted(() => ({
-  createCloudThread: vi.fn(async () => ({ id: "cloud-1", status: "queued" })),
+  createCloudThread: vi.fn(async (): Promise<{ id: string; status: string }> => ({ id: "cloud-1", status: "queued" })),
   sendCloudMessage: vi.fn(async () => ({ ok: true })),
   stopCloudThread: vi.fn(async () => ({ ok: true })),
   followCloudThread: vi.fn(async (_id: string, after: number, onEvent: (e: CloudEvent) => void) => {
     const at = "2026-11-26T10:00:00Z";
     onEvent({ seq: after + 1, at, type: "text", data: { text: "Done." } });
-    onEvent({ seq: after + 2, at, type: "done", data: { status: "review", preview: "Fixed it", prUrl: "https://github.com/me/shop/pull/7", branch: "nyxs/fix-1" } });
+    onEvent({ seq: after + 2, at, type: "done", data: { status: "review", preview: "Fixed it", branch: "nyxs/fix-1", ...(turn.doneError ? { error: turn.doneError } : { prUrl: "https://github.com/me/shop/pull/7" }) } });
     return after + 2;
   }),
 }));
 
-vi.mock("@/lib/cloud/cloudApi", () => ({ ...api, CloudError: class extends Error { status = 0; } }));
+class FakeCloudError extends Error {
+  readonly status: number;
+  readonly code?: string;
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.status = status;
+    this.code = code;
+  }
+}
+vi.mock("@/lib/cloud/cloudApi", () => ({ ...api, CloudError: FakeCloudError }));
 vi.mock("@/lib/models", () => ({
   getActiveModels: () => [
     { id: "anthropic:opus", apiModel: "opus", name: "Opus", provider: "anthropic", description: "" },
@@ -72,6 +84,7 @@ const settle = () => new Promise((r) => setTimeout(r, 20));
 
 beforeEach(() => {
   vi.clearAllMocks();
+  turn.doneError = "";
   resetProjectsForTests([project], { "p-1": "- memo" });
 });
 
@@ -113,6 +126,34 @@ describe("cloud threads", () => {
     expect(await cloud.stop("t-1")).toBe(true);
     expect(api.stopCloudThread).toHaveBeenCalledWith("cloud-1");
     expect(statuses.at(-1)).toEqual(["t-1", "idle"]);
+    cloud.dispose();
+  });
+
+  it("tells the coordinator why there is no pull request", async () => {
+    turn.doneError = "no GitHub token";
+    const { cloud, chats, delivered } = harness();
+    await cloud.start("coord", project, { title: "Fix login", instructions: "Fix it" });
+    await settle();
+    expect(chats.get("t-1")!.messages[1].content).toBe("Done.\n\n> no GitHub token");
+    expect(delivered).toEqual([["t-1", "Fixed it\n\n> no GitHub token", "review"]]);
+    cloud.dispose();
+  });
+
+  it("says the cloud is in a private beta when the account isn't in it", async () => {
+    api.createCloudThread.mockRejectedValueOnce(new FakeCloudError("not allowed", 403, "not_allowed"));
+    const { cloud, chats } = harness();
+    const out = await cloud.start("coord", project, { title: "x", instructions: "y" });
+    expect(out).toMatchObject({ error: expect.stringContaining("La nube está en beta privada") });
+    expect(chats.has("t-1")).toBe(false);
+  });
+
+  it("marks what it sends until the cloud's user event clears it", async () => {
+    const { cloud, chats } = harness();
+    await cloud.start("coord", project, { title: "Fix login", instructions: "Fix it" });
+    expect(chats.get("t-1")!.messages[0].cloudPending).toBe(true);
+    await settle();
+    await cloud.send("t-1", { id: "u2", role: "user", content: "More" }, "More");
+    expect(chats.get("t-1")!.messages.find((m) => m.id === "u2")?.cloudPending).toBe(true);
     cloud.dispose();
   });
 });
