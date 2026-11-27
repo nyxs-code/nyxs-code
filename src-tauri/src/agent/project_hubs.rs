@@ -274,14 +274,23 @@ fn add_files_in(root: &Path, id: &str, paths: &[String]) -> Result<Vec<String>, 
 /// Removes one of the project's files or folders, by its path under the files folder.
 fn remove_file_in(root: &Path, id: &str, rel: &str) -> Result<(), String> {
     let rel = rel.trim_matches(|c| c == '/' || c == '\\');
-    let bad = rel.is_empty()
-        || rel
-            .split(['/', '\\'])
-            .any(|part| part.is_empty() || part == "." || part == "..");
+    // Only plain names: a drive (`C:`), a root or `..` would make `join` leave the folder.
+    let plain = |part: &str| {
+        let mut parts = Path::new(part).components();
+        matches!(
+            (parts.next(), parts.next()),
+            (Some(std::path::Component::Normal(_)), None)
+        )
+    };
+    let bad = rel.is_empty() || !rel.split(['/', '\\']).all(plain);
     if bad {
         return Err(format!("Invalid project file: {rel}"));
     }
-    let path = root.join(checked_id(id)?).join(FILES_DIR).join(rel);
+    let base = root.join(checked_id(id)?).join(FILES_DIR);
+    let path = base.join(rel);
+    if !path.starts_with(&base) {
+        return Err(format!("Invalid project file: {rel}"));
+    }
     let gone = if path.is_dir() {
         fs::remove_dir_all(&path)
     } else {
@@ -437,6 +446,14 @@ mod tests {
         assert_eq!(listed[1].text.as_deref(), Some("# Brief\n"));
         assert_eq!(listed[3].text, None);
         assert!(remove_file_in(&root.0, "p", "../p.json").is_err());
+        for bad in ["docs/../..", "docs/./x", ""] {
+            assert!(remove_file_in(&root.0, "p", bad).is_err(), "{bad}");
+        }
+        // A drive would replace the folder in `join` on Windows.
+        #[cfg(windows)]
+        for bad in ["C:", "C:/Users", r"C:\Users\x"] {
+            assert!(remove_file_in(&root.0, "p", bad).is_err(), "{bad}");
+        }
         remove_file_in(&root.0, "p", "docs").unwrap();
         remove_file_in(&root.0, "p", "brief (2).md").unwrap();
         let rels: Vec<String> = list_files_in(&root.0, "p")
