@@ -1,10 +1,10 @@
-import { Settings2, CircleUser, Plug, Shield, CreditCard, Gauge, Sparkles, Cable, Code2, Puzzle, Music, Info, type LucideIcon } from "lucide-react";
+import { Settings2, CircleUser, Plug, Shield, CreditCard, Gauge, Sparkles, Cable, Code2, Puzzle, Music, Info, Cloud, type LucideIcon } from "lucide-react";
 import { type Translations } from "@/lib/i18n";
 
 export type SectionId =
   | "general" | "cuenta" | "providers" | "privacidad" | "facturacion" | "uso" | "capacidades"
   | "conectores" | "code"
-  | "extensiones" | "musica" | "acerca";
+  | "extensiones" | "musica" | "acerca" | "nube";
 
 export const NAV: { group?: string; items: { id: SectionId; label: string; badge?: string }[] }[] = [
   {
@@ -13,6 +13,7 @@ export const NAV: { group?: string; items: { id: SectionId; label: string; badge
       { id: "cuenta", label: "Account" },
       { id: "providers", label: "Providers" },
       { id: "privacidad", label: "Privacy" },
+      { id: "nube", label: "Cloud" },
       { id: "code", label: "Code" },
       { id: "musica", label: "Music" },
       { id: "acerca", label: "About" },
@@ -33,6 +34,7 @@ export const SECTION_LABEL_KEY: Record<SectionId, keyof Translations["settings"]
   extensiones: "extensions",
   musica: "music",
   acerca: "about",
+  nube: "cloud",
 };
 
 export const NAV_ICON: Record<SectionId, LucideIcon> = {
@@ -48,6 +50,7 @@ export const NAV_ICON: Record<SectionId, LucideIcon> = {
   extensiones: Puzzle,
   musica: Music,
   acerca: Info,
+  nube: Cloud,
 };
 
 /** Lower case without accents, so "configuracion" finds "Configuración". */

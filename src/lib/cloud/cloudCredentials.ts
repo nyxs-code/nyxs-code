@@ -7,12 +7,14 @@ import type { Settings } from "@/lib/settings";
 /** The cloud name of a provider's API key (the worker turns it back into Nyxs's keychain entry). */
 export const providerCloudKey = (id: ProviderId): string => `provider:${id}`;
 
-/** Credentials that aren't a provider API key: the CLIs' own sign-ins and the GitHub token the
- *  worker clones, pushes and opens PRs with. The user pastes each one in Settings › Nube. */
+/** What an agent CLI signs in with in the cloud. Claude Code: a long-lived token from `claude
+ *  setup-token`, pasted in Settings › Nube. Codex: the OpenAI API key, because its ChatGPT
+ *  sign-in renews itself and a copy in the cloud would sign this computer out. */
 export const CLI_CLOUD_KEYS = {
   "claude-code": "CLAUDE_CODE_OAUTH_TOKEN",
-  "codex-cli": "CODEX_AUTH_JSON",
+  "codex-cli": "provider:openai",
 } as const satisfies Partial<Record<ProviderId, string>>;
+/** The token the worker clones, pushes and opens pull requests with. */
 export const GITHUB_CLOUD_KEY = "GITHUB_TOKEN";
 
 export type CloudSupport =
@@ -34,7 +36,7 @@ export function cloudSupport(id: ProviderId, settings?: Settings): CloudSupport 
 }
 
 /** The provider API keys on this computer that can go to the cloud, for the providers the user
- *  chose to sync. CLI sign-ins and the GitHub token aren't here: they aren't keychain keys. */
+ *  chose to sync. The Claude Code token and the GitHub token aren't here: the user pastes them. */
 export function providerKeysForCloud(settings: Settings, chosen: Iterable<ProviderId>): { key: string; value: string }[] {
   const out: { key: string; value: string }[] = [];
   for (const id of chosen) {

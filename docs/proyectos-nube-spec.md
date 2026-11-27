@@ -92,8 +92,9 @@ CLI agents through the `nyxs-sessions` MCP server):
   encrypted (AES-256-GCM, key from env `CLOUD_SECRETS_KEY`); `GET /secrets` → keys only, never
   values; `DELETE /secrets/:key`. Key names (`src/lib/cloud/cloudCredentials.ts`):
   `provider:<providerId>` for a provider's API key (Nyxs's keychain entry without the user id),
-  `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`), `CODEX_AUTH_JSON` (the contents of
-  `~/.codex/auth.json`), `GITHUB_TOKEN` (cloning, pushing and PRs). Local providers (Ollama, LM
+  `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`), `GITHUB_TOKEN` (cloning, pushing and
+  PRs). Codex runs with the OpenAI key (`provider:openai` → `OPENAI_API_KEY`): its ChatGPT
+  sign-in renews itself, so a copy in the cloud would sign the user's computer out. Local providers (Ollama, LM
   Studio, a LAN base URL) and agent CLIs other than Claude Code and Codex don't run in the cloud.
   `settings` in a thread is `{ providers: { <providerId>: <provider settings without apiKey> } }`.
 - `POST /threads` `{ projectId, title, instructions, repo: { url, branch? }, model: { id,
@@ -136,9 +137,10 @@ CLI agents through the `nyxs-sessions` MCP server):
   `/work/.nyxs/session.json` (the saved conversation the next turn resumes from).
 - Secrets arrive as env vars. `provider:<id>` isn't a valid env name, so the runner passes it as
   `NYXS_SECRET_PROVIDER_<ID>` (id upper-cased, `-` → `_`, e.g. `NYXS_SECRET_PROVIDER_MINIMAX_ANTHROPIC`);
-  the others keep their names (`CLAUDE_CODE_OAUTH_TOKEN`, `CODEX_AUTH_JSON`, `GITHUB_TOKEN`). The
-  worker makes them visible to Nyxs headless the way the keychain would, and to the CLIs as they
-  expect (Codex: write `CODEX_AUTH_JSON` to `~/.codex/auth.json`).
+  the others keep their names (`CLAUDE_CODE_OAUTH_TOKEN`, `GITHUB_TOKEN`). The worker makes them
+  visible to Nyxs headless the way the keychain would, and to the CLIs as they expect (Codex:
+  `OPENAI_API_KEY` from `NYXS_SECRET_PROVIDER_OPENAI`; Claude Code: `CLAUDE_CODE_OAUTH_TOKEN`, or
+  `ANTHROPIC_API_KEY` from `NYXS_SECRET_PROVIDER_ANTHROPIC` when there's no token).
 - stdout: JSONL, one event per line, `{ "type", "data" }`, the same events `nyxs --headless
   --format json` prints, plus: `{ "type": "status", "data": { "status" } }` when it changes,
   `{ "type": "report", "data": { "text", "status" } }` for the thread's `report` tool, and a last

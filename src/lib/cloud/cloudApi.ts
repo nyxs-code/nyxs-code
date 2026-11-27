@@ -41,13 +41,13 @@ export interface NewCloudThread {
 
 /** Raised for an answer the cloud refused: `status` is the HTTP status, `code` the API's own. */
 export class CloudError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-    readonly code?: string,
-  ) {
+  readonly status: number;
+  readonly code?: string;
+  constructor(message: string, status: number, code?: string) {
     super(message);
     this.name = "CloudError";
+    this.status = status;
+    this.code = code;
   }
 }
 

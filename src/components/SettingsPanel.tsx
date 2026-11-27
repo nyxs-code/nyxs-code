@@ -11,6 +11,7 @@ import { GeneralSettingsSection } from "./settings/GeneralSettingsSection";
 import { AboutPage } from "./settings/AboutPage";
 import { MusicSettingsSection } from "./settings/MusicSettingsSection";
 import { PrivacySection } from "./settings/PrivacySection";
+import { CloudSettingsSection } from "./settings/CloudSettingsSection";
 import { WorkspaceSettingsSection } from "./settings/WorkspaceSettingsSection";
 import { CodeAppearanceSettings } from "./settings/CodeAppearanceSettings";
 import { ComingSoonSettings } from "./settings/ComingSoonSettings";
@@ -82,6 +83,9 @@ export function SettingsPanel({
 
       case "privacidad":
         return <PrivacySection title={t.privacy} workspace={workspace} />;
+
+      case "nube":
+        return <CloudSettingsSection settings={settings} />;
 
       case "conectores":
         return <McpServersSection />;

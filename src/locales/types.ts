@@ -820,6 +820,7 @@ export interface Translations {
     usage: string;
     capabilities: string;
     connectors: string;
+    cloud: string;
     code: string;
     nyxsInChrome: string;
     desktopApp: string;
@@ -2977,13 +2978,10 @@ export interface Translations {
     cliOnly: string;
     accountsHeading: string;
     claudeDesc: string;
-    codexDesc: string;
     githubDesc: string;
     tokenPlaceholder: string;
     save: string;
     remove: string;
-    upload: string;
-    noCodexLogin: string;
     storedTag: string;
     test: string;
     testing: string;

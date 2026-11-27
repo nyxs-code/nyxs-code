@@ -15,7 +15,7 @@ describe("cloud credentials", () => {
   it("knows what each provider needs in the cloud", () => {
     expect(cloudSupport("anthropic", settings)).toEqual({ ok: true, key: "provider:anthropic" });
     expect(cloudSupport("claude-code", settings)).toEqual({ ok: true, key: "CLAUDE_CODE_OAUTH_TOKEN" });
-    expect(cloudSupport("codex-cli", settings)).toEqual({ ok: true, key: "CODEX_AUTH_JSON" });
+    expect(cloudSupport("codex-cli", settings)).toEqual({ ok: true, key: "provider:openai" });
     expect(cloudSupport("grok-cli", settings)).toEqual({ ok: false, reason: "cli" });
   });
 
