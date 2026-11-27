@@ -6,6 +6,17 @@ import { handleExternalLinkClick } from "@/lib/openExternal";
 import { useTranslations } from "@/lib/i18n";
 import type { ManualClient } from "./useConnectors";
 
+/** What to register as the OAuth app's callback: the sign-in comes back here, on a free port. */
+const LOOPBACK_CALLBACK = "http://127.0.0.1/callback";
+
+function hostOf(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
+}
+
 const FIELD =
   "w-full h-9 px-3 text-[13px] rounded-[6px] bg-bg-200 border border-bg-300 text-text-100 placeholder:text-text-400 outline-none focus:border-accent font-mono";
 
@@ -54,17 +65,41 @@ export function OAuthClientDialog({
           if (ready) onConnect({ clientId, clientSecret });
         }}
       >
-        <p className="text-[13px] text-text-300 leading-relaxed">
-          {t.oauthCredentialsHint}{" "}
-          <a
-            href="https://console.cloud.google.com/apis/credentials"
-            onClick={handleExternalLinkClick}
-            rel="noreferrer"
-            className="underline underline-offset-2 text-text-100"
-          >
-            Google Cloud Console
-          </a>
-        </p>
+        {entry.oauthClientConsole ? (
+          // A service like GitHub: an OAuth app of the user's, called back on the loopback (any
+          // port: the sign-in picks a free one each time).
+          <p className="text-[13px] text-text-300 leading-relaxed">
+            {t.oauthAppHint.split(/(\{site\}|\{callback\})/).map((part, i) =>
+              part === "{site}" ? (
+                <a
+                  key={i}
+                  href={entry.oauthClientConsole}
+                  onClick={handleExternalLinkClick}
+                  rel="noreferrer"
+                  className="underline underline-offset-2 text-text-100"
+                >
+                  {hostOf(entry.oauthClientConsole!)}
+                </a>
+              ) : part === "{callback}" ? (
+                <code key={i} className="font-mono text-[12px] text-text-100">{LOOPBACK_CALLBACK}</code>
+              ) : (
+                part
+              ),
+            )}
+          </p>
+        ) : (
+          <p className="text-[13px] text-text-300 leading-relaxed">
+            {t.oauthCredentialsHint}{" "}
+            <a
+              href="https://console.cloud.google.com/apis/credentials"
+              onClick={handleExternalLinkClick}
+              rel="noreferrer"
+              className="underline underline-offset-2 text-text-100"
+            >
+              Google Cloud Console
+            </a>
+          </p>
+        )}
         <input value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="Client ID" aria-label="Client ID" className={FIELD} />
         <input
           type="password"

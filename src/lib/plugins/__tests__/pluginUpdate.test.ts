@@ -15,17 +15,18 @@ vi.mock("@/lib/plugins/pluginSettings", () => ({
   getEnabledPlugins: async () => [],
   setPluginEnabled: async () => {},
 }));
-vi.mock("@/lib/plugins/marketplace", () => ({
-  getMarketplace: async (name: string) =>
-    name === "mp"
-      ? {
-          name: "mp",
-          source: { source: "url", url: "https://example.invalid/marketplace.json" },
-          installLocation: `${state.backend!.home}/.nyxs/plugins/marketplaces/mp`,
-          autoUpdate: false,
-        }
-      : null,
-}));
+vi.mock("@/lib/plugins/marketplace", () => {
+  const mp = () => ({
+    name: "mp",
+    source: { source: "url", url: "https://example.invalid/marketplace.json" },
+    installLocation: `${state.backend!.home}/.nyxs/plugins/marketplaces/mp`,
+    autoUpdate: false,
+  });
+  return {
+    getMarketplace: async (name: string) => (name === "mp" ? mp() : null),
+    listMarketplaces: async () => [mp()],
+  };
+});
 
 import { createFakeBackend, fileUrl, gitSetup, makeRepo, makeTempDir } from "./fakeBackend";
 import { refreshCatalog } from "../catalog";

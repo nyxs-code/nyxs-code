@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  listInstalled, getCatalog, checkPluginUpdates,
-  type CatalogPlugin, type InstalledPlugin, type PluginUpdate,
+  listInstalled, listMarketplaces, getCatalog, checkPluginUpdates, isBuiltinMarketplace,
+  type CatalogPlugin, type InstalledPlugin, type KnownMarketplace, type PluginUpdate,
 } from "@/lib/plugins";
 import { getEnabledPlugins } from "@/lib/plugins/pluginSettings";
+import { describePlugin, sourceOf, type PluginParts } from "@/lib/plugins/pluginDetails";
 import type { PluginManifest } from "@/lib/plugins/schema";
 import { loadSkills, type SkillDef } from "@/lib/skills";
 import { readManifest } from "@/lib/plugins/manifestFile";
@@ -33,6 +34,14 @@ export type PluginItem = {
   manifest?: PluginManifest | null;
   update?: PluginUpdate;
   skill?: SkillDef;
+  /** What the plugin adds (hooks, commands, agents, skills, MCP servers…). */
+  parts?: PluginParts;
+  /** Its marketplace's entry for it. */
+  catalog?: CatalogPlugin;
+  /** Where its code lives: its repository, or its marketplace's. */
+  source?: { label: string; url: string | null } | null;
+  /** From Anthropic's official marketplace. */
+  verified?: boolean;
 };
 
 /** The installed plugins (with what their marketplace says of them) and the skills on disk. */
@@ -44,10 +53,11 @@ export function usePluginsData(workspace: string | null) {
   const reload = useCallback(async () => {
     const mine = ++seq.current;
     try {
-      const [installed, enabledIds, skills] = await Promise.all([
+      const [installed, enabledIds, skills, known] = await Promise.all([
         listInstalled().catch(() => [] as InstalledPlugin[]),
         getEnabledPlugins().catch(() => [] as string[]),
         loadSkills(workspace).catch(() => [] as SkillDef[]),
+        listMarketplaces().catch(() => [] as KnownMarketplace[]),
       ]);
       const enabled = new Set(enabledIds);
       const marketplaces = [...new Set(installed.map((p) => p.marketplace))];
@@ -61,11 +71,18 @@ export function usePluginsData(workspace: string | null) {
           }
         }),
       );
-      const manifests = await Promise.all(installed.map((p) => readManifest(p.installLocation).catch(() => null)));
+      const [manifests, parts] = await Promise.all([
+        Promise.all(installed.map((p) => readManifest(p.installLocation).catch(() => null))),
+        Promise.all(installed.map((p) => describePlugin(p).catch(() => undefined))),
+      ]);
       const plugins: PluginItem[] = installed.map((p, i) => {
         const cat = catalogs.get(p.marketplace)?.find((c) => c.name === p.plugin);
         const manifest = manifests[i];
         return {
+          parts: parts[i],
+          catalog: cat,
+          source: sourceOf(manifest, cat?.homepage, known.find((m) => m.name === p.marketplace)),
+          verified: isBuiltinMarketplace(p.marketplace),
           key: `plugin:${p.id}`,
           kind: "plugin",
           name: manifest?.name ?? p.plugin,

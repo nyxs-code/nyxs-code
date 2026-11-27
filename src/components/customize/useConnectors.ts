@@ -14,7 +14,7 @@ import {
   type McpServerStatus,
   type ConnectorCatalogEntry,
 } from "@/lib/mcp";
-import { runMcpOAuth } from "@/lib/mcpOAuth";
+import { OAuthCancelledError, runMcpOAuth } from "@/lib/mcpOAuth";
 import { forgetConnectorTokens, saveConnectorTokens } from "@/lib/connectorTokens";
 import { localizedError } from "@/lib/i18n";
 import type { CustomPrefill } from "@/components/settings/ConnectorDirectory";
@@ -23,8 +23,9 @@ const probeDeps = { fetchImpl: tauriFetch as unknown as typeof fetch };
 
 type State = {
   servers: McpServer[];
-  /** The connector whose sign-in is open in the browser. */
-  connecting: string | null;
+  /** The connector whose sign-in is being prepared and opened in the browser: its Connect shows
+   *  a spinner for those few seconds, as Claude's does, then goes back to Connect. */
+  opening: string | null;
   /** The last failed sign-in, prefixed with the connector's name. */
   error: string | null;
   /** The custom-connector form: `null` empty, a value prefilled, `undefined` closed. */
@@ -33,9 +34,13 @@ type State = {
 
 // One store for the page and the directory dialog over it: a connector added in one shows
 // in the other at once.
-let state: State = { servers: [], connecting: null, error: null, customPrefill: undefined };
+let state: State = { servers: [], opening: null, error: null, customPrefill: undefined };
+/** The spinner stays at least this long, so a quick opening doesn't just flicker. */
+const MIN_SPINNER_MS = 800;
 let loaded = false;
 const listeners = new Set<() => void>();
+/** The sign-in open in the browser, to call off: one at a time, as in Claude. */
+let attempt: AbortController | null = null;
 
 function set(patch: Partial<State>) {
   state = { ...state, ...patch };
@@ -155,12 +160,26 @@ export function useConnectors() {
         clientOpts = { clientId: cid, clientSecret: manual?.clientSecret.trim() };
       }
     }
-    set({ error: null, connecting: entry.name });
+    // A new sign-in calls off the one still waiting (its tab may be long closed), as Claude does.
+    // Nothing shows it waiting: Connect stays Connect, and pressing it again starts over.
+    attempt?.abort();
+    const ctrl = new AbortController();
+    attempt = ctrl;
+    const started = Date.now();
+    const stopSpinner = () => {
+      const left = MIN_SPINNER_MS - (Date.now() - started);
+      const clear = () => { if (attempt === ctrl || attempt === null) { if (state.opening === entry.name) set({ opening: null }); } };
+      if (left > 0) setTimeout(clear, left);
+      else clear();
+    };
+    set({ error: null, opening: entry.name });
     try {
       const tokens = await runMcpOAuth(entry.url, entry.name, {
         scopes: entry.oauthScopes,
         logo: entry.logo,
         color: entry.color,
+        signal: ctrl.signal,
+        onOpened: stopSpinner,
         ...clientOpts,
       });
       // The tokens go to the keychain; the connector only says it signs in with OAuth.
@@ -169,10 +188,14 @@ export function useConnectors() {
       persist([...state.servers, { id, name: entry.name, url: entry.url, oauth: true, enabled: true }]);
       return true;
     } catch (e) {
-      set({ error: `${entry.name}: ${localizedError(e)}` });
+      if (!(e instanceof OAuthCancelledError)) set({ error: `${entry.name}: ${localizedError(e)}` });
       return false;
     } finally {
-      set({ connecting: null });
+      // It failed before the browser opened (or was replaced by another): no spinner left behind.
+      if (attempt === ctrl) {
+        attempt = null;
+        if (state.opening === entry.name) set({ opening: null });
+      }
     }
   };
 
@@ -180,7 +203,7 @@ export function useConnectors() {
     servers: s.servers,
     configServers,
     statuses,
-    connecting: s.connecting,
+    opening: s.opening,
     error: s.error,
     customPrefill: s.customPrefill,
     installedUrls,

@@ -329,7 +329,12 @@ function parseMcpMap(value: unknown, file: string, errors: ConfigError[]): Recor
   return map && typeof map === "object" && !Array.isArray(map) ? map : {};
 }
 
-async function loadOne(p: InstalledPlugin, out: LoadedPluginComponents): Promise<void> {
+/** An empty set of components, to load one plugin into (its page lists what it adds). */
+export function emptyComponents(): LoadedPluginComponents {
+  return { plugins: [], commands: [], agents: [], outputStyles: [], hooks: {}, mcpServers: {}, mods: [], errors: [] };
+}
+
+export async function loadOne(p: InstalledPlugin, out: LoadedPluginComponents): Promise<void> {
   const root = p.installLocation;
   const manifest = await readManifest(root, p.plugin, `${p.id}/plugin.json`, out.errors);
   const pname = manifest.name || p.plugin;
@@ -402,16 +407,7 @@ export async function loadPluginComponents(): Promise<LoadedPluginComponents> {
   const sig = enabled.map((p) => `${p.id}@${p.installLocation}`).sort().join("|");
   if (cache && cache.sig === sig) return cache.data;
 
-  const out: LoadedPluginComponents = {
-    plugins: [],
-    commands: [],
-    agents: [],
-    outputStyles: [],
-    hooks: {},
-    mcpServers: {},
-    mods: [],
-    errors: [],
-  };
+  const out = emptyComponents();
 
   for (const p of enabled) {
     try {

@@ -82,7 +82,6 @@ export function ConnectorDetail({
   const t = tr.customizePage;
   const server = connectors.serverFor(entry);
   const status = server ? connectors.statuses[server.id] : undefined;
-  const busy = connectors.connecting === entry.name || (!!server?.enabled && status?.state === "connecting");
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(true);
   const [toolsOpen, setToolsOpen] = useState(false);
@@ -94,7 +93,11 @@ export function ConnectorDetail({
   const tools = liveTools.length > 0 ? liveTools : (entry.tools ?? []);
   const error = connectors.error?.startsWith(`${entry.name}:`) ? connectors.error : null;
   const failed = !!server?.enabled && status?.state === "error";
-  const linked = !!server?.enabled && !failed && !busy;
+  // As in Claude, nothing says "Connecting…": Connect stays Connect while the sign-in is open in
+  // the browser (pressing it again starts over), and shows Connected once the connector is in.
+  const linked = !!server?.enabled && !failed;
+  // A spinner for the few seconds the sign-in takes to open in the browser, as in Claude.
+  const opening = connectors.opening === entry.name;
   const signIn: Record<ConnectorCatalogEntry["auth"], string> = {
     oauth: t.signInRequired,
     token: t.signInToken,
@@ -123,7 +126,7 @@ export function ConnectorDetail({
     setTimeout(() => setCopied(false), 1200);
   };
 
-  const state = busy ? t.connecting : failed ? t.connectionFailed : linked ? t.connected : server ? t.turnedOff : t.notConnected;
+  const state = failed ? t.connectionFailed : linked ? t.connected : server ? t.turnedOff : t.notConnected;
   const action = failed ? t.reconnect : server && !server.enabled ? t.turnOn : t.connect;
   const published = monthYear(entry.addedAt, getLanguage());
   const links = [
@@ -204,16 +207,15 @@ export function ConnectorDetail({
           <button
             type="button"
             onClick={onConnect}
-            disabled={busy}
-            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-[6px] bg-text-100 text-bg-0 text-[14px] font-medium transition-opacity hover:opacity-90 disabled:opacity-60"
+            disabled={opening}
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-[6px] bg-text-100 text-bg-0 text-[14px] font-medium transition-opacity hover:opacity-90 disabled:opacity-80"
           >
-            {busy && <Loader2 className="w-4 h-4 animate-spin" />}
-            {busy ? t.connecting : action}
+            {opening && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            {action}
           </button>
         )}
       </div>
 
-      {busy && <p className="text-[13px] text-text-400 mt-4">{t.oauthBrowserHint}</p>}
       {error && <p className="text-[13px] text-red-400 mt-4 break-words">{error}</p>}
       {failed && status?.state === "error" && <p className="text-[13px] text-amber-500 mt-4 break-words">{status.error}</p>}
 
@@ -227,12 +229,14 @@ export function ConnectorDetail({
               <ConnectorLogo entry={entry} size={20} />
               <span className="flex-1 min-w-0 truncate text-[14px] font-medium text-text-100">{entry.name}</span>
               <span className={cn("text-[13px]", failed ? "text-amber-500" : "text-text-400")}>{state}</span>
-              {!linked && !busy && (
+              {!linked && (
                 <button
                   type="button"
                   onClick={onConnect}
-                  className="h-7 px-2.5 rounded-[6px] bg-bg-300/70 text-[14px] text-text-100 hover:bg-bg-300 transition-colors"
+                  disabled={opening}
+                  className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-[6px] bg-bg-300/70 text-[14px] text-text-100 hover:bg-bg-300 transition-colors disabled:hover:bg-bg-300/70"
                 >
+                  {opening && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   {action}
                 </button>
               )}

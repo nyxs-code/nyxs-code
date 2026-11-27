@@ -1,12 +1,54 @@
 import { ensureDefaultMarketplaces, listMarketplaces, markRefreshed } from "./marketplace";
-import { getCatalog, refreshCatalog } from "./catalog";
+import { getCatalog, joinPath, marketplaceRepoDir, refreshCatalog } from "./catalog";
 import { installPlugin, listInstalled } from "./install";
-import { parsePluginId, type CatalogPlugin, type InstalledPlugin } from "./schema";
-import { isSafeSha } from "./sourceSafety";
+import { readManifest } from "./manifestFile";
+import { fetchText } from "./paths";
+import { parsePluginId, parsePluginManifest, type CatalogPlugin, type InstalledPlugin, type KnownMarketplace } from "./schema";
+import { isSafeRepo, isSafeSha, safeRelativePath } from "./sourceSafety";
+
+/** What a GitHub marketplace's plugin folder says its version is, by marketplace and folder. */
+const remoteVersions = new Map<string, { at: number; version: string | null }>();
+const REMOTE_VERSION_MS = 10 * 60_000;
+const MANIFEST_RELS = [".nyxs-plugin/plugin.json", ".claude-plugin/plugin.json", "plugin.json"];
 
 export async function refreshMarketplace(name: string): Promise<void> {
   await refreshCatalog(name);
   await markRefreshed(name, Date.now());
+  for (const key of remoteVersions.keys()) if (key.startsWith(`${name}|`)) remoteVersions.delete(key);
+}
+
+/**
+ * The version a plugin that lives inside its marketplace's repository has there now, from the
+ * plugin.json of its folder. Refreshing a GitHub marketplace only downloads its catalog, so that
+ * folder is read from GitHub itself (remembered a few minutes); a git or local marketplace has
+ * it in its checkout. Null when the catalog places it elsewhere or its manifest has no version.
+ */
+async function inRepoVersion(mp: KnownMarketplace, entry: CatalogPlugin): Promise<string | null> {
+  if (entry.source !== undefined && typeof entry.source !== "string") return null;
+  const sub = safeRelativePath(typeof entry.source === "string" && entry.source.trim() ? entry.source : entry.name);
+  if (sub === null) return null;
+  const s = mp.source;
+  if (s.source === "github") {
+    if (!isSafeRepo(s.repo)) return null;
+    const key = `${mp.name}|${sub}`;
+    const hit = remoteVersions.get(key);
+    if (hit && Date.now() - hit.at < REMOTE_VERSION_MS) return hit.version;
+    let version: string | null = null;
+    for (const rel of MANIFEST_RELS) {
+      try {
+        const raw = await fetchText(`https://raw.githubusercontent.com/${s.repo}/HEAD/${sub ? `${sub}/` : ""}${rel}`);
+        version = parsePluginManifest(JSON.parse(raw)).manifest?.version?.trim() || null;
+        break;
+      } catch {
+        /* not there (a 404 isn't JSON): try the next place */
+      }
+    }
+    remoteVersions.set(key, { at: Date.now(), version });
+    return version;
+  }
+  const root = s.source === "git" ? await marketplaceRepoDir(mp.installLocation) : s.source === "directory" ? s.path : null;
+  if (!root) return null;
+  return (await readManifest(sub ? joinPath(root, sub) : root))?.version?.trim() || null;
 }
 
 export async function refreshAllMarketplaces(
@@ -63,6 +105,7 @@ export async function checkPluginUpdates(
   const updates: PluginUpdate[] = [];
 
   const catalogCache = new Map<string, Awaited<ReturnType<typeof getCatalog>> | null>();
+  const marketplaces = await listMarketplaces().catch(() => [] as KnownMarketplace[]);
 
   for (const p of installed) {
     let catalog = catalogCache.get(p.marketplace);
@@ -83,6 +126,15 @@ export async function checkPluginUpdates(
       !(p.sha && sameCommit(sha, p.sha))
     ) {
       updates.push({ ...base, kind: "commit", latestSha: sha });
+    } else if (!sha && compareVersions(entry.version, "0.0.0") === 0) {
+      // Neither a version nor a pinned commit in the catalog, as with the plugins kept inside
+      // Anthropic's marketplace repository: their folder's own manifest says when they change.
+      const mp = marketplaces.find((m) => m.name === p.marketplace);
+      const [latest, current] = await Promise.all([
+        mp ? inRepoVersion(mp, entry).catch(() => null) : null,
+        readManifest(p.installLocation).then((m) => m?.version?.trim() || null).catch(() => null),
+      ]);
+      if (latest && current && isNewer(latest, current)) updates.push({ ...base, current, latest, kind: "version" });
     }
   }
   return updates;
