@@ -135,12 +135,12 @@ CLI agents through the `nyxs-sessions` MCP server):
   "memory", "permissionMode": "auto", "maxSteps": 200 }`.
 - `/work` persists between turns: `/work/repo` (the clone, on `workBranch`) and
   `/work/.nyxs/session.json` (the saved conversation the next turn resumes from).
-- Secrets arrive as env vars. `provider:<id>` isn't a valid env name, so the runner passes it as
-  `NYXS_SECRET_PROVIDER_<ID>` (id upper-cased, `-` → `_`, e.g. `NYXS_SECRET_PROVIDER_MINIMAX_ANTHROPIC`);
-  the others keep their names (`CLAUDE_CODE_OAUTH_TOKEN`, `GITHUB_TOKEN`). The worker makes them
-  visible to Nyxs headless the way the keychain would, and to the CLIs as they expect (Codex:
-  `OPENAI_API_KEY` from `NYXS_SECRET_PROVIDER_OPENAI`; Claude Code: `CLAUDE_CODE_OAUTH_TOKEN`, or
-  `ANTHROPIC_API_KEY` from `NYXS_SECRET_PROVIDER_ANTHROPIC` when there's no token).
+- Secrets arrive as env vars. The runner passes `provider:<id>` as `<ID>_API_KEY` (id upper-cased,
+  every character other than a letter or digit as `_`: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`,
+  `MINIMAX_ANTHROPIC_API_KEY`), which is also the name most vendors' own tools read; the others
+  keep their names (`CLAUDE_CODE_OAUTH_TOKEN`, `GITHUB_TOKEN`). Nyxs's job mode reads them as its
+  keychain (`headless.rs` `secret_env_names`); Codex uses `OPENAI_API_KEY`, Claude Code
+  `CLAUDE_CODE_OAUTH_TOKEN` or else `ANTHROPIC_API_KEY`.
 - stdout: JSONL, one event per line, `{ "type", "data" }`, the same events `nyxs --headless
   --format json` prints, plus: `{ "type": "status", "data": { "status" } }` when it changes,
   `{ "type": "report", "data": { "text", "status" } }` for the thread's `report` tool, and a last
