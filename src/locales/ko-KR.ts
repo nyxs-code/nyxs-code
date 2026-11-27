@@ -3094,6 +3094,12 @@ const t: Translations = {
     remove: "제거",
     contextFiles: "컨텍스트 파일",
     noContextFiles: "컨텍스트 파일이 없습니다. 여기에 추가한 파일을 스레드가 읽습니다.",
+    cloudInfoTitle: "클라우드의 스레드",
+    cloudInfoRepo: "GitHub 저장소가 필요합니다. GitLab과 Bitbucket은 아직 지원되지 않습니다.",
+    cloudInfoSandbox: "클라우드에서 스레드는 새롭고 격리된 Linux 환경에서 실행되므로 일부 작업은 그곳에서 실행되지 않을 수 있습니다.",
+    cloudInfoNetwork: "샌드박스는 VPN, SSO 또는 비밀 정보 뒤에 있는 것(비공개 레지스트리, 내부 서비스, 데이터베이스 등)에 접근할 수 없습니다.",
+    cloudInfoLink: "스레드 실행 방식",
+    openCloudSettings: "클라우드 설정",
   },
 };
 

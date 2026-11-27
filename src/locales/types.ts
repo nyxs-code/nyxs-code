@@ -3087,5 +3087,11 @@ export interface Translations {
     remove: string;
     contextFiles: string;
     noContextFiles: string;
+    cloudInfoTitle: string;
+    cloudInfoRepo: string;
+    cloudInfoSandbox: string;
+    cloudInfoNetwork: string;
+    cloudInfoLink: string;
+    openCloudSettings: string;
   };
 }

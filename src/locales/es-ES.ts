@@ -3126,6 +3126,12 @@ const t: Translations = {
     remove: "Quitar",
     contextFiles: "Archivos de contexto",
     noContextFiles: "Sin archivos de contexto. Los hilos leen los que añadas aquí.",
+    cloudInfoTitle: "Hilos en la nube",
+    cloudInfoRepo: "Requiere un repositorio de GitHub. GitLab y Bitbucket aún no son compatibles.",
+    cloudInfoSandbox: "En la nube, los hilos se ejecutan en un entorno aislado de Linux nuevo, por lo que puede que algunos trabajos no se ejecuten ahí.",
+    cloudInfoNetwork: "Los sandboxes no pueden acceder a nada detrás de tu VPN, SSO o secretos, como registros privados, servicios internos o bases de datos.",
+    cloudInfoLink: "Cómo se ejecutan los hilos",
+    openCloudSettings: "Ajustes de la nube",
   },
 };
 

@@ -12,6 +12,7 @@ import { repliesLabel } from "@/lib/projects/threadLabels";
 import { DARK_BUTTON } from "@/lib/projects/projectUi";
 import { GROUP_DOT, THREAD_GROUPS } from "@/lib/projects/threadStatus";
 import type { NewProject } from "@/lib/projects/useProjects";
+import { CloudInfoPopover } from "./CloudInfoPopover";
 import { NewProjectDialog } from "./NewProjectDialog";
 import { ProjectIcon } from "./ProjectIcon";
 
@@ -22,14 +23,12 @@ export function ProjectsPage({
   recentFolders,
   onOpen,
   onCreate,
-  onOpenCloudSettings,
 }: {
   loaded: boolean;
   /** The user's recent folders, whose GitHub remotes the dialog suggests. */
   recentFolders: string[];
   onOpen: (projectId: string) => void;
   onCreate: (input: NewProject) => Promise<unknown>;
-  onOpenCloudSettings: () => void;
 }) {
   const t = useTranslations().projects;
   const entries = useProjectDirectory();
@@ -50,7 +49,7 @@ export function ProjectsPage({
           )}
         </div>
 
-        {empty && <EmptyProjects onNew={() => setCreating(true)} onOpenCloudSettings={onOpenCloudSettings} />}
+        {empty && <EmptyProjects onNew={() => setCreating(true)} />}
 
         {entries.length > 0 && (
           <div className="flex flex-col">
@@ -117,7 +116,7 @@ function Feature({ icon: Icon, children }: { icon: ComponentType<{ className?: s
 }
 
 /** Before the first project: what a project is, and a sample of one, as Claude shows it. */
-function EmptyProjects({ onNew, onOpenCloudSettings }: { onNew: () => void; onOpenCloudSettings: () => void }) {
+function EmptyProjects({ onNew }: { onNew: () => void }) {
   const t = useTranslations().projects;
   const [cloudBefore, cloudAfter = ""] = t.featCloud.split("{link}");
   return (
@@ -134,9 +133,7 @@ function EmptyProjects({ onNew, onOpenCloudSettings }: { onNew: () => void; onOp
             <Feature icon={Brain}>{t.featMemory}</Feature>
             <Feature icon={Cloud}>
               {cloudBefore}
-              <button type="button" onClick={onOpenCloudSettings} className="underline underline-offset-2 decoration-text-400 hover:decoration-text-100">
-                {t.featCloudLink}
-              </button>
+              <CloudInfoPopover>{t.featCloudLink}</CloudInfoPopover>
               {cloudAfter}
             </Feature>
             <Feature icon={Laptop}>{t.featLocal}</Feature>

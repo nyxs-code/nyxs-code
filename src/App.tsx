@@ -1354,7 +1354,6 @@ export default function App() {
             recentFolders={[workspace, ...recentWorkspaces].filter((w): w is string => !!w)}
             onOpen={projectsApi.openProject}
             onCreate={projectsApi.createProject}
-            onOpenCloudSettings={() => navigate(navSnapshot({ settingsOpen: true, settingsSection: "nube" }))}
           />
         ) : section === "routines" ? (
           <RoutinesPanel
@@ -1381,6 +1380,7 @@ export default function App() {
               defaultModel={effectiveModel}
               onOpenProject={projectsApi.openProject}
               onOpenScheduled={() => navigate(navSnapshot({ section: "routines", settingsOpen: false, settingsSection: undefined }))}
+              onOpenCloudSettings={() => navigate(navSnapshot({ settingsOpen: true, settingsSection: "nube" }))}
               onSave={projectsApi.updateProject}
               onDelete={projectsApi.removeProject}
             >

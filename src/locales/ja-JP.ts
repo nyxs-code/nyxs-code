@@ -3094,6 +3094,12 @@ const t: Translations = {
     remove: "削除",
     contextFiles: "コンテキストファイル",
     noContextFiles: "コンテキストファイルはありません。ここに追加したファイルをスレッドが読みます。",
+    cloudInfoTitle: "クラウドのスレッド",
+    cloudInfoRepo: "GitHub リポジトリが必要です。GitLab と Bitbucket にはまだ対応していません。",
+    cloudInfoSandbox: "クラウドでは、スレッドは新しく分離された Linux 環境で実行されるため、そこでは動かない作業もあります。",
+    cloudInfoNetwork: "サンドボックスからは、VPN、SSO、シークレットの向こう側にあるもの(プライベートレジストリ、社内サービス、データベースなど)にはアクセスできません。",
+    cloudInfoLink: "スレッドの実行のしくみ",
+    openCloudSettings: "クラウドの設定",
   },
 };
 

@@ -27,6 +27,7 @@ export function ProjectFrame({
   defaultModel,
   onOpenProject,
   onOpenScheduled,
+  onOpenCloudSettings,
   onSave,
   onDelete,
 }: {
@@ -36,6 +37,7 @@ export function ProjectFrame({
   defaultModel: string;
   onOpenProject: (projectId: string) => void;
   onOpenScheduled: () => void;
+  onOpenCloudSettings: () => void;
   onSave: (project: Project) => Promise<unknown>;
   onDelete: (projectId: string) => Promise<unknown>;
 }) {
@@ -97,10 +99,18 @@ export function ProjectFrame({
               <span className="truncate">{r.gitUrl ? repoLabel(r.gitUrl) : workspaceName(r.path ?? "")}</span>
             </span>
           ))}
-          <span className="inline-flex h-6 shrink-0 items-center gap-1 rounded-[6px] bg-bg-200 px-2 text-[12px] text-text-300">
-            {inCloud ? <Cloud className="h-3.5 w-3.5" /> : <Laptop className="h-3.5 w-3.5" />}
-            {inCloud ? t.cloud : t.thisComputer}
-          </span>
+          {inCloud ? (
+            // The cloud's settings (which credentials it may use) are a click away from here.
+            <button type="button" onClick={onOpenCloudSettings} aria-label={`${t.cloud}: ${t.openCloudSettings}`} className="inline-flex h-6 shrink-0 items-center gap-1 rounded-[6px] bg-bg-200 px-2 text-[12px] text-text-300 hover:bg-bg-300 hover:text-text-100">
+              <Cloud className="h-3.5 w-3.5" />
+              {t.cloud}
+            </button>
+          ) : (
+            <span className="inline-flex h-6 shrink-0 items-center gap-1 rounded-[6px] bg-bg-200 px-2 text-[12px] text-text-300">
+              <Laptop className="h-3.5 w-3.5" />
+              {t.thisComputer}
+            </span>
+          )}
           {thread?.prUrl && (
             <button type="button" onClick={() => openExternalUrl(thread.prUrl!)} className="inline-flex h-6 shrink-0 items-center gap-1 rounded-[6px] bg-bg-200 px-2 text-[12px] text-text-300 hover:text-text-100">
               <GitPullRequest className="h-3.5 w-3.5" />

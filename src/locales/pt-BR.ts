@@ -3094,6 +3094,12 @@ const t: Translations = {
     remove: "Remover",
     contextFiles: "Arquivos de contexto",
     noContextFiles: "Nenhum arquivo de contexto. As threads leem os que você adicionar aqui.",
+    cloudInfoTitle: "Threads na nuvem",
+    cloudInfoRepo: "Requer um repositório do GitHub. GitLab e Bitbucket ainda não são compatíveis.",
+    cloudInfoSandbox: "Na nuvem, as threads rodam num ambiente Linux novo e isolado, então alguns trabalhos podem não rodar lá.",
+    cloudInfoNetwork: "Os sandboxes não acessam nada atrás da sua VPN, SSO ou segredos, como registros privados, serviços internos ou bancos de dados.",
+    cloudInfoLink: "Como as threads rodam",
+    openCloudSettings: "Configurações da nuvem",
   },
 };
 

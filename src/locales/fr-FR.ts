@@ -3094,6 +3094,12 @@ const t: Translations = {
     remove: "Retirer",
     contextFiles: "Fichiers de contexte",
     noContextFiles: "Aucun fichier de contexte. Les fils lisent ceux que vous ajoutez ici.",
+    cloudInfoTitle: "Fils dans le cloud",
+    cloudInfoRepo: "Nécessite un dépôt GitHub. GitLab et Bitbucket ne sont pas encore pris en charge.",
+    cloudInfoSandbox: "Dans le cloud, les fils s'exécutent dans un environnement Linux isolé et neuf : certains travaux peuvent ne pas y fonctionner.",
+    cloudInfoNetwork: "Les sandboxes n'ont accès à rien derrière votre VPN, votre SSO ou vos secrets, comme des registres privés, des services internes ou des bases de données.",
+    cloudInfoLink: "Comment les fils s'exécutent",
+    openCloudSettings: "Réglages du cloud",
   },
 };
 

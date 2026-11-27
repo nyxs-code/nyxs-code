@@ -3094,6 +3094,12 @@ const t: Translations = {
     remove: "हटाएँ",
     contextFiles: "संदर्भ फ़ाइलें",
     noContextFiles: "कोई संदर्भ फ़ाइल नहीं। थ्रेड वे फ़ाइलें पढ़ते हैं जो आप यहाँ जोड़ते हैं।",
+    cloudInfoTitle: "क्लाउड में थ्रेड",
+    cloudInfoRepo: "GitHub रिपॉज़िटरी ज़रूरी है। GitLab और Bitbucket अभी समर्थित नहीं हैं।",
+    cloudInfoSandbox: "क्लाउड में थ्रेड एक नए, अलग Linux वातावरण में चलते हैं, इसलिए कुछ काम वहाँ शायद न चलें।",
+    cloudInfoNetwork: "सैंडबॉक्स आपके VPN, SSO या सीक्रेट के पीछे की किसी चीज़ तक नहीं पहुँच सकते, जैसे निजी रजिस्ट्री, आंतरिक सेवाएँ या डेटाबेस।",
+    cloudInfoLink: "थ्रेड कैसे चलते हैं",
+    openCloudSettings: "क्लाउड सेटिंग्स",
   },
 };
 

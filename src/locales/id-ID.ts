@@ -3094,6 +3094,12 @@ const t: Translations = {
     remove: "Hapus",
     contextFiles: "File konteks",
     noContextFiles: "Belum ada file konteks. Utas membaca yang kamu tambahkan di sini.",
+    cloudInfoTitle: "Utas di cloud",
+    cloudInfoRepo: "Memerlukan repositori GitHub. GitLab dan Bitbucket belum didukung.",
+    cloudInfoSandbox: "Di cloud, utas berjalan di lingkungan Linux baru yang terisolasi, jadi beberapa pekerjaan mungkin tidak bisa berjalan di sana.",
+    cloudInfoNetwork: "Sandbox tidak bisa menjangkau apa pun di balik VPN, SSO, atau rahasiamu, seperti registri privat, layanan internal, atau basis data.",
+    cloudInfoLink: "Cara utas berjalan",
+    openCloudSettings: "Pengaturan cloud",
   },
 };
 
