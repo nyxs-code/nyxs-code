@@ -3,6 +3,7 @@ import type { ToolContext } from "@/tools/context";
 import { checkGate } from "@/tools/gate";
 import { sessionBridge } from "@/lib/sessionBridge";
 import { sessionToolsFor } from "@/lib/sessionTools";
+import { projectToolsFor } from "@/lib/projects/projectTools";
 
 export const LIST_SESSIONS_TOOL = "ListSessions";
 export const CREATE_SESSION_TOOL = "CreateSession";
@@ -11,8 +12,9 @@ export const CREATE_SESSION_TOOL = "CreateSession";
  *  project's tools in its coordinator and threads (src/lib/projects/projectTools.ts). */
 export function addSessionTools(tools: ToolSet, ctx: ToolContext): void {
   const { gate, sessionKey } = ctx;
-  if (!sessionBridge()) return;
-  const defs = sessionToolsFor(sessionKey);
+  // Without the app's sessions (a headless run) only a project's own tools remain: a cloud turn
+  // is a thread whose `report` doesn't need them (cloudWorker.ts).
+  const defs = sessionBridge() ? sessionToolsFor(sessionKey) : projectToolsFor(sessionKey);
   // The definitions name the other tools as MCP does; these models know them in PascalCase.
   const names = defs.map((d) => [new RegExp(`\\b${d.mcpName}\\b`, "g"), d.name] as const);
   const local = (text: string) => names.reduce((t, [re, name]) => t.replace(re, name), text);

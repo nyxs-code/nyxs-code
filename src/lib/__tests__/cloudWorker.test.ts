@@ -249,6 +249,20 @@ describe("cloud worker turn", () => {
 });
 
 describe("cloud worker pieces", () => {
+  it("gives a cloud turn's model the report tool though headless has no sessions", async () => {
+    const { addSessionTools } = await import("@/tools/Sessions/tool");
+    const { noteProjectRole } = await import("@/lib/projects/projectDirectory");
+    const toolsOf = (sessionKey: string) => {
+      const tools: Record<string, unknown> = {};
+      addSessionTools(tools as never, { sessionKey } as never);
+      return Object.keys(tools);
+    };
+    expect(toolsOf("plain-headless-run")).toEqual([]);
+    noteProjectRole("cloud-th_tools", "cloud", "thread");
+    expect(toolsOf("cloud-th_tools")).toHaveLength(1);
+    expect(toolsOf("cloud-th_tools")[0]).toMatch(/report/i);
+  });
+
   it("takes provider keys from the keychain entries and marks CLI providers connected", async () => {
     const secret = vi.fn(async (account: string) => (account === "provider:anthropic" ? "sk-env" : null));
     const base = { anthropic: { apiKey: "" }, "claude-code": { apiKey: "" } } as never;
