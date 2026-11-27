@@ -3061,7 +3061,7 @@ const t: Translations = {
     createFailed: "Impossibile salvare il progetto.",
     deleteProject: "Elimina progetto",
     deleteTitle: "Eliminare «{name}»?",
-    deleteBody: "Il progetto, la sua memoria e le sue conversazioni vengono eliminati. Cartelle e branch restano come sono.",
+    deleteBody: "Il progetto, la sua memoria, le sue conversazioni e i suoi thread nel cloud con i loro dati vengono eliminati. Cartelle, branch e pull request restano come sono.",
     projectMenu: "Opzioni del progetto",
     cloudNeedsRepo: "Il cloud ha bisogno dell'URL del repository.",
     cloudModelUnsupported: "Questo modello non può lavorare nel cloud.",
@@ -3100,6 +3100,12 @@ const t: Translations = {
     cloudInfoNetwork: "Le sandbox non possono raggiungere nulla dietro la tua VPN, il tuo SSO o i tuoi segreti, come registri privati, servizi interni o database.",
     cloudInfoLink: "Come funzionano i thread",
     openCloudSettings: "Impostazioni del cloud",
+    deleteThread: "Elimina thread",
+    deleteThreadBody: "La conversazione del thread viene eliminata. Il suo branch e le sue modifiche restano come sono.",
+    deleteCloudThreadBody: "La conversazione del thread e il suo ambiente nel cloud vengono eliminati, con tutti i loro dati. Il suo branch e la sua pull request su GitHub restano come sono.",
+    cloudDeleteFailedTitle: "Impossibile eliminare nel cloud",
+    cloudDeleteFailed: "Il thread è ancora nel cloud, quindi non è stato eliminato nulla: {error}",
+    ok: "OK",
   },
 };
 

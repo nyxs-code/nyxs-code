@@ -3061,7 +3061,7 @@ const t: Translations = {
     createFailed: "Não foi possível salvar o projeto.",
     deleteProject: "Excluir projeto",
     deleteTitle: "Excluir “{name}”?",
-    deleteBody: "O projeto, a memória e as conversas são excluídos. Pastas e branches ficam como estão.",
+    deleteBody: "O projeto, a memória, as conversas e as threads na nuvem com seus dados são excluídos. Pastas, branches e pull requests ficam como estão.",
     projectMenu: "Opções do projeto",
     cloudNeedsRepo: "A nuvem precisa da URL do repositório.",
     cloudModelUnsupported: "Este modelo não pode trabalhar na nuvem.",
@@ -3100,6 +3100,12 @@ const t: Translations = {
     cloudInfoNetwork: "Os sandboxes não acessam nada atrás da sua VPN, SSO ou segredos, como registros privados, serviços internos ou bancos de dados.",
     cloudInfoLink: "Como as threads rodam",
     openCloudSettings: "Configurações da nuvem",
+    deleteThread: "Excluir thread",
+    deleteThreadBody: "A conversa da thread é excluída. O branch e as alterações ficam como estão.",
+    deleteCloudThreadBody: "A conversa da thread e o ambiente dela na nuvem são excluídos, com todos os dados. O branch e o pull request no GitHub ficam como estão.",
+    cloudDeleteFailedTitle: "Não foi possível excluir na nuvem",
+    cloudDeleteFailed: "A thread continua na nuvem, então nada foi excluído: {error}",
+    ok: "OK",
   },
 };
 

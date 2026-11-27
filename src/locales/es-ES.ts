@@ -3093,7 +3093,7 @@ const t: Translations = {
     createFailed: "No se pudo guardar el proyecto.",
     deleteProject: "Eliminar proyecto",
     deleteTitle: "¿Eliminar «{name}»?",
-    deleteBody: "Se eliminan el proyecto, su memoria y sus conversaciones. Las carpetas y las ramas no se tocan.",
+    deleteBody: "Se eliminan el proyecto, su memoria, sus conversaciones y sus hilos en la nube con sus datos. Las carpetas, las ramas y los pull requests no se tocan.",
     projectMenu: "Opciones del proyecto",
     cloudNeedsRepo: "La nube necesita la URL del repositorio.",
     cloudModelUnsupported: "Este modelo no puede trabajar en la nube.",
@@ -3132,6 +3132,12 @@ const t: Translations = {
     cloudInfoNetwork: "Los sandboxes no pueden acceder a nada detrás de tu VPN, SSO o secretos, como registros privados, servicios internos o bases de datos.",
     cloudInfoLink: "Cómo se ejecutan los hilos",
     openCloudSettings: "Ajustes de la nube",
+    deleteThread: "Eliminar hilo",
+    deleteThreadBody: "Se elimina la conversación del hilo. Su rama y sus cambios no se tocan.",
+    deleteCloudThreadBody: "Se eliminan la conversación del hilo y su entorno en la nube, con todos sus datos. Su rama y su pull request en GitHub no se tocan.",
+    cloudDeleteFailedTitle: "No se pudo eliminar en la nube",
+    cloudDeleteFailed: "El hilo sigue en la nube, así que no se eliminó: {error}",
+    ok: "Entendido",
   },
 };
 

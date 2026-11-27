@@ -30,6 +30,7 @@ export function ProjectFrame({
   onOpenCloudSettings,
   onSave,
   onDelete,
+  onDeleteThread,
 }: {
   chat: Chat;
   children: ReactNode;
@@ -40,6 +41,7 @@ export function ProjectFrame({
   onOpenCloudSettings: () => void;
   onSave: (project: Project) => Promise<unknown>;
   onDelete: (projectId: string) => Promise<unknown>;
+  onDeleteThread: (threadId: string) => Promise<unknown>;
 }) {
   const t = useTranslations().projects;
   const tm = useTranslations().modals;
@@ -71,7 +73,28 @@ export function ProjectFrame({
     });
     if (!ok) return;
     setEditing(false);
-    await onDelete(project.id);
+    await onDelete(project.id).catch((e) => showFailure(e));
+  };
+  /** The cloud refused to delete: nothing was deleted, and the user is told why. */
+  const showFailure = (e: unknown) =>
+    confirm({ title: t.cloudDeleteFailedTitle, message: t.cloudDeleteFailed.replace("{error}", e instanceof Error ? e.message : String(e)), confirmLabel: t.ok });
+  const askDeleteThread = async (id: string) => {
+    const thread = entry.threads.find((x) => x.id === id);
+    const ok = await confirm({
+      title: t.deleteTitle.replace("{name}", thread?.title ?? id),
+      message: thread?.location?.kind === "cloud" ? t.deleteCloudThreadBody : t.deleteThreadBody,
+      confirmLabel: t.deleteThread,
+      cancelLabel: tm.cancel,
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await onDeleteThread(id);
+      // The thread on screen is gone: back to the project's conversation.
+      if (id === chat.id) onOpenProject(project.id);
+    } catch (e) {
+      await showFailure(e);
+    }
   };
 
   return (
@@ -135,7 +158,7 @@ export function ProjectFrame({
       </header>
       <div className="flex-1 flex min-h-0">
         <div className="flex-1 flex flex-col min-w-0 min-h-0">{children}</div>
-        {!panelHidden && <ProjectOverview entry={entry} activeId={chat.id} onOpenScheduled={onOpenScheduled} />}
+        {!panelHidden && <ProjectOverview entry={entry} activeId={chat.id} onOpenScheduled={onOpenScheduled} onDeleteThread={(id) => void askDeleteThread(id)} />}
       </div>
       {editing && (
         <ProjectDialog project={project} models={models} defaultModel={defaultModel} onClose={() => setEditing(false)} onSave={onSave} onDelete={() => void askDelete()} />

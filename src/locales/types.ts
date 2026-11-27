@@ -3093,5 +3093,11 @@ export interface Translations {
     cloudInfoNetwork: string;
     cloudInfoLink: string;
     openCloudSettings: string;
+    deleteThread: string;
+    deleteThreadBody: string;
+    deleteCloudThreadBody: string;
+    cloudDeleteFailedTitle: string;
+    cloudDeleteFailed: string;
+    ok: string;
   };
 }

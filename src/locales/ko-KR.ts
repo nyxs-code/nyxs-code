@@ -3061,7 +3061,7 @@ const t: Translations = {
     createFailed: "프로젝트를 저장할 수 없습니다.",
     deleteProject: "프로젝트 삭제",
     deleteTitle: "“{name}”을(를) 삭제할까요?",
-    deleteBody: "프로젝트와 메모리, 대화가 삭제됩니다. 폴더와 브랜치는 그대로 남습니다.",
+    deleteBody: "프로젝트와 메모리, 대화, 클라우드 스레드가 데이터와 함께 삭제됩니다. 폴더, 브랜치, 풀 리퀘스트는 그대로 남습니다.",
     projectMenu: "프로젝트 옵션",
     cloudNeedsRepo: "클라우드에는 저장소 URL이 필요합니다.",
     cloudModelUnsupported: "이 모델은 클라우드에서 작업할 수 없습니다.",
@@ -3100,6 +3100,12 @@ const t: Translations = {
     cloudInfoNetwork: "샌드박스는 VPN, SSO 또는 비밀 정보 뒤에 있는 것(비공개 레지스트리, 내부 서비스, 데이터베이스 등)에 접근할 수 없습니다.",
     cloudInfoLink: "스레드 실행 방식",
     openCloudSettings: "클라우드 설정",
+    deleteThread: "스레드 삭제",
+    deleteThreadBody: "스레드의 대화가 삭제됩니다. 브랜치와 변경 사항은 그대로 남습니다.",
+    deleteCloudThreadBody: "스레드의 대화와 클라우드 환경이 모든 데이터와 함께 삭제됩니다. GitHub의 브랜치와 풀 리퀘스트는 그대로 남습니다.",
+    cloudDeleteFailedTitle: "클라우드에서 삭제하지 못했습니다",
+    cloudDeleteFailed: "스레드가 아직 클라우드에 있어 아무것도 삭제되지 않았습니다: {error}",
+    ok: "확인",
   },
 };
 

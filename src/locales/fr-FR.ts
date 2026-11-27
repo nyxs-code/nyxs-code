@@ -3061,7 +3061,7 @@ const t: Translations = {
     createFailed: "Impossible d'enregistrer le projet.",
     deleteProject: "Supprimer le projet",
     deleteTitle: "Supprimer « {name} » ?",
-    deleteBody: "Le projet, sa mémoire et ses conversations sont supprimés. Les dossiers et les branches ne sont pas touchés.",
+    deleteBody: "Le projet, sa mémoire, ses conversations et ses fils dans le cloud avec leurs données sont supprimés. Les dossiers, les branches et les pull requests ne sont pas touchés.",
     projectMenu: "Options du projet",
     cloudNeedsRepo: "Le cloud a besoin de l'URL du dépôt.",
     cloudModelUnsupported: "Ce modèle ne peut pas travailler dans le cloud.",
@@ -3100,6 +3100,12 @@ const t: Translations = {
     cloudInfoNetwork: "Les sandboxes n'ont accès à rien derrière votre VPN, votre SSO ou vos secrets, comme des registres privés, des services internes ou des bases de données.",
     cloudInfoLink: "Comment les fils s'exécutent",
     openCloudSettings: "Réglages du cloud",
+    deleteThread: "Supprimer le fil",
+    deleteThreadBody: "La conversation du fil est supprimée. Sa branche et ses modifications ne sont pas touchées.",
+    deleteCloudThreadBody: "La conversation du fil et son environnement dans le cloud sont supprimés, avec toutes leurs données. Sa branche et sa pull request sur GitHub ne sont pas touchées.",
+    cloudDeleteFailedTitle: "Impossible de supprimer dans le cloud",
+    cloudDeleteFailed: "Le fil est toujours dans le cloud, rien n'a donc été supprimé : {error}",
+    ok: "OK",
   },
 };
 

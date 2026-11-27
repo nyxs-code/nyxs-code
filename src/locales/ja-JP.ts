@@ -3061,7 +3061,7 @@ const t: Translations = {
     createFailed: "プロジェクトを保存できませんでした。",
     deleteProject: "プロジェクトを削除",
     deleteTitle: "「{name}」を削除しますか?",
-    deleteBody: "プロジェクト、そのメモリー、会話が削除されます。フォルダーとブランチはそのまま残ります。",
+    deleteBody: "プロジェクト、そのメモリー、会話、クラウドのスレッドがデータとともに削除されます。フォルダー、ブランチ、プルリクエストはそのまま残ります。",
     projectMenu: "プロジェクトのオプション",
     cloudNeedsRepo: "クラウドにはリポジトリ URL が必要です。",
     cloudModelUnsupported: "このモデルはクラウドで作業できません。",
@@ -3100,6 +3100,12 @@ const t: Translations = {
     cloudInfoNetwork: "サンドボックスからは、VPN、SSO、シークレットの向こう側にあるもの(プライベートレジストリ、社内サービス、データベースなど)にはアクセスできません。",
     cloudInfoLink: "スレッドの実行のしくみ",
     openCloudSettings: "クラウドの設定",
+    deleteThread: "スレッドを削除",
+    deleteThreadBody: "スレッドの会話が削除されます。ブランチと変更はそのまま残ります。",
+    deleteCloudThreadBody: "スレッドの会話とクラウドの環境が、すべてのデータとともに削除されます。GitHub 上のブランチとプルリクエストはそのまま残ります。",
+    cloudDeleteFailedTitle: "クラウドで削除できませんでした",
+    cloudDeleteFailed: "スレッドはまだクラウドにあるため、何も削除されていません: {error}",
+    ok: "OK",
   },
 };
 

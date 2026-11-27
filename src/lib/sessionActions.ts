@@ -21,6 +21,7 @@ import {
   type SessionSummary,
 } from "@/lib/sessionStorage";
 import type { Translations } from "@/locales/types";
+import { deleteCloudCopies } from "@/lib/projects/cloudDelete";
 
 /** What the sidebar's and the transcript's session actions read and change in the app; built
  *  when an action runs. */
@@ -132,6 +133,15 @@ export function deleteChat(id: string, env: SessionActionsEnv): void {
 export async function deleteSession(id: string, withNested: boolean, env: SessionActionsEnv): Promise<void> {
   const removed = sessionFamilyIds(id, withNested, env.sessions);
   const newParent = env.sessions.find((s) => s.id === id)?.parentId;
+  // A project's cloud thread goes from the cloud first, with its data: if the cloud refuses,
+  // the session stays, so the user can still delete it from here later.
+  const live = env.liveChats();
+  const cloudFailed = await deleteCloudCopies(removed.map((sid) => live.find((c) => c.id === sid) ?? env.sessions.find((s) => s.id === sid) ?? {}));
+  if (cloudFailed) {
+    const tp = env.t.projects;
+    await env.confirm({ title: tp.cloudDeleteFailedTitle, message: tp.cloudDeleteFailed.replace("{error}", cloudFailed), confirmLabel: tp.ok });
+    return;
+  }
   // Started first: it marks the sessions deleted before it awaits anything, so the save a
   // stopped turn makes below writes nothing back.
   const deleting = deleteSessionFamily(id, withNested, env.sessions, env.workspace);

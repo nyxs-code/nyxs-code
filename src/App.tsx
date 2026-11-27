@@ -1383,6 +1383,7 @@ export default function App() {
               onOpenCloudSettings={() => navigate(navSnapshot({ settingsOpen: true, settingsSection: "nube" }))}
               onSave={projectsApi.updateProject}
               onDelete={projectsApi.removeProject}
+              onDeleteThread={projectsApi.removeThread}
             >
             <div className={cn("flex-1 flex min-h-0 min-w-0", split && "gap-2 p-2")}>
               {paneChats.map((chat, i) => (

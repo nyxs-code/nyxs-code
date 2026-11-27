@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Clock, ExternalLink, FilePlus, FileText, Folder, FolderPlus, GitFork, X } from "lucide-react";
+import { Clock, ExternalLink, FilePlus, FileText, Folder, FolderPlus, GitFork, Trash2, X } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Button } from "@/components/ui/button";
 import { getLanguage, localizedError, useTranslations } from "@/lib/i18n";
@@ -20,7 +20,7 @@ type Tab = "threads" | "files" | "memory" | "scheduled";
 
 /** The project's overview, right of its conversation (340px): its threads grouped by what they
  *  need, its folders, its memory and its scheduled tasks. */
-export function ProjectOverview({ entry, activeId, onOpenScheduled }: { entry: ProjectEntry; activeId: string | null; onOpenScheduled: () => void }) {
+export function ProjectOverview({ entry, activeId, onOpenScheduled, onDeleteThread }: { entry: ProjectEntry; activeId: string | null; onOpenScheduled: () => void; onDeleteThread: (id: string) => void }) {
   const t = useTranslations().projects;
   const [tab, setTab] = useState<Tab>("threads");
   const tabs: { id: Tab; label: string }[] = [
@@ -46,7 +46,7 @@ export function ProjectOverview({ entry, activeId, onOpenScheduled }: { entry: P
         ))}
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-        {tab === "threads" && <ThreadsTab entry={entry} activeId={activeId} />}
+        {tab === "threads" && <ThreadsTab entry={entry} activeId={activeId} onDelete={onDeleteThread} />}
         {tab === "files" && <FilesTab entry={entry} />}
         {tab === "memory" && <MemoryTab key={entry.project.id} projectId={entry.project.id} />}
         {tab === "scheduled" && <ScheduledTab folder={projectFolder(entry.project)} onOpenScheduled={onOpenScheduled} />}
@@ -55,7 +55,7 @@ export function ProjectOverview({ entry, activeId, onOpenScheduled }: { entry: P
   );
 }
 
-function ThreadsTab({ entry, activeId }: { entry: ProjectEntry; activeId: string | null }) {
+function ThreadsTab({ entry, activeId, onDelete }: { entry: ProjectEntry; activeId: string | null; onDelete: (id: string) => void }) {
   const t = useTranslations().projects;
   const label: Record<ThreadGroup, string> = { waiting: t.groupWaiting, working: t.groupWorking, review: t.groupReview, resolved: t.groupResolved, failed: t.groupFailed };
   if (!entry.threads.length) return <p className="px-4 py-4 text-[13px] leading-relaxed text-text-400">{t.noThreads}</p>;
@@ -71,20 +71,25 @@ function ThreadsTab({ entry, activeId }: { entry: ProjectEntry; activeId: string
               <span className="text-text-500">{rows.length}</span>
             </h3>
             {rows.map((x) => (
-              <button
-                key={x.id}
-                type="button"
-                onClick={() => openSession(x.id)}
-                className={cn("w-full flex items-start gap-2.5 px-2 py-1.5 rounded-[6px] text-left transition-colors", x.id === activeId ? "bg-bg-200" : "hover:bg-bg-200/70")}
-              >
-                <span className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", GROUP_DOT[x.group])} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13px] text-text-100">{x.title}</span>
-                  <span className="block truncate text-[12px] text-text-400">
-                    {x.location?.kind === "cloud" ? t.cloud : t.thisComputer} · {relativeTime(x.updatedAt, getLanguage())}
+              <div key={x.id} className={cn("group relative rounded-[6px] transition-colors", x.id === activeId ? "bg-bg-200" : "hover:bg-bg-200/70")}>
+                <button type="button" onClick={() => openSession(x.id)} className="w-full flex items-start gap-2.5 px-2 py-1.5 pr-9 text-left">
+                  <span className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", GROUP_DOT[x.group])} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] text-text-100">{x.title}</span>
+                    <span className="block truncate text-[12px] text-text-400">
+                      {x.location?.kind === "cloud" ? t.cloud : t.thisComputer} · {relativeTime(x.updatedAt, getLanguage())}
+                    </span>
                   </span>
-                </span>
-              </button>
+                </button>
+                <button
+                  type="button"
+                  aria-label={`${t.deleteThread}: ${x.title}`}
+                  onClick={() => onDelete(x.id)}
+                  className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-[6px] text-text-400 opacity-0 hover:bg-bg-300 hover:text-text-100 group-hover:opacity-100 focus-visible:opacity-100"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
             ))}
           </section>
         );

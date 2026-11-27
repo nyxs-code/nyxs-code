@@ -13,7 +13,27 @@ const fake = vi.hoisted(() => ({
   changed: 2 as number | null,
   kept: [] as string[],
   failDelete: false,
+  /** The cloud's answer to deleting a thread: null for ok, else the HTTP status. */
+  cloudStatus: null as number | null,
 }));
+
+vi.mock("@/lib/cloud/cloudApi", () => {
+  class CloudError extends Error {
+    status: number;
+    constructor(message: string, status: number) {
+      super(message);
+      this.status = status;
+    }
+  }
+  return {
+    CloudError,
+    deleteCloudThread: async (id: string) => {
+      fake.calls.push(`cloudDelete ${id}`);
+      if (fake.cloudStatus !== null) throw new CloudError(`cloud said ${fake.cloudStatus}`, fake.cloudStatus);
+      return { ok: true };
+    },
+  };
+});
 
 vi.mock("@/lib/featureSettings", () => ({ warnUncommittedArchive: () => fake.warn }));
 vi.mock("@/lib/archiveGuard", () => ({
@@ -83,6 +103,7 @@ beforeEach(() => {
   fake.changed = 2;
   fake.kept = [];
   fake.failDelete = false;
+  fake.cloudStatus = null;
 });
 
 describe("archiveSession", () => {
@@ -188,6 +209,29 @@ describe("deleting", () => {
     const { env } = setup();
     await expect(actions.deleteSession("a", false, env)).rejects.toThrow("disk");
     expect(env.refreshSessions).toHaveBeenCalled();
+  });
+
+  it("deletes a cloud thread from the cloud before the session", async () => {
+    const cloudChat: Chat = { id: "a", title: "A", workspace: "/ws", messages: [], projectId: "p", projectRole: "thread", threadLocation: { kind: "cloud", cloudThreadId: "ct-1" } };
+    const { env, chats } = setup({}, [cloudChat]);
+    await actions.deleteSession("a", false, env);
+    expect(fake.calls).toEqual(["cloudDelete ct-1", "deleteFamily a", "close a"]);
+    expect(chats()).toEqual([]);
+  });
+
+  it("keeps a cloud thread's session when the cloud refuses, and says why; gone counts as deleted", async () => {
+    const cloudChat: Chat = { id: "a", title: "A", workspace: "/ws", messages: [], projectId: "p", projectRole: "thread", threadLocation: { kind: "cloud", cloudThreadId: "ct-1" } };
+    fake.cloudStatus = 500;
+    const kept = setup({}, [cloudChat]);
+    await actions.deleteSession("a", false, kept.env);
+    expect(fake.calls).toEqual(["cloudDelete ct-1"]);
+    expect(kept.chats().map((c) => c.id)).toEqual(["a"]);
+    expect(vi.mocked(kept.env.confirm).mock.calls[0][0].title).toBe(t.projects.cloudDeleteFailedTitle);
+    fake.calls = [];
+    fake.cloudStatus = 404;
+    const gone = setup({}, [cloudChat]);
+    await actions.deleteSession("a", false, gone.env);
+    expect(fake.calls).toEqual(["cloudDelete ct-1", "deleteFamily a", "close a"]);
   });
 
   it("hands a deleted session's children to its parent and keeps the open chat", async () => {

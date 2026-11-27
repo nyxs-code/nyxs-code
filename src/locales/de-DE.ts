@@ -3061,7 +3061,7 @@ const t: Translations = {
     createFailed: "Das Projekt konnte nicht gespeichert werden.",
     deleteProject: "Projekt löschen",
     deleteTitle: "„{name}“ löschen?",
-    deleteBody: "Das Projekt, sein Gedächtnis und seine Gespräche werden gelöscht. Ordner und Branches bleiben unberührt.",
+    deleteBody: "Das Projekt, sein Gedächtnis, seine Gespräche und seine Cloud-Threads samt Daten werden gelöscht. Ordner, Branches und Pull Requests bleiben unberührt.",
     projectMenu: "Projektoptionen",
     cloudNeedsRepo: "Die Cloud braucht die Repository-URL.",
     cloudModelUnsupported: "Dieses Modell kann nicht in der Cloud arbeiten.",
@@ -3100,6 +3100,12 @@ const t: Translations = {
     cloudInfoNetwork: "Sandboxes erreichen nichts hinter deinem VPN, SSO oder deinen Secrets, etwa private Registries, interne Dienste oder Datenbanken.",
     cloudInfoLink: "Wie Threads laufen",
     openCloudSettings: "Cloud-Einstellungen",
+    deleteThread: "Thread löschen",
+    deleteThreadBody: "Das Gespräch des Threads wird gelöscht. Sein Branch und seine Änderungen bleiben unberührt.",
+    deleteCloudThreadBody: "Das Gespräch des Threads und seine Cloud-Umgebung werden mit allen Daten gelöscht. Sein Branch und sein Pull Request auf GitHub bleiben unberührt.",
+    cloudDeleteFailedTitle: "Löschen in der Cloud fehlgeschlagen",
+    cloudDeleteFailed: "Der Thread ist noch in der Cloud, daher wurde nichts gelöscht: {error}",
+    ok: "OK",
   },
 };
 

@@ -3061,7 +3061,7 @@ const t: Translations = {
     createFailed: "Couldn't save the project.",
     deleteProject: "Delete project",
     deleteTitle: "Delete “{name}”?",
-    deleteBody: "The project, its memory and its conversations are deleted. Folders and branches are left as they are.",
+    deleteBody: "The project, its memory, its conversations and its cloud threads with their data are deleted. Folders, branches and pull requests are left as they are.",
     projectMenu: "Project options",
     cloudNeedsRepo: "The cloud needs the repository URL.",
     cloudModelUnsupported: "This model can't work in the cloud.",
@@ -3100,6 +3100,12 @@ const t: Translations = {
     cloudInfoNetwork: "Sandboxes can't reach anything behind your VPN, SSO or secrets, such as private registries, internal services or databases.",
     cloudInfoLink: "How threads run",
     openCloudSettings: "Cloud settings",
+    deleteThread: "Delete thread",
+    deleteThreadBody: "The thread's conversation is deleted. Its branch and changes are left as they are.",
+    deleteCloudThreadBody: "The thread's conversation and its cloud environment are deleted, with all their data. Its branch and pull request on GitHub are left as they are.",
+    cloudDeleteFailedTitle: "Couldn't delete it in the cloud",
+    cloudDeleteFailed: "The thread is still in the cloud, so nothing was deleted: {error}",
+    ok: "OK",
   },
 };
 

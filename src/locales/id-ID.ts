@@ -3061,7 +3061,7 @@ const t: Translations = {
     createFailed: "Proyek tidak dapat disimpan.",
     deleteProject: "Hapus proyek",
     deleteTitle: "Hapus “{name}”?",
-    deleteBody: "Proyek, memori, dan percakapannya dihapus. Folder dan branch dibiarkan apa adanya.",
+    deleteBody: "Proyek, memorinya, percakapannya, dan utas cloud-nya beserta datanya dihapus. Folder, branch, dan pull request dibiarkan apa adanya.",
     projectMenu: "Opsi proyek",
     cloudNeedsRepo: "Cloud butuh URL repositori.",
     cloudModelUnsupported: "Model ini tidak bisa bekerja di cloud.",
@@ -3100,6 +3100,12 @@ const t: Translations = {
     cloudInfoNetwork: "Sandbox tidak bisa menjangkau apa pun di balik VPN, SSO, atau rahasiamu, seperti registri privat, layanan internal, atau basis data.",
     cloudInfoLink: "Cara utas berjalan",
     openCloudSettings: "Pengaturan cloud",
+    deleteThread: "Hapus utas",
+    deleteThreadBody: "Percakapan utas dihapus. Branch dan perubahannya dibiarkan apa adanya.",
+    deleteCloudThreadBody: "Percakapan utas dan lingkungannya di cloud dihapus, beserta semua datanya. Branch dan pull request-nya di GitHub dibiarkan apa adanya.",
+    cloudDeleteFailedTitle: "Tidak bisa menghapus di cloud",
+    cloudDeleteFailed: "Utas masih ada di cloud, jadi tidak ada yang dihapus: {error}",
+    ok: "Oke",
   },
 };
 

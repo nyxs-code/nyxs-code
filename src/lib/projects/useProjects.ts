@@ -14,6 +14,7 @@ import type { Settings } from "@/lib/settings";
 import { checkCloudInbox } from "@/lib/cloud/cloudInbox";
 import { createCloudThreads } from "./cloudFollow";
 import { setCloudRoute } from "./cloudRoute";
+import { deleteCloudCopies } from "./cloudDelete";
 import { buildProjectDirectory, findThread, noteProjectRole, projectRoleOf, setProjectDirectory } from "./projectDirectory";
 import { setProjectHost, type StartThreadOutcome } from "./projectHost";
 import { addProjectFiles, deleteProject, ensureProjectHubDir, loadProjects, memoryPathOf, newProjectId, projectById, projectFolder, projectHubDir, projectsSnapshot, saveProject, useProjectHubs } from "./projectStore";
@@ -401,23 +402,39 @@ export function useProjects(deps: Deps) {
   }, []);
 
   /** Deletes the project, its coordinator and its threads. Folders and branches stay. */
-  const removeProject = useCallback(async (projectId: string) => {
+  /** Deletes these sessions of `project`, their cloud threads first: when the cloud refuses,
+   *  nothing is deleted and the error is thrown, for the caller to show. */
+  const removeSessions = useCallback(async (project: Project, ids: Set<string>) => {
     const d = ref.current;
-    const project = projectById(projectId);
-    if (!project) return;
-    const ids = new Set([project.coordinatorChatId, ...savedRef.current.filter((s) => s.projectId === projectId).map((s) => s.id)]);
-    for (const c of d.liveChatsRef.current ?? []) if (c.projectId === projectId) ids.add(c.id);
+    const known = (id: string) => d.liveChatsRef.current?.find((c) => c.id === id) ?? savedRef.current.find((s) => s.id === id);
+    const failed = await deleteCloudCopies([...ids].map((id) => known(id) ?? {}));
+    if (failed) throw new Error(failed);
     for (const id of ids) d.appRef.current?.abortTurn(id);
     d.appRef.current?.dropSessions([...ids]);
+    const workspaces = new Map([...ids].map((id) => [id, known(id)?.workspace ?? coordinatorWorkspace(project)]));
     d.setChats((prev) => prev.filter((c) => !ids.has(c.id)));
-    for (const id of ids) {
-      const ws = savedRef.current.find((s) => s.id === id)?.workspace ?? d.liveChatsRef.current?.find((c) => c.id === id)?.workspace ?? coordinatorWorkspace(project);
-      await deleteSession(ws ?? null, id).catch(() => undefined);
-    }
-    await deleteProject(projectId);
+    for (const id of ids) await deleteSession(workspaces.get(id) ?? null, id).catch(() => undefined);
     relist();
     d.appRef.current?.refreshSessions();
   }, [relist]);
+
+  /** Deletes the project, its coordinator and its threads, the cloud ones from the cloud too.
+   *  Folders, branches and pull requests stay. */
+  const removeProject = useCallback(async (projectId: string) => {
+    const project = projectById(projectId);
+    if (!project) return;
+    const ids = new Set([project.coordinatorChatId, ...savedRef.current.filter((s) => s.projectId === projectId).map((s) => s.id)]);
+    for (const c of ref.current.liveChatsRef.current ?? []) if (c.projectId === projectId) ids.add(c.id);
+    await removeSessions(project, ids);
+    await deleteProject(projectId);
+  }, [removeSessions]);
+
+  /** Deletes one thread (its cloud thread with it). The coordinator opens if it was on screen. */
+  const removeThread = useCallback(async (threadId: string) => {
+    const project = projectById(projectRoleOf(threadId)?.projectId);
+    if (!project) return;
+    await removeSessions(project, new Set([threadId]));
+  }, [removeSessions]);
 
   const openProject = useCallback((projectId: string) => {
     const project = projectById(projectId);
@@ -427,7 +444,7 @@ export function useProjects(deps: Deps) {
     ref.current.appRef.current?.openSession(id, ws);
   }, []);
 
-  return { projects, loaded, createProject, updateProject, removeProject, openProject };
+  return { projects, loaded, createProject, updateProject, removeProject, removeThread, openProject };
 }
 
 /** Where a project's coordinator works when nothing else says: its folder, else its own. */
