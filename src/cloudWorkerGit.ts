@@ -118,8 +118,10 @@ export async function publishRepo(job: RepoJob, repo: PreparedRepo, input: Publi
   const since = remoteHasBranch ? `origin/${wb}` : `origin/${base}`;
   const ahead = Number((await must(exec, "Couldn't compare with the remote", ["rev-list", "--count", `${since}..HEAD`], dir)).stdout.trim()) || 0;
   if (ahead === 0) {
-    // Nothing new; a pull request from an earlier turn is still the thread's.
+    // Nothing new; a pull request from an earlier turn is still the thread's, and its body gets
+    // this turn's line.
     const prUrl = remoteHasBranch && input.canPush ? await findPr(exec, dir, wb) : undefined;
+    if (prUrl) await editPr(exec, dir, prUrl, input);
     return { changed: false, pushed: false, ...(prUrl ? { prUrl } : {}) };
   }
   if (!input.canPush) return { changed: true, pushed: false, error: "No GITHUB_TOKEN: the work is committed on the branch but not pushed." };
@@ -129,7 +131,10 @@ export async function publishRepo(job: RepoJob, repo: PreparedRepo, input: Publi
     return { changed: true, pushed: false, error: `Couldn't push ${wb}: ${why}` };
   }
   const existing = await findPr(exec, dir, wb);
-  if (existing) return { changed: true, pushed: true, prUrl: existing };
+  if (existing) {
+    const edited = await editPr(exec, dir, existing, input);
+    return { changed: true, pushed: true, prUrl: existing, ...(edited ? {} : { error: `Pushed ${wb}, but couldn't update the pull request's description.` }) };
+  }
   const created = await exec("gh", ["pr", "create", "--draft", "--head", wb, "--base", base, "--title", input.title, "--body", input.body], dir, NETWORK_TIMEOUT_MS);
   const prUrl = /https:\/\/\S+\/pull\/\d+/.exec(created.stdout)?.[0];
   if (created.code !== 0 || !prUrl) {
@@ -137,6 +142,12 @@ export async function publishRepo(job: RepoJob, repo: PreparedRepo, input: Publi
     return { changed: true, pushed: true, error: `Pushed ${wb}, but couldn't open the pull request: ${why}` };
   }
   return { changed: true, pushed: true, prUrl };
+}
+
+/** Writes the thread's title and summary over the pull request's; false when gh couldn't. */
+async function editPr(exec: CloudExec, dir: string, url: string, input: PublishInput): Promise<boolean> {
+  const r = await exec("gh", ["pr", "edit", url, "--title", input.title, "--body", input.body], dir, NETWORK_TIMEOUT_MS);
+  return r.code === 0;
 }
 
 async function findPr(exec: CloudExec, dir: string, branch: string): Promise<string | undefined> {

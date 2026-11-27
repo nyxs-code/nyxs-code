@@ -136,7 +136,8 @@ describe("cloud worker turn", () => {
     expect(ev[2].data).toEqual({ text: "Looking at the repo." });
     expect(ev[4].data).toEqual({ id: "t1", name: "Read", output: '{"name":"app"}' });
     expect(ev[6].data).toEqual({ text: "Which license?", status: "needs_input" });
-    expect(ev[8].data).toMatchObject({ text: "Looking at the repo.I wrote the README." });
+    // The text went out as `text` events; the result only adds what they don't say.
+    expect(ev[8].data).toEqual({ usage: null, denied: [] });
     expect(ev.at(-1)).toEqual({
       type: "done",
       data: { status: "needs_input", preview: "Which license?", branch: "nyxs/readme-1a2b", prUrl: "https://github.com/acme/app/pull/7" },
@@ -154,7 +155,10 @@ describe("cloud worker turn", () => {
     expect(git.calls).toContain("git checkout --no-track -b nyxs/readme-1a2b origin/main @/work/repo");
     expect(git.calls.some((c) => c.startsWith("git commit -q -m Add a README"))).toBe(true);
     expect(git.calls).toContain("git push -q -u origin HEAD:refs/heads/nyxs/readme-1a2b @/work/repo");
-    expect(git.calls.some((c) => c.startsWith("gh pr create --draft --head nyxs/readme-1a2b --base main --title Add a README"))).toBe(true);
+    const create = git.calls.find((c) => c.startsWith("gh pr create"))!;
+    expect(create.startsWith("gh pr create --draft --head nyxs/readme-1a2b --base main --title Add a README --body **Add a README**")).toBe(true);
+    expect(create).toContain("- Turn 1: Which license?");
+    expect(create).toContain("Abierto por un hilo de Nyxs en la nube");
 
     const session = JSON.parse(out.session!);
     expect(session).toMatchObject({ version: 1, threadId: "th_1", turns: 1, model: MODEL_ID, memory: "- the API lives in server/" });
@@ -188,8 +192,14 @@ describe("cloud worker turn", () => {
     expect(git.calls.some((c) => c.startsWith("git clone"))).toBe(false);
     expect(git.calls.some((c) => c.startsWith("git checkout"))).toBe(false);
     expect(git.calls.some((c) => c.startsWith("gh pr create"))).toBe(false);
+    // The existing pull request gets the thread's title (not the follow-up) and both turns.
+    const edit = git.calls.find((c) => c.startsWith("gh pr edit https://github.com/acme/app/pull/7 --title Add a README --body"))!;
+    expect(edit).toContain("- Turn 1: Which license?\n- Turn 2: Which license?");
     expect(events().at(-1)?.data).toMatchObject({ prUrl: "https://github.com/acme/app/pull/7" });
-    expect(JSON.parse(out.session!).history).toHaveLength(4);
+    const session = JSON.parse(out.session!);
+    expect(session.history).toHaveLength(4);
+    expect(session).toMatchObject({ title: "Add a README", instructions: "Add a README" });
+    expect(session.log.map((l: { turn: number }) => l.turn)).toEqual([1, 2]);
   });
 
   it("reports a job it couldn't read and still ends with done", async () => {

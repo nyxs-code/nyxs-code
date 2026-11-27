@@ -47,6 +47,11 @@ export interface CloudSession {
   memory: string;
   history: ChatTurn[];
   updatedAt: string;
+  /** The thread's title and first instructions, for the pull request of every later turn. */
+  title?: string;
+  instructions?: string;
+  /** One line per turn: how each one ended, for the pull request's body. */
+  log?: { turn: number; preview: string }[];
 }
 
 export interface CloudDeps {
@@ -68,7 +73,18 @@ export function readCloudSession(raw: string | null | undefined, threadId: strin
   try {
     const s = JSON.parse(raw) as Partial<CloudSession>;
     if (s.version !== 1 || s.threadId !== threadId || !Array.isArray(s.history)) return null;
-    return { version: 1, threadId, turns: Number(s.turns) || 0, model: s.model ?? null, memory: s.memory ?? "", history: s.history, updatedAt: s.updatedAt ?? "" };
+    return {
+      version: 1,
+      threadId,
+      turns: Number(s.turns) || 0,
+      model: s.model ?? null,
+      memory: s.memory ?? "",
+      history: s.history,
+      updatedAt: s.updatedAt ?? "",
+      ...(s.title ? { title: s.title } : {}),
+      ...(s.instructions ? { instructions: s.instructions } : {}),
+      ...(Array.isArray(s.log) ? { log: s.log } : {}),
+    };
   } catch {
     return null;
   }
@@ -356,8 +372,13 @@ export async function runCloudTurn(args: HeadlessArgs, deps: CloudDeps = { chat:
   }
 
   const text = failure === null ? stripStreamMarkers(full) : "";
+  // The turn's text already went out as `text` events: the result only adds what they don't say.
   if (failure !== null) await emit("error", { message: failure });
-  else await emit("result", { text, usage, denied });
+  else await emit("result", { usage, denied });
+
+  const reportedLast = lastReport as { text: string; status: ReportStatus } | null;
+  const preview = reportedLast?.text || lastText || text || failure || "";
+  const final = doneStatus(failure !== null, reportedLast?.status ?? null);
 
   // The conversation is saved whatever happened, so the next turn knows what this one did.
   const answer: ChatTurn = { role: "assistant", content: text || (failure ? `(The turn failed: ${failure})` : ""), ...(messages.length ? { messages } : {}) };
@@ -369,6 +390,9 @@ export async function runCloudTurn(args: HeadlessArgs, deps: CloudDeps = { chat:
     memory: (job.memory ?? "").trim() || previous?.memory || "",
     history: [...history, answer],
     updatedAt: new Date(deps.now()).toISOString(),
+    title: (job.title ?? "").trim() || previous?.title || cloudTitle(job),
+    instructions: previous?.instructions ?? job.prompt,
+    log: [...(previous?.log ?? []).filter((l) => l.turn !== job.turn), { turn: job.turn, preview: oneLine(preview) }],
   };
   try {
     await invoke<string>("nyxs_headless_save_session", { json: `${JSON.stringify(session)}\n` });
@@ -376,16 +400,13 @@ export async function runCloudTurn(args: HeadlessArgs, deps: CloudDeps = { chat:
     await log(`couldn't save the session: ${describeFailure(err)}`);
   }
 
-  const reportedLast = lastReport as { text: string; status: ReportStatus } | null;
-  const preview = reportedLast?.text || lastText || text || failure || "";
-  const final = doneStatus(failure !== null, reportedLast?.status ?? null);
   if (failure !== null) {
     // What a failed turn left stays uncommitted in the volume; the next turn goes on from it.
     await finish({ status: final, preview, branch: job.workBranch });
     return;
   }
   try {
-    const published = await publishRepo(job, repo, { title: cloudTitle(job), body: prBody(job, preview), canPush: args.githubToken === true }, deps.exec);
+    const published = await publishRepo(job, repo, { title: clip(session.title ?? cloudTitle(job), 72), body: cloudPrBody(session), canPush: args.githubToken === true }, deps.exec);
     if (published.error) await emit("error", { message: published.error });
     await finish({
       status: final,
@@ -401,7 +422,16 @@ export async function runCloudTurn(args: HeadlessArgs, deps: CloudDeps = { chat:
   }
 }
 
-function prBody(job: CloudJob, preview: string): string {
-  const summary = preview.trim() ? `${clip(preview.trim(), 2000)}\n\n` : "";
-  return `${summary}---\nOpened by a Nyxs cloud thread (${job.threadId}). Later turns of the thread push to this branch.`;
+const oneLine = (text: string) => clip(text.replace(/\s+/g, " ").trim(), 200);
+
+/** The pull request's body, written again each turn: the thread's title and instructions, then one
+ *  line per turn with how it ended. */
+export function cloudPrBody(session: CloudSession): string {
+  const parts = [`**${session.title ?? `Nyxs thread ${session.threadId}`}**`];
+  const instructions = (session.instructions ?? "").trim();
+  if (instructions) parts.push(clip(instructions, 1500));
+  const turns = [...(session.log ?? [])].sort((a, b) => a.turn - b.turn);
+  if (turns.length) parts.push(turns.map((l) => `- Turn ${l.turn}: ${l.preview || "(no message)"}`).join("\n"));
+  parts.push("---\nAbierto por un hilo de Nyxs en la nube");
+  return `${parts.join("\n\n")}\n`;
 }
