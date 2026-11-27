@@ -158,7 +158,7 @@ describe("cloud worker turn", () => {
     const create = git.calls.find((c) => c.startsWith("gh pr create"))!;
     expect(create.startsWith("gh pr create --draft --head nyxs/readme-1a2b --base main --title Add a README --body **Add a README**")).toBe(true);
     expect(create).toContain("- Turn 1: Which license?");
-    expect(create).toContain("Abierto por un hilo de Nyxs en la nube");
+    expect(create).toContain("Opened by a Nyxs cloud thread");
 
     const session = JSON.parse(out.session!);
     expect(session).toMatchObject({ version: 1, threadId: "th_1", turns: 1, model: MODEL_ID, memory: "- the API lives in server/" });

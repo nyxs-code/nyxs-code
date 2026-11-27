@@ -432,6 +432,6 @@ export function cloudPrBody(session: CloudSession): string {
   if (instructions) parts.push(clip(instructions, 1500));
   const turns = [...(session.log ?? [])].sort((a, b) => a.turn - b.turn);
   if (turns.length) parts.push(turns.map((l) => `- Turn ${l.turn}: ${l.preview || "(no message)"}`).join("\n"));
-  parts.push("---\nAbierto por un hilo de Nyxs en la nube");
+  parts.push("---\nOpened by a Nyxs cloud thread");
   return `${parts.join("\n\n")}\n`;
 }
