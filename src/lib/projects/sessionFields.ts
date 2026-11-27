@@ -31,5 +31,6 @@ export function projectFieldsOf(o: ProjectSessionFields | Record<string, unknown
     ...(typeof r.threadUpdatedAt === "number" ? { threadUpdatedAt: r.threadUpdatedAt } : {}),
     ...(typeof r.threadCloudSeq === "number" ? { threadCloudSeq: r.threadCloudSeq } : {}),
     ...(str(r.threadPrUrl) ? { threadPrUrl: r.threadPrUrl as string } : {}),
+    ...(r.threadCloudReported === true ? { threadCloudReported: true } : {}),
   };
 }

@@ -37,8 +37,8 @@ const failureText = (e: unknown) => (e instanceof Error ? e.message : String(e))
  *  session, sending it the user's messages, stopping it, and catching up on launch. */
 export function createCloudThreads(h: CloudHelpers) {
   const following = new Map<string, AbortController>();
-  /** Threads whose turn already reported a final status: its `done` doesn't report again. */
-  const reportedTurn = new Set<string>();
+  /** Threads sent a message while being followed: their next turn is followed once this one ends. */
+  const again = new Set<string>();
   const saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   const saveSoon = (id: string) => {
@@ -52,18 +52,21 @@ export function createCloudThreads(h: CloudHelpers) {
       return;
     }
     if (effect.kind === "report") {
-      if (effect.status !== "working") reportedTurn.add(id);
+      // Kept in the session, so a restart between the report and the turn's end doesn't report twice.
+      if (effect.status !== "working") h.patchChat(id, (c) => ({ ...c, threadCloudReported: true }));
       await h.setStatus(id, effect.status, effect.text);
       await h.deliver(id, effect.text, effect.status);
       return;
     }
+    const said = !!h.live(id)?.threadCloudReported;
     h.patchChat(id, (c) => ({
       ...c,
+      threadCloudReported: undefined,
       ...(effect.prUrl ? { threadPrUrl: effect.prUrl } : {}),
       ...(effect.branch && c.threadLocation?.kind === "cloud" ? { threadLocation: { ...c.threadLocation, branch: effect.branch } } : {}),
     }));
-    await h.setStatus(id, effect.status, effect.preview);
-    const said = reportedTurn.delete(id);
+    // Another turn is queued behind this one: the thread is still at work.
+    await h.setStatus(id, again.has(id) ? "working" : effect.status, effect.preview);
     const pr = effect.prUrl ? `\n\nPull request: ${effect.prUrl}` : "";
     const failed = effect.error ? `> ${effect.error.replace(/\n/g, "\n> ")}` : "";
     // A thread that reported already says nothing more, unless publishing its work failed.
@@ -105,7 +108,11 @@ export function createCloudThreads(h: CloudHelpers) {
         if (e instanceof CloudError && e.status === 404) await h.setStatus(id, "failed", failureText(e));
       } finally {
         await chain;
-        if (following.get(id) === ctrl) following.delete(id);
+        if (following.get(id) === ctrl) {
+          following.delete(id);
+          // A message arrived during this turn: its turn runs next and is followed too.
+          if (again.delete(id) && !ctrl.signal.aborted) follow(id);
+        }
       }
     })();
   };
@@ -114,12 +121,14 @@ export function createCloudThreads(h: CloudHelpers) {
   const send = async (id: string, message: ChatMessage, text: string): Promise<boolean> => {
     const cloudId = cloudIdOf(h.live(id));
     if (!cloudId) return false;
+    await h.ensureLoaded(id);
     // Marked until its `user` event comes back, so the transcript shows it once.
     h.patchChat(id, (c) => ({ ...c, messages: [...c.messages, { ...message, cloudPending: true }] }));
     try {
       await sendCloudMessage(cloudId, text);
       await h.setStatus(id, "working");
-      follow(id);
+      if (following.has(id)) again.add(id);
+      else follow(id);
     } catch (e) {
       // Never reached the cloud: no `user` event will clear it.
       h.patchChat(id, (c) => ({ ...c, messages: c.messages.map((m) => (m.id === message.id ? { ...m, cloudPending: undefined } : m)) }));
@@ -133,9 +142,16 @@ export function createCloudThreads(h: CloudHelpers) {
   const stop = async (id: string): Promise<boolean> => {
     const cloudId = cloudIdOf(h.live(id));
     if (!cloudId) return false;
-    await stopCloudThread(cloudId);
-    following.get(id)?.abort();
+    try {
+      await stopCloudThread(cloudId);
+    } finally {
+      // Whatever the cloud answered, nothing more is followed or reported for this turn here.
+      again.delete(id);
+      following.get(id)?.abort();
+      h.patchChat(id, (c) => ({ ...c, threadCloudReported: undefined }));
+    }
     await h.setStatus(id, "idle");
+    await h.save(id);
     return true;
   };
 
@@ -225,8 +241,13 @@ export function createCloudThreads(h: CloudHelpers) {
       const known = h.live(id);
       // A thread nothing happened to isn't read from disk.
       if (!running && known && status === known.threadStatus && Date.parse(t.updatedAt) <= (known.threadUpdatedAt ?? 0)) continue;
+      // The API says how far its events go: a thread not running whose transcript has them all
+      // has nothing to fetch, whatever its status or date say (a thread resolved here stays so).
+      const lastSeq = (t as { lastSeq?: number }).lastSeq;
+      if (!running && known && typeof lastSeq === "number" && lastSeq <= (known.threadCloudSeq ?? 0)) continue;
       if (!(await h.ensureLoaded(id))) continue;
       const chat = h.live(id);
+      if (!running && typeof lastSeq === "number" && lastSeq <= (chat?.threadCloudSeq ?? 0)) continue;
       const moved = status !== chat?.threadStatus || Date.parse(t.updatedAt) > (chat?.threadUpdatedAt ?? 0);
       if (running || moved) follow(id, !running);
     }

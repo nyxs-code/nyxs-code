@@ -40,6 +40,7 @@ describe("normalizeProject", () => {
     const p = normalizeProject({ id: "p-2", coordinatorChatId: "c", repos: [{ path: " D:\\a " }, { branch: "x" }], defaults: { effort: "high", where: "cloud" } });
     expect(p).toMatchObject({ id: "p-2", name: "p-2", repos: [{ path: "D:\\a" }], instructions: "", defaults: { effort: "high", where: "cloud" }, memoryPath: "project-hubs/p-2/MEMORY.md" });
     expect(projectFolder(p)).toBe("D:\\a");
+    expect(normalizeProject({ id: "p-3", coordinatorChatId: "c", sessionFolders: ["D:\\a", 3, ""] })?.sessionFolders).toEqual(["D:\\a"]);
   });
 
   it("refuses what isn't a project", () => {

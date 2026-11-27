@@ -88,7 +88,7 @@ export function useProjects(deps: Deps) {
   const relist = useCallback(() => {
     const seq = ++listSeq.current;
     // A project's sessions are in its folder, or in its own data folder when it had none.
-    const folders = [...new Set(projectsSnapshot().flatMap((p) => [projectFolder(p), projectHubDir(p.id)]).filter((f): f is string => !!f))];
+    const folders = [...new Set(projectsSnapshot().flatMap((p) => [projectFolder(p), projectHubDir(p.id), ...(p.sessionFolders ?? [])]).filter((f): f is string => !!f))];
     void Promise.all(folders.map(async (ws) => (await listSessions(ws)).map((s) => ({ ...s, workspace: ws }))))
       .then((lists) => {
         if (seq === listSeq.current) setSaved(lists.flat().filter((s) => s.projectId));
@@ -124,7 +124,12 @@ export function useProjects(deps: Deps) {
     /** The session in memory, read from disk when it isn't: a coordinator the user hasn't opened
      *  since the app started still takes its threads' reports. */
     const ensureLoaded = async (id: string): Promise<boolean> => {
-      if (live(id)) return true;
+      if (live(id)) {
+        // Listed but without its messages (the chat index at launch): load them first, or what
+        // is added now would be saved as the whole transcript.
+        if (!d().hydratedRef.current?.has(id)) await d().ensureHydrated(id);
+        return true;
+      }
       const ws = workspaceOf(id);
       const read = ws ? await readSession(ws, id).catch(() => null) : null;
       if (!read || live(id)) return !!live(id);
@@ -370,6 +375,7 @@ export function useProjects(deps: Deps) {
     const hubDir = await ensureProjectHubDir(id);
     const workspace = input.folder ?? hubDir;
     if (!workspace) throw new Error("Couldn't create the project's folder.");
+    project.sessionFolders = [workspace];
     if (!input.folder) await trustWorkspace(workspace).catch(() => undefined);
     await saveProject(project);
     await addProjectFiles(id, input.contextPaths ?? []).catch((e) => console.warn("[projects] couldn't copy the context files:", e));
@@ -395,6 +401,10 @@ export function useProjects(deps: Deps) {
   }, [relist]);
 
   const updateProject = useCallback(async (project: Project) => {
+    // A folder unlinked still holds sessions made there: it stays listed.
+    const before = projectById(project.id);
+    const kept = [...(before?.sessionFolders ?? []), projectFolder(before), projectFolder(project)].filter((f): f is string => !!f);
+    project = { ...project, sessionFolders: [...new Set(kept)] };
     await saveProject(project);
     const d = ref.current;
     const title = project.name;
@@ -449,5 +459,5 @@ export function useProjects(deps: Deps) {
 
 /** Where a project's coordinator works when nothing else says: its folder, else its own. */
 function coordinatorWorkspace(project: Project | undefined): string | null {
-  return project ? projectFolder(project) ?? projectHubDir(project.id) : null;
+  return project ? project.sessionFolders?.[0] ?? projectFolder(project) ?? projectHubDir(project.id) : null;
 }

@@ -58,6 +58,7 @@ export function normalizeProject(raw: unknown): Project | null {
     },
     coordinatorChatId,
     memoryPath: str(r.memoryPath) || memoryPathOf(id),
+    ...(Array.isArray(r.sessionFolders) ? { sessionFolders: r.sessionFolders.filter((f): f is string => typeof f === "string" && !!f) } : {}),
   };
 }
 

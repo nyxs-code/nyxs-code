@@ -36,6 +36,9 @@ export interface Project {
   coordinatorChatId: string;
   /** The memory file, relative to the app's data folder. */
   memoryPath: string;
+  /** Every folder its sessions were saved in, its coordinator's first: they stay listed (and
+   *  deleted with it) after the linked folder changes. */
+  sessionFolders?: string[];
 }
 
 export const PROJECT_INSTRUCTIONS_MAX = 16_000;
@@ -65,4 +68,6 @@ export interface ProjectSessionFields {
   threadCloudSeq?: number;
   /** The pull request a cloud thread opened. */
   threadPrUrl?: string;
+  /** A cloud thread reported its turn already: the turn's end doesn't report again. */
+  threadCloudReported?: boolean;
 }

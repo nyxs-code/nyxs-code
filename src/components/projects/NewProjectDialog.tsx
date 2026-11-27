@@ -146,7 +146,16 @@ export function NewProjectDialog({ recentFolders, onClose, onCreate }: { recentF
             <span className="flex-1 text-[13px] text-text-200">
               {t.contextLabel} <span className="text-text-400">{t.optional}</span>
             </span>
-            <div ref={menuRef} className="relative">
+            <div
+              ref={menuRef}
+              className="relative"
+              // Escape closes the menu only, not the dialog with what was typed in it.
+              onKeyDown={(e) => {
+                if (e.key !== "Escape" || !menuOpen) return;
+                e.stopPropagation();
+                setMenuOpen(false);
+              }}
+            >
               <Button variant="ghost" icon aria-label={t.addContext} aria-haspopup="menu" aria-expanded={menuOpen} onClick={(e) => {
                 if (menuOpen) return setMenuOpen(false);
                 const r = e.currentTarget.getBoundingClientRect();

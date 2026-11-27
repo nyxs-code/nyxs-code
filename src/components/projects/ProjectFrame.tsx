@@ -143,7 +143,7 @@ export function ProjectFrame({
         </div>
         <div className="ml-auto flex shrink-0 items-center gap-0.5">
           {cloudWorking && (
-            <Button variant="secondary" className="mr-1" onClick={() => void projectHost()?.stopThread(chat.id)}>
+            <Button variant="secondary" className="mr-1" onClick={() => void projectHost()?.stopThread(chat.id).catch((e: unknown) => confirm({ title: t.stopThread, message: e instanceof Error ? e.message : String(e), confirmLabel: t.ok }))}>
               <Square className="h-3 w-3" />
               {t.stopThread}
             </Button>

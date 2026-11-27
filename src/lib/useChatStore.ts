@@ -92,6 +92,9 @@ export function useChatStore() {
         if (failed) return [];
         if (fileHistory) adoptFileHistory(id, fileHistory);
         setChats((prev) => prev.map((c) => (c.id === id ? { ...c, messages, fileHistory } : c)));
+        // Async code that awaited this reads the live list next, before React commits: it must
+        // see the messages, or a message added now replaces the whole transcript.
+        liveChatsRef.current = liveChatsRef.current.map((c) => (c.id === id ? { ...c, messages, fileHistory } : c));
         hydratedRef.current.add(id);
         return messages;
       } finally {

@@ -3,7 +3,7 @@ import type { Chat } from "@/lib/chatStore";
 import type { CloudEvent } from "@/lib/cloud/cloudApi";
 
 /** What the mocked turn's `done` says: a publishing error, or a pull request. */
-const turn = vi.hoisted(() => ({ doneError: "" }));
+const turn = vi.hoisted(() => ({ doneError: "", gate: null as Promise<void> | null, report: false }));
 
 const api = vi.hoisted(() => ({
   createCloudThread: vi.fn(async (): Promise<{ id: string; status: string }> => ({ id: "cloud-1", status: "queued" })),
@@ -12,7 +12,10 @@ const api = vi.hoisted(() => ({
   stopCloudThread: vi.fn(async () => ({ ok: true })),
   followCloudThread: vi.fn(async (_id: string, after: number, onEvent: (e: CloudEvent) => void) => {
     const at = "2026-11-26T10:00:00Z";
+    // A turn still running: its events come once the test lets them.
+    if (turn.gate) await turn.gate;
     onEvent({ seq: after + 1, at, type: "text", data: { text: "Done." } });
+    if (turn.report) onEvent({ seq: after + 1.5, at, type: "report", data: { text: "Reported", status: "review" } });
     onEvent({ seq: after + 2, at, type: "done", data: { status: "review", preview: "Fixed it", branch: "nyxs/fix-1", ...(turn.doneError ? { error: turn.doneError } : { prUrl: "https://github.com/me/shop/pull/7" }) } });
     return after + 2;
   }),
@@ -86,6 +89,8 @@ const settle = () => new Promise((r) => setTimeout(r, 20));
 beforeEach(() => {
   vi.clearAllMocks();
   turn.doneError = "";
+  turn.gate = null;
+  turn.report = false;
   resetProjectsForTests([project], { "p-1": "- memo" });
 });
 
@@ -180,6 +185,55 @@ describe("cloud threads", () => {
     expect(api.followCloudThread).not.toHaveBeenCalled();
     expect(api.cloudThreadEvents).toHaveBeenCalledWith("cloud-1", 2, 0, expect.anything());
     expect(chats.get("t-1")!.threadCloudSeq).toBe(5);
+    cloud.dispose();
+  });
+
+  it("follows the next turn when a message arrives while one runs", async () => {
+    let open!: () => void;
+    turn.gate = new Promise((r) => { open = r; });
+    const { cloud, statuses } = harness();
+    await cloud.start("coord", project, { title: "Fix login", instructions: "Fix it" });
+    await settle();
+    await cloud.send("t-1", { id: "u2", role: "user", content: "Also the logout" }, "Also the logout");
+    turn.gate = null;
+    open();
+    await settle();
+    await settle();
+    // The first turn's end leaves it working: the second runs, and is followed from where it ended.
+    expect(api.followCloudThread.mock.calls.map((c) => c[1])).toEqual([0, 2]);
+    expect(statuses.filter(([, s]) => s !== "working").length).toBe(1);
+    expect(statuses.at(-1)).toEqual(["t-1", "review"]);
+    cloud.dispose();
+  });
+
+  it("doesn't report a turn's end that its report covered, even after a restart", async () => {
+    turn.report = true;
+    const first = harness();
+    await first.cloud.start("coord", project, { title: "Fix login", instructions: "Fix it" });
+    await settle();
+    expect(first.delivered.map(([, text]) => text)).toEqual(["Reported"]);
+    first.cloud.dispose();
+    // Restarted between the report and the end: the session remembers it reported.
+    turn.report = false;
+    const again = harness();
+    const thread = { ...first.chats.get("t-1")!, threadCloudReported: true, threadCloudSeq: 0 };
+    again.chats.set("t-1", thread);
+    again.cloud.follow("t-1");
+    await settle();
+    expect(again.delivered).toEqual([]);
+    expect(again.chats.get("t-1")!.threadCloudReported).toBeUndefined();
+    again.cloud.dispose();
+  });
+
+  it("skips a thread whose events this transcript already has", async () => {
+    const { cloud } = harness();
+    await cloud.start("coord", project, { title: "Fix login", instructions: "Fix it" });
+    await settle();
+    api.cloudThreadEvents.mockClear();
+    const done = { id: "cloud-1", projectId: "p-1", title: "Fix login", status: "review" as const, updatedAt: "2099-01-01T00:00:00Z" };
+    await cloud.sync([{ ...done, lastSeq: 2 } as typeof done], () => "t-1");
+    await settle();
+    expect(api.cloudThreadEvents).not.toHaveBeenCalled();
     cloud.dispose();
   });
 });
