@@ -6,6 +6,7 @@ import { getActiveModels, getModel, runsInCli, type ModelInfo } from "@/lib/mode
 import { checkPermission, loadFileRules, describePermission } from "@/lib/permissions";
 import { loadSelectedModel, loadSettings } from "@/lib/settings";
 import { getMergedSettings, setSettingsWorkspace } from "@/lib/settingsRuntime";
+import { runCloudTurn, type CloudJob } from "./cloudWorker";
 
 export interface HeadlessArgs {
   prompt: string;
@@ -17,6 +18,16 @@ export interface HeadlessArgs {
   maxSteps?: number | null;
   /** `--save-session <file>`: write the run's transcript there (see HeadlessSession). */
   saveSession?: string | null;
+  /** `--job`: one turn of a cloud thread (cloudWorker.ts); its run replaces this one. */
+  job?: CloudJob | null;
+  /** Why the `--job` input couldn't be used. */
+  jobError?: string | null;
+  /** The cloud thread's saved conversation, when an earlier turn ran. */
+  resume?: string | null;
+  /** The folder that persists between a cloud thread's turns (`/work`). */
+  workDir?: string | null;
+  /** `GITHUB_TOKEN` is set for the cloud turn. */
+  githubToken?: boolean;
 }
 
 /** What `--save-session` writes: the run as an eval can check it. `events` are the same objects
@@ -88,6 +99,10 @@ export function headlessCanUse(model: ModelInfo): boolean {
 }
 
 export async function runHeadless(args: HeadlessArgs, deps: HeadlessDeps = { chat: streamChat, now: Date.now }): Promise<void> {
+  if (args.job || args.jobError) {
+    await runCloudTurn(args);
+    return;
+  }
   const json = args.format === "json";
   const write = (text: string, stderr = false) => invoke("nyxs_headless_write", { text, stderr }).catch(() => undefined);
   const events: Record<string, unknown>[] = [];

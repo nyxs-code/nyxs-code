@@ -133,6 +133,9 @@ pub fn nyxs_secret_get(app: AppHandle, account: String) -> Result<Option<String>
     if let Some(found) = crate::test_data_dir::secret_get(&account) {
         return found;
     }
+    if let Some(found) = crate::headless::job_secret_get(&account) {
+        return found;
+    }
     let backend = Keyring::new(&app);
     if ONE_KEYCHAIN_ITEM {
         return with_vault(&backend, |v, b| v.get(b, &account));
@@ -145,6 +148,9 @@ pub fn nyxs_secret_set(app: AppHandle, account: String, secret: String) -> Resul
     if let Some(done) = crate::test_data_dir::secret_set(&account, &secret) {
         return done;
     }
+    if let Some(done) = crate::headless::job_secret_set(&account, &secret) {
+        return done;
+    }
     let backend = Keyring::new(&app);
     if ONE_KEYCHAIN_ITEM {
         return with_vault(&backend, |v, b| v.set(b, &account, &secret));
@@ -155,6 +161,9 @@ pub fn nyxs_secret_set(app: AppHandle, account: String, secret: String) -> Resul
 #[tauri::command(async)]
 pub fn nyxs_secret_delete(app: AppHandle, account: String) -> Result<(), String> {
     if let Some(done) = crate::test_data_dir::secret_delete(&account) {
+        return done;
+    }
+    if let Some(done) = crate::headless::job_secret_delete(&account) {
         return done;
     }
     let backend = Keyring::new(&app);
