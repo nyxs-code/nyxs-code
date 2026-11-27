@@ -35,6 +35,8 @@ import { LiveStatus } from "./message/LiveStatus";
 import { livePhaseOf, tokensLabel, withTurnStatus, type ReasoningTimes, type WorkItem } from "./message/liveFormat";
 import { TurnChanges } from "./message/TurnChanges";
 import { CreatedSessionCard, SessionMessageCard } from "./message/SessionCards";
+import { DecisionCard, ThreadCard, ThreadReportCard } from "./message/ThreadCards";
+import type { ThreadStatus } from "@/lib/projects/types";
 import { CutOffNotice } from "./message/CutOffNotice";
 import { OutputLimitNotice } from "./message/OutputLimitNotice";
 import type { OutputLimitHit } from "@/lib/agentTurn";
@@ -108,6 +110,10 @@ export interface ChatMessage {
    *  shown as a card naming that session, with a link to it. `content` keeps the quoted text the
    *  model reads. */
   fromSession?: { id: string; title: string; reply?: boolean };
+
+  /** A project thread's report (its `report` tool, or its turn ending), in the coordinator's
+   *  conversation: drawn as the thread's card with the text under it. */
+  threadReport?: { status: ThreadStatus; text: string };
 }
 
 function MessageImages({ images }: { images: ImageAttachment[] }) {
@@ -350,6 +356,7 @@ function renderSegments(
   reasoningTimes: ReasoningTimes = {},
   leadNotices: TraceNotice[] = [],
   chatId?: string,
+  messageId?: string,
 ): ReactNode[] {
   const out: ReactNode[] = [];
   let pendingNotices = leadNotices;
@@ -418,6 +425,13 @@ function renderSegments(
         if (endMap.get(it.id)?.status === "err" || carded.has(it.detail.toLowerCase())) continue;
         carded.add(it.detail.toLowerCase());
         out.push(<CreatedSessionCard key={`session-${it.id}`} chatId={chatId} title={it.detail} />);
+      }
+      // A project coordinator's threads and questions, as cards under the work.
+      for (const it of items) {
+        if (it.kind !== "tool" || endMap.get(it.id)?.status === "err") continue;
+        if (it.name === "StartThread" && it.detail) out.push(<ThreadCard key={`thread-${it.id}`} coordinatorId={chatId} title={it.detail} />);
+        const decision = it.name === "AskDecision" ? toolData[it.id]?.decision : undefined;
+        if (decision && messageId) out.push(<DecisionCard key={`decision-${it.id}`} chatId={chatId} messageId={messageId} toolId={it.id} decision={decision} disabled={streaming} />);
       }
       i = j;
       continue;
@@ -726,7 +740,7 @@ function MessageBody({
                 {slashCommand.args && ` ${slashCommand.args}`}
               </p>
             ) : (
-              renderSegments(segments, endMap, streaming, toolData, todos, onOpenView, awaitingPermission, message.reasoningData ?? {}, message.reasoningTimes ?? {}, leadNotices, chatId)
+              renderSegments(segments, endMap, streaming, toolData, todos, onOpenView, awaitingPermission, message.reasoningData ?? {}, message.reasoningTimes ?? {}, leadNotices, chatId, message.id)
             )}
             {streaming && (
               <LiveStatus
@@ -865,6 +879,7 @@ function NoticeLine({ notice }: { notice: NonNullable<ChatMessage["notice"]> }) 
 
 function MessageImpl(props: Parameters<typeof MessageBody>[0]) {
   if (props.message.notice) return props.absorbed ? null : <NoticeLine notice={props.message.notice} />;
+  if (props.message.fromSession && props.message.threadReport) return <ThreadReportCard from={props.message.fromSession} report={props.message.threadReport} />;
   if (props.message.fromSession) return <SessionMessageCard from={props.message.fromSession} content={props.message.content} />;
   return <MessageBody {...props} />;
 }

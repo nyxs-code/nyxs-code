@@ -1,3 +1,6 @@
+import type { Chat } from "@/lib/chatStore";
+import type { ChatMessage } from "@/components/Message";
+
 /** What the agent can do with the user's other sessions, like Claude Code Desktop: list, read,
  *  message, rename and archive them. The app fills this in (it holds the sessions); the tools in
  *  src/tools/Sessions use it. */
@@ -25,6 +28,18 @@ export interface CreateSessionRequest {
   effort?: string;
   /** Hand its first reply back to the session that created it, as a message there. */
   reportBack: boolean;
+  /** Fields of the new session worked out once its id is known, before it's saved and its first
+   *  turn starts (a project thread's worktree and project fields). */
+  prepare?: (id: string, workspace: string) => Promise<Partial<Chat>>;
+}
+
+export interface SendOptions {
+  /** The line above the quoted text, instead of "Message from the session …". */
+  header?: string;
+  /** More fields of the message (how its card shows). */
+  message?: Partial<ChatMessage>;
+  /** Only adds the message to the conversation: no turn runs on it. */
+  quiet?: boolean;
 }
 
 export type CreateOutcome =
@@ -43,7 +58,7 @@ export interface SessionBridge {
   read(id: string, last: number): Promise<{ title: string; messages: { role: string; content: string }[] } | null>;
   /** Delivers `text` as a message in the session, attributed to `fromId`, and starts its turn
    *  (right away, or once its running turn ends). */
-  send(fromId: string | undefined, id: string, text: string): Promise<SendOutcome>;
+  send(fromId: string | undefined, id: string, text: string, opts?: SendOptions): Promise<SendOutcome>;
   rename(id: string, title: string): Promise<boolean>;
   archive(id: string): Promise<boolean>;
 }

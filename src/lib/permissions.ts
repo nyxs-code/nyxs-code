@@ -5,7 +5,7 @@ import { browserToolFor } from "./browserTools";
 import { matchGlob } from "./diagnostics";
 import { COMPUTER_LOOK_ACTIONS, isComputerTool } from "@/tools/Computer/actions";
 import { autoApproveReadOnly } from "./featureSettings";
-import { sessionToolFor } from "./sessionTools";
+import { isProjectTool, sessionToolFor } from "./sessionTools";
 import { videoCallReadOnly, videoToolFor } from "./videoTools";
 
 export type PermissionBehavior = "allow" | "deny" | "ask";
@@ -246,6 +246,9 @@ export function checkPermission(
   // Claude Code Desktop (an explicit "always allow" above still counts).
   const sessionTool = sessionToolFor(toolName);
   if (sessionTool?.readOnly) return "allow";
+  // A project's coordination (threads, decisions, memory) never asks: each thread then works
+  // under its own permission mode.
+  if (isProjectTool(toolName)) return "allow";
   if (sessionTool?.name === "ArchiveSession") return mode === "plan" ? "deny" : "ask";
   // A message is a request the other session's agent carries out with that session's permissions:
   // when they reach further than this one's, the user decides.

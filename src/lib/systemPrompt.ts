@@ -17,6 +17,9 @@ export interface SystemPromptInput {
   modelFamily?: ModelFamily;
   planMode?: boolean;
   projectMemory?: string;
+  /** The session belongs to a Nyxs project (coordinator or thread): its role, instructions and
+   *  memory (src/lib/projects/projectPrompt.ts). */
+  projectHub?: string;
   /** Claude Code's MEMORY.md index for this project, with absolute links to each memory file. */
   claudeMemory?: string;
   outputStylePrompt?: string;
@@ -231,6 +234,7 @@ export function getSystemPromptSections(input: SystemPromptInput): SystemPromptS
     skillsListing = "",
     planMode = false,
     projectMemory = "",
+    projectHub = "",
     claudeMemory = "",
     outputStylePrompt = "",
     confirmBeforeWrite = false,
@@ -319,6 +323,15 @@ ${skillsListing}`),
       isDynamic: true,
       dynamicReason: "NYXS.md can be edited during the session",
       content: memo(`project-memory:${projectMemory.trim()}`, () => projectInstructionsSection(projectMemory)),
+    });
+  }
+
+  if (projectHub.trim()) {
+    sections.push({
+      id: "project-hub",
+      isDynamic: true,
+      dynamicReason: "the project's instructions and memory change while it is used",
+      content: projectHub.trim(),
     });
   }
 

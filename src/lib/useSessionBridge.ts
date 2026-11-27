@@ -170,16 +170,28 @@ export function useSessionBridge(deps: Deps): void {
         return { title: chat.title, messages };
       },
 
-      send: async (fromId, id, text): Promise<SendOutcome> => {
+      send: async (fromId, id, text, opts = {}): Promise<SendOutcome> => {
         const chat = live(id);
         if (!chat) return "missing";
-        const modelId = usableModel(chat.model);
-        if (!modelId) return "unsupported";
         // As in Claude Code Desktop, an archived session doesn't take messages.
         if (summary(id)?.archived) return "missing";
         const from = fromId ? titleOf(fromId) : "";
         const card = fromId ? { id: fromId, title: from } : undefined;
-        const message = userMessage(attributedMessage(`Message from the session "${from}" (${fromId ?? ""}):`, text), card);
+        const header = opts.header ?? `Message from the session "${from}" (${fromId ?? ""}):`;
+        const message: ChatMessage = { ...userMessage(attributedMessage(header, text), card), ...opts.message };
+        if (opts.quiet) {
+          // Its messages first, so adding one doesn't stand in for the whole transcript.
+          await d().buildChatHistory(id);
+          const add = (c: Chat) => (c.id === id ? { ...c, messages: [...c.messages, message] } : c);
+          d().setChats((prev) => prev.map(add));
+          d().liveChatsRef.current = (d().liveChatsRef.current ?? []).map(add);
+          const ws = live(id)?.workspace ?? d().workspace;
+          const saved = live(id);
+          if (ws && saved && !busy(id) && d().hydratedRef.current?.has(id)) await saveSession(ws, saved, Date.now()).catch(() => undefined);
+          return "sent";
+        }
+        const modelId = usableModel(chat.model);
+        if (!modelId) return "unsupported";
         const outcome = deliver(id, modelId, message);
         noteDelivery(message.id, fromId, id, outcome === "queued");
         // Writing back answers what that session had sent this one.
@@ -187,7 +199,7 @@ export function useSessionBridge(deps: Deps): void {
         return outcome;
       },
 
-      create: async (fromId, { title, message, model, effort, reportBack }) => {
+      create: async (fromId, { title, message, model, effort, reportBack, prepare }) => {
         const parent = fromId ? live(fromId) : undefined;
         const workspace = parent ? parent.workspace ?? d().workspace : d().workspace;
         if (!workspace) return "no-project";
@@ -215,6 +227,7 @@ export function useSessionBridge(deps: Deps): void {
           effort: level,
           permissionMode: parent?.permissionMode,
           parentId: fromId,
+          ...(prepare ? await prepare(id, workspace) : {}),
         };
         d().hydratedRef.current?.add(id);
         d().setChats((prev) => [chat, ...prev]);

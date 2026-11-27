@@ -6,8 +6,10 @@ import type { SerializedFileHistory } from "@/lib/fileHistory";
 import type { PermissionMode } from "@/components/ui/claude-style-chat-input";
 import type { EffortLevel } from "@/lib/effort";
 import type { ChatGoal } from "@/lib/goal";
+import type { ProjectSessionFields } from "@/lib/projects/types";
 
-export interface Chat {
+/** `ProjectSessionFields`: a project's coordinator or one of its threads (src/lib/projects). */
+export interface Chat extends ProjectSessionFields {
   id: string;
   title: string;
   workspace?: string | null;

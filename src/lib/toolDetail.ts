@@ -3,6 +3,7 @@ import { diffLines, structuredPatch } from "diff";
 import { stripAnsi } from "@/lib/ansi";
 import { browserToolFor, describeBrowserCall } from "@/lib/browserTools";
 import { sessionToolFor } from "@/lib/sessionTools";
+import { decisionOf, type Decision } from "@/lib/projects/projectTools";
 import { describeVideoCall, videoToolFor } from "@/lib/videoTools";
 import { parseMcpToolName } from "@/lib/mcp";
 import { parsePatch, patchPaths, type PatchOp } from "@/tools/ApplyPatch/parse";
@@ -53,6 +54,8 @@ export interface ToolDetail {
   /** A command that moved to the background and goes on as this shell (commandBackground.ts);
    *  `limitMs` when its time limit moved it. */
   background?: { shellId: string; limitMs?: number };
+  /** AskDecision: the question and its options, and the one the user picked once they did. */
+  decision?: Decision & { chosen?: string };
 }
 
 export const OUTPUT_PREVIEW_TOOLS = new Set(["Bash", "BashOutput", "Grep", "Glob"]);
@@ -294,6 +297,12 @@ export async function buildToolDetail(
     return { name, detail, added: lines.length, removed: 0, diff: lines.map((text) => ({ type: "add" as const, text })) };
   }
 
+  // A project coordinator's question: the chat draws its options as a card under the call.
+  if (name === "AskDecision") {
+    const decision = decisionOf(input);
+    if (decision) return { name, detail, decision };
+  }
+
   return { name, detail };
 }
 
@@ -423,6 +432,13 @@ export function describeToolCall(toolName: string, input: unknown): ToolCallLabe
     // The chat shows a card for the session (see SessionCards), found by this title.
     case "CreateSession":
       return { name: "CreateSession", detail: str(i.title).trim() };
+    // A project's thread: its card (see ThreadCards) is found by this title.
+    case "StartThread":
+      return { name: "StartThread", detail: str(i.title).trim() };
+    case "AskDecision":
+      return { name: "AskDecision", detail: str(i.question).trim() };
+    case "Report":
+      return { name: "Report", detail: str(i.status) || "review" };
     case "SendToSession":
     case "ReadSession":
     case "RenameSession":

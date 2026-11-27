@@ -1,5 +1,6 @@
 import { BROWSER_MCP_SERVER, BROWSER_TOOLS, type BrowserStepGate } from "@/lib/browserTools";
-import { SESSION_TOOLS, SESSIONS_MCP_SERVER } from "@/lib/sessionTools";
+import { sessionToolsFor, SESSIONS_MCP_SERVER } from "@/lib/sessionTools";
+import { mcpNamer, projectPromptFor } from "@/lib/projects/projectPrompt";
 import { antigravityTurnFor, CHAT_MCP_SERVER, handleChatMcp } from "@/lib/chatMcp";
 import { handleComputerMcp } from "@/lib/computerMcp";
 import { COMPUTER_MCP_SERVER } from "@/tools/Computer/actions";
@@ -104,13 +105,14 @@ export async function handleSessionsMcp(message: Json, chat?: string): Promise<J
         protocolVersion: typeof params.protocolVersion === "string" ? params.protocolVersion : PROTOCOL_VERSION,
         capabilities: { tools: {} },
         serverInfo: { name: SESSIONS_MCP_SERVER, version: "1.0.0" },
-        instructions: SESSIONS_INSTRUCTIONS,
+        // A project's session learns its role here too: not every CLI gets Nyxs's system prompt.
+        instructions: [SESSIONS_INSTRUCTIONS, projectPromptFor(chat, mcpNamer(""))].filter(Boolean).join("\n\n"),
       });
     case "ping":
       return reply(id, {});
     case "tools/list":
       return reply(id, {
-        tools: SESSION_TOOLS.map((def) => ({
+        tools: sessionToolsFor(chat).map((def) => ({
           name: def.mcpName,
           description: def.description,
           inputSchema: def.inputSchema,
@@ -118,7 +120,7 @@ export async function handleSessionsMcp(message: Json, chat?: string): Promise<J
         })),
       });
     case "tools/call": {
-      const def = SESSION_TOOLS.find((d) => d.mcpName === params.name);
+      const def = sessionToolsFor(chat).find((d) => d.mcpName === params.name);
       if (!def) return failure(id, -32602, `Unknown tool: ${String(params.name)}`);
       // The CLI asked the user already, through its own permission prompt.
       try {

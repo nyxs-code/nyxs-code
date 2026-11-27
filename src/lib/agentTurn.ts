@@ -10,6 +10,7 @@ import { buildTools, usesApplyPatch, type AgentPathScope, type ToolDetail, type 
 import { getDiagnosticsRuntime } from "./diagnostics";
 import { detectReplyLanguage } from "./replyLanguage";
 import { buildSystemPromptCacheBlocks, modelFamilyOf } from "./systemPrompt";
+import { projectPromptFor } from "./projects/projectPrompt";
 import { scanInjectedState, stripProviderExecutedParts } from "./promptPrefix";
 import { getMergedSnapshot, setSettingsPollPaused, settingsFor } from "./settingsRuntime";
 import { getOutputStyle } from "./outputStyles";
@@ -298,6 +299,7 @@ For a multi-dimension code review, or whenever the user asks to "use Workflow", 
     skillsListing: buildSkillsListing(skills),
     planMode,
     projectMemory,
+    projectHub: projectPromptFor(sessionKey),
     claudeMemory,
     outputStylePrompt: effectiveOutputStylePrompt,
     language: replyLanguage,

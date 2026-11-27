@@ -6,6 +6,8 @@ import type { Chat } from "@/lib/chatStore";
 import { showFileNotice } from "@/lib/fileNotices";
 import { withoutOldToolImages } from "@/lib/toolImageHistory";
 import type { ChatMessage } from "@/components/Message";
+import type { ProjectSessionFields } from "@/lib/projects/types";
+import { projectFieldsOf } from "@/lib/projects/sessionFields";
 import {
   deserializeFileHistory,
   fileHistoryCanRestore,
@@ -16,7 +18,7 @@ import {
 
 const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-export interface SessionMeta {
+export interface SessionMeta extends ProjectSessionFields {
   title: string;
   contextTokens?: number;
   plan?: string;
@@ -46,7 +48,7 @@ export interface SessionMeta {
   prPushed?: boolean;
 }
 
-export interface SessionSummary {
+export interface SessionSummary extends ProjectSessionFields {
   id: string;
   title: string;
   createdAt: number;
@@ -152,6 +154,7 @@ function metaFromChat(chat: Chat, createdAt: number, now: number): SessionMeta {
     parentId: chat.parentId,
     effort: chat.effort,
     goal: chat.goal,
+    ...projectFieldsOf(chat),
     createdAt,
     updatedAt: now,
   };
@@ -270,6 +273,21 @@ export async function setSessionParent(
   });
 }
 
+/** Changes a session's project fields (a thread's status) without its transcript, for a session
+ *  whose messages aren't loaded. A loaded one is saved with them as well (see metaFromChat). */
+export async function patchSessionProjectFields(
+  workspace: string | null,
+  sessionId: string,
+  patch: ProjectSessionFields,
+): Promise<void> {
+  if (!workspace) return;
+  await withMetaLock(workspace, sessionId, async () => {
+    const meta = await readSessionMeta(workspace, sessionId);
+    if (!meta) return;
+    await saveSessionMeta(workspace, sessionId, { ...meta, ...patch });
+  });
+}
+
 /** The files a saved session edited (its file history), absolute paths. */
 export async function sessionTrackedFiles(workspace: string, sessionId: string): Promise<string[]> {
   const meta = await readSessionMeta(workspace, sessionId).catch(() => null);
@@ -377,6 +395,7 @@ export async function readSession(
     parentId: m?.parentId,
     effort: m?.effort,
     goal: m?.goal,
+    ...projectFieldsOf(m),
   };
 }
 
@@ -405,6 +424,7 @@ export async function listSessions(workspace: string | null): Promise<SessionSum
     let archivedAt: number | undefined;
     let worktree: Chat["worktree"];
     let parentId: string | undefined;
+    let project: ProjectSessionFields = {};
     if (s.meta) {
       try {
         const m = JSON.parse(s.meta) as Partial<SessionMeta>;
@@ -417,6 +437,7 @@ export async function listSessions(workspace: string | null): Promise<SessionSum
         archivedAt = m.archivedAt;
         worktree = m.worktree;
         parentId = m.parentId;
+        project = projectFieldsOf(m);
       } catch {
         /* keep fallbacks */
       }
@@ -435,6 +456,7 @@ export async function listSessions(workspace: string | null): Promise<SessionSum
       archivedAt,
       worktree,
       parentId,
+      ...project,
     };
   });
 }

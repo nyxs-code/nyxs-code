@@ -2,6 +2,7 @@ import { chatModeOf } from "@/lib/chatModes";
 import { sessionBridge } from "@/lib/sessionBridge";
 import { noteMessageSent, refuseMessage, refusalText } from "@/lib/sessionMessageGuard";
 import { deliveryMarker, latestDeliveryId } from "@/lib/sessionDelivery";
+import { PROJECT_TOOLS, projectToolsFor } from "@/lib/projects/projectTools";
 
 // The user's other sessions, as Claude Code Desktop gives them to Claude: list, read, message,
 // create (nested under this one), rename and archive. One set of definitions serves the
@@ -215,9 +216,23 @@ export const SESSION_TOOLS: SessionToolDef[] = [
   },
 ];
 
-const BY_MCP = new Map(SESSION_TOOLS.map((d) => [`mcp__${SESSIONS_MCP_SERVER}__${d.mcpName}`, d]));
+const ALL_TOOLS = [...SESSION_TOOLS, ...PROJECT_TOOLS];
+const BY_MCP = new Map(ALL_TOOLS.map((d) => [`mcp__${SESSIONS_MCP_SERVER}__${d.mcpName}`, d]));
 
-/** The session tool behind a tool name, as either kind of agent calls it. */
+/** The session tool behind a tool name, as either kind of agent calls it (a project's tools too). */
 export function sessionToolFor(toolName: string): SessionToolDef | undefined {
-  return SESSION_TOOLS.find((d) => d.name === toolName) ?? BY_MCP.get(toolName);
+  return ALL_TOOLS.find((d) => d.name === toolName) ?? BY_MCP.get(toolName);
+}
+
+/** The tools the session `chat` gets: everyone's, plus its project's when it is a coordinator or
+ *  a thread. */
+export function sessionToolsFor(chat: string | undefined | null): SessionToolDef[] {
+  return [...SESSION_TOOLS, ...projectToolsFor(chat)];
+}
+
+/** A project tool, by either name: they coordinate sessions, so they never ask (each thread works
+ *  under its own permission mode). */
+export function isProjectTool(toolName: string): boolean {
+  const def = sessionToolFor(toolName);
+  return !!def && PROJECT_TOOLS.includes(def);
 }

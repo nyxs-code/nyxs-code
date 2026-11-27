@@ -4,6 +4,7 @@ import { endAcpChat } from "./acpProcesses";
 import { BROWSER_MCP_SERVER } from "./browserTools";
 import { CLI_VIDEO_PROMPT, VIDEO_MCP_SERVER } from "./videoTools";
 import { CLI_SESSIONS_PROMPT as CLAUDE_SESSIONS_PROMPT, SESSIONS_MCP_SERVER } from "./sessionTools";
+import { mcpNamer, projectPromptFor } from "./projects/projectPrompt";
 import { getMergedSnapshot, settingsFor } from "./settingsRuntime";
 import { computerUseEnabled, musicToolEnabled } from "./featureSettings";
 import { COMPUTER_MCP_SERVER } from "@/tools/Computer/actions";
@@ -402,7 +403,7 @@ async function acquireProcess(t: ClaudeCodeTurn, resumeId: string | undefined, r
   const appendSystemPrompt = ephemeral
     ? null
     : appendPromptFor(
-        [VISUAL_PREVIEW_PROMPT, ...(sessions ? [CLAUDE_SESSIONS_PROMPT] : []), ...(video ? [CLI_VIDEO_PROMPT] : []), ...(nyxsConnectors.length ? [connectorsPrompt(nyxsConnectors)] : []), ...(noTools ? [] : [PR_CREATED_PROMPT])].join("\n\n"),
+        [VISUAL_PREVIEW_PROMPT, ...(sessions ? [CLAUDE_SESSIONS_PROMPT, projectPromptFor(t.chatKey, mcpNamer(`mcp__${SESSIONS_MCP_SERVER}__`))].filter(Boolean) : []), ...(video ? [CLI_VIDEO_PROMPT] : []), ...(nyxsConnectors.length ? [connectorsPrompt(nyxsConnectors)] : []), ...(noTools ? [] : [PR_CREATED_PROMPT])].join("\n\n"),
         workspace ? await cachedNyxsMemory(workspace).catch(() => "") : "",
       );
   // A session started from a saved environment runs Claude Code with its variables; changing
