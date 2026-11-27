@@ -137,6 +137,7 @@ import { ProjectFrame } from "@/components/projects/ProjectFrame";
 import { useProjects, type ProjectAppActions } from "@/lib/projects/useProjects";
 import { projectTurnEnded } from "@/lib/projects/projectHost";
 import { isProjectHubDir } from "@/lib/projects/projectStore";
+import { findThread } from "@/lib/projects/projectDirectory";
 
 const uid = () => Math.random().toString(36).slice(2, 11);
 
@@ -598,7 +599,8 @@ export default function App() {
   useEffect(() => {
     openFromNotificationRef.current = (id) => {
       navigate(navSnapshot({ section: "code", settingsOpen: false, settingsSection: undefined }));
-      void resumeSession(id, sessions.find((s) => s.id === id)?.workspace);
+      // A project's thread may live in a folder the app hasn't listed: its project knows.
+      void resumeSession(id, sessions.find((s) => s.id === id)?.workspace ?? findThread(id)?.workspace ?? undefined);
     };
   });
   // The chat's session cards (a session an agent created, a message from another) read this.

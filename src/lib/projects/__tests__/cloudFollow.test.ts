@@ -7,7 +7,8 @@ const turn = vi.hoisted(() => ({ doneError: "" }));
 
 const api = vi.hoisted(() => ({
   createCloudThread: vi.fn(async (): Promise<{ id: string; status: string }> => ({ id: "cloud-1", status: "queued" })),
-  sendCloudMessage: vi.fn(async () => ({ ok: true })),
+  sendCloudMessage: vi.fn(async (): Promise<{ ok: boolean }> => ({ ok: true })),
+  cloudThreadEvents: vi.fn(async (): Promise<CloudEvent[]> => [{ seq: 5, at: "2026-11-26T11:00:00Z", type: "done", data: { status: "review", preview: "Caught up" } }]),
   stopCloudThread: vi.fn(async () => ({ ok: true })),
   followCloudThread: vi.fn(async (_id: string, after: number, onEvent: (e: CloudEvent) => void) => {
     const at = "2026-11-26T10:00:00Z";
@@ -154,6 +155,31 @@ describe("cloud threads", () => {
     await settle();
     await cloud.send("t-1", { id: "u2", role: "user", content: "More" }, "More");
     expect(chats.get("t-1")!.messages.find((m) => m.id === "u2")?.cloudPending).toBe(true);
+    cloud.dispose();
+  });
+
+  it("clears the mark of a message the cloud never got", async () => {
+    const { cloud, chats } = harness();
+    await cloud.start("coord", project, { title: "Fix login", instructions: "Fix it" });
+    await settle();
+    api.sendCloudMessage.mockRejectedValueOnce(new Error("offline"));
+    await cloud.send("t-1", { id: "u2", role: "user", content: "More" }, "More");
+    const msgs = chats.get("t-1")!.messages;
+    expect(msgs.find((m) => m.id === "u2")?.cloudPending).toBeUndefined();
+    expect(msgs.at(-1)?.content).toBe("> offline");
+    cloud.dispose();
+  });
+
+  it("catches up a thread that finished while the app was closed without waiting on it", async () => {
+    const { cloud, chats } = harness();
+    await cloud.start("coord", project, { title: "Fix login", instructions: "Fix it" });
+    await settle();
+    api.followCloudThread.mockClear();
+    await cloud.sync([{ id: "cloud-1", projectId: "p-1", title: "Fix login", status: "review", updatedAt: "2099-01-01T00:00:00Z" }], () => "t-1");
+    await settle();
+    expect(api.followCloudThread).not.toHaveBeenCalled();
+    expect(api.cloudThreadEvents).toHaveBeenCalledWith("cloud-1", 2, 0, expect.anything());
+    expect(chats.get("t-1")!.threadCloudSeq).toBe(5);
     cloud.dispose();
   });
 });

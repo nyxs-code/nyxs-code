@@ -4,7 +4,7 @@ import { getActiveModels, getModel } from "@/lib/models";
 import type { Settings } from "@/lib/settings";
 import { resolveEffort, resolveSessionModel } from "@/lib/sessionModels";
 import { attributedMessage } from "@/lib/sessionBridge";
-import { createCloudThread, followCloudThread, sendCloudMessage, stopCloudThread, CloudError, type CloudThread } from "@/lib/cloud/cloudApi";
+import { cloudThreadEvents, createCloudThread, followCloudThread, sendCloudMessage, stopCloudThread, CloudError, type CloudThread } from "@/lib/cloud/cloudApi";
 import { cloudSupport, sanitizedCloudSettings } from "@/lib/cloud/cloudCredentials";
 import { applyCloudEvents, threadStatusOfCloud, type CloudEffect } from "./cloudThreads";
 import { noteProjectRole } from "./projectDirectory";
@@ -72,8 +72,9 @@ export function createCloudThreads(h: CloudHelpers) {
     await h.save(id);
   };
 
-  /** Follows the thread's events from the last one in its transcript until its turn is done. */
-  const follow = (id: string) => {
+  /** Follows the thread's events from the last one in its transcript until its turn is done.
+   *  `once`: only what is there already (a thread that isn't running), without waiting. */
+  const follow = (id: string, once = false) => {
     if (following.has(id)) return;
     const cloudId = cloudIdOf(h.live(id));
     if (!cloudId) return;
@@ -96,7 +97,10 @@ export function createCloudThreads(h: CloudHelpers) {
     void (async () => {
       try {
         await h.ensureLoaded(id);
-        await followCloudThread(cloudId, h.live(id)?.threadCloudSeq ?? 0, onEvent, ctrl.signal);
+        const after = h.live(id)?.threadCloudSeq ?? 0;
+        // A long poll on a thread with nothing more to come would wait for ever.
+        if (once) (await cloudThreadEvents(cloudId, after, 0, ctrl.signal)).forEach(onEvent);
+        else await followCloudThread(cloudId, after, onEvent, ctrl.signal);
       } catch (e) {
         if (e instanceof CloudError && e.status === 404) await h.setStatus(id, "failed", failureText(e));
       } finally {
@@ -117,6 +121,8 @@ export function createCloudThreads(h: CloudHelpers) {
       await h.setStatus(id, "working");
       follow(id);
     } catch (e) {
+      // Never reached the cloud: no `user` event will clear it.
+      h.patchChat(id, (c) => ({ ...c, messages: c.messages.map((m) => (m.id === message.id ? { ...m, cloudPending: undefined } : m)) }));
       const note: ChatMessage = { id: `cloud-error-${Date.now()}`, role: "assistant", content: `> ${failureText(e)}`, createdAt: Date.now() };
       h.patchChat(id, (c) => ({ ...c, messages: [...c.messages, note] }));
     }
@@ -222,7 +228,7 @@ export function createCloudThreads(h: CloudHelpers) {
       if (!(await h.ensureLoaded(id))) continue;
       const chat = h.live(id);
       const moved = status !== chat?.threadStatus || Date.parse(t.updatedAt) > (chat?.threadUpdatedAt ?? 0);
-      if (running || moved) follow(id);
+      if (running || moved) follow(id, !running);
     }
   };
 
