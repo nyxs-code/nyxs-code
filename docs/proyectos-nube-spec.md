@@ -133,7 +133,13 @@ CLI agents through the `nyxs-sessions` MCP server):
   `{ "threadId", "turn": <n, 1-based>, "prompt": <the instructions or the user's follow-up>,
   "repo": { "url", "branch"? }, "workBranch": "nyxs/<slug>-<short id>", "model": { "id",
   "provider", "effort"? }, "settings": <sanitized Nyxs settings>, "projectInstructions",
-  "memory", "permissionMode": "auto", "maxSteps": 200 }`.
+  "memory", "permissionMode": "auto", "maxSteps": 200, "title"?: <commit and PR title>,
+  "dryRun"?: <true: no model call, proves clone/resume/events> }`.
+- In a cloud turn a tool call that would ask for permission goes ahead (nobody can answer; the
+  container is the sandbox); settings deny rules and plan mode still refuse. The turn's tokens
+  are visible to the agent's shell inside the container: they are the user's own, in their own
+  sandbox. HOME is `/work/.home`, so the CLIs' own sessions carry over between turns
+  (credentials are never written there).
 - `/work` persists between turns: `/work/repo` (the clone, on `workBranch`) and
   `/work/.nyxs/session.json` (the saved conversation the next turn resumes from).
 - Secrets arrive as env vars under their stored names (`<ID>_API_KEY`, which is also the name most
@@ -144,7 +150,8 @@ CLI agents through the `nyxs-sessions` MCP server):
   --format json` prints, plus: `{ "type": "status", "data": { "status" } }` when it changes,
   `{ "type": "report", "data": { "text", "status" } }` for the thread's `report` tool, and a last
   `{ "type": "done", "data": { "status": "review" | "needs_input" | "failed", "preview",
-  "prUrl"?, "branch"? } }`. Anything else the worker writes goes to stderr (logged, never shown).
+  "prUrl"?, "branch"?, "error"? } }` (`error`: e.g. the push failed or there was no GitHub
+  token; the status stays `review`). Anything else the worker writes goes to stderr (logged, never shown).
 - On success the worker commits, pushes `workBranch` with `GITHUB_TOKEN` and opens (or updates) a
   draft PR when the turn changed files; `prUrl` comes back in `done`.
 - Exit code 0 when `done` was printed, non-zero otherwise (the runner then marks `failed`).
