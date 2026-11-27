@@ -1102,6 +1102,8 @@ const t: Translations = {
       deviceDesc: "Sistema, processador, memória, nome e identificador do dispositivo, com hash. Desligado: só o sistema operacional é enviado.",
       dictationTitle: "Ditado e legendas",
       dictationDesc: "O áudio só é enviado quando você usa o ditado por voz ou gera legendas de um vídeo.",
+      cloudTitle: "Threads na nuvem",
+      cloudDesc: "Quando uma thread roda na nuvem, o repositório, as instruções e as chaves que você escolheu em Configurações › Nuvem vão para os servidores do Nyxs, onde um contêiner isolado trabalha nela.",
       usageTitle: "Uso do modelo",
       usageDesc: "Modelo e tokens de cada turno, para os limites do seu plano.",
       whenUsed: "Ao usar",

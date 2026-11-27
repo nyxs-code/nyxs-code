@@ -1102,6 +1102,8 @@ const t: Translations = {
       deviceDesc: "시스템, 프로세서, 메모리, 기기 이름과 식별자(해시). 끔: 운영체제만 보냅니다.",
       dictationTitle: "받아쓰기와 자막",
       dictationDesc: "오디오는 음성 받아쓰기를 사용하거나 동영상 자막을 만들 때만 보냅니다.",
+      cloudTitle: "클라우드 스레드",
+      cloudDesc: "스레드가 클라우드에서 실행되면 저장소, 지시 사항, 설정 › 클라우드에서 고른 키가 Nyxs 서버로 가며, 격리된 컨테이너가 작업합니다.",
       usageTitle: "모델 사용량",
       usageDesc: "각 턴의 모델과 토큰, 요금제 한도를 위해.",
       whenUsed: "사용할 때",

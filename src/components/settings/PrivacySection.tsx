@@ -201,6 +201,9 @@ export function PrivacySection({ title, workspace }: { title: ReactNode; workspa
           <ServiceRow title={p.dictationTitle} desc={p.dictationDesc}>
             <SentTag>{p.whenUsed}</SentTag>
           </ServiceRow>
+          <ServiceRow title={p.cloudTitle} desc={p.cloudDesc}>
+            <SentTag>{p.whenUsed}</SentTag>
+          </ServiceRow>
           <ServiceRow title={p.usageTitle} desc={p.usageDesc}>
             <SentTag>{p.always}</SentTag>
           </ServiceRow>

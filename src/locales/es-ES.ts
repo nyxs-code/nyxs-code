@@ -1134,6 +1134,8 @@ const t: Translations = {
       deviceDesc: "Sistema, procesador, memoria, nombre e identificador del equipo, con hash. Apagado: solo se envía el sistema operativo.",
       dictationTitle: "Dictado y subtítulos",
       dictationDesc: "El audio solo se envía cuando usas el dictado por voz o generas subtítulos de un vídeo.",
+      cloudTitle: "Hilos en la nube",
+      cloudDesc: "Cuando un hilo trabaja en la nube, su repositorio, sus instrucciones y las claves que elegiste en Ajustes › Nube van a los servidores de Nyxs, donde un contenedor aislado trabaja en él.",
       usageTitle: "Uso del modelo",
       usageDesc: "Modelo y tokens de cada turno, para los límites de tu plan.",
       whenUsed: "Al usarlo",

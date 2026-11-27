@@ -1102,6 +1102,8 @@ const t: Translations = {
       deviceDesc: "System, Prozessor, Arbeitsspeicher, Name und Kennung des Geräts, gehasht. Aus: Nur das Betriebssystem wird gesendet.",
       dictationTitle: "Diktat und Untertitel",
       dictationDesc: "Audio wird nur gesendet, wenn du das Sprachdiktat nutzt oder Untertitel für ein Video erzeugst.",
+      cloudTitle: "Cloud-Threads",
+      cloudDesc: "Wenn ein Thread in der Cloud läuft, gehen sein Repository, seine Anweisungen und die unter Einstellungen › Cloud gewählten Schlüssel an die Server von Nyxs, wo ein isolierter Container daran arbeitet.",
       usageTitle: "Modellnutzung",
       usageDesc: "Modell und Tokens jedes Durchgangs, für die Limits deines Tarifs.",
       whenUsed: "Bei Nutzung",

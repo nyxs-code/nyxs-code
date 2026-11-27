@@ -1102,6 +1102,8 @@ const t: Translations = {
       deviceDesc: "Sistem, prosesor, memori, nama dan ID perangkat, di-hash. Mati: hanya sistem operasi yang dikirim.",
       dictationTitle: "Dikte dan subtitel",
       dictationDesc: "Audio hanya dikirim saat Anda menggunakan dikte suara atau membuat subtitel untuk video.",
+      cloudTitle: "Utas cloud",
+      cloudDesc: "Saat utas berjalan di cloud, repositorinya, instruksinya, dan kunci yang Anda pilih di Pengaturan › Cloud dikirim ke server Nyxs, tempat kontainer terisolasi mengerjakannya.",
       usageTitle: "Penggunaan model",
       usageDesc: "Model dan token setiap giliran, untuk batas paket Anda.",
       whenUsed: "Saat digunakan",

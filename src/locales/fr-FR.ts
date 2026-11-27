@@ -1102,6 +1102,8 @@ const t: Translations = {
       deviceDesc: "Système, processeur, mémoire, nom et identifiant de l'appareil, hachés. Désactivé : seul le système d'exploitation est envoyé.",
       dictationTitle: "Dictée et sous-titres",
       dictationDesc: "L'audio n'est envoyé que lorsque vous utilisez la dictée vocale ou générez les sous-titres d'une vidéo.",
+      cloudTitle: "Fils dans le cloud",
+      cloudDesc: "Quand un fil tourne dans le cloud, son dépôt, ses instructions et les clés choisies dans Paramètres › Cloud vont sur les serveurs de Nyxs, où un conteneur isolé travaille dessus.",
       usageTitle: "Utilisation du modèle",
       usageDesc: "Modèle et jetons de chaque tour, pour les limites de votre forfait.",
       whenUsed: "À l'usage",

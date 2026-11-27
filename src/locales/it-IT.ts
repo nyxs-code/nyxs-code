@@ -1102,6 +1102,8 @@ const t: Translations = {
       deviceDesc: "Sistema, processore, memoria, nome e identificativo del dispositivo, con hash. Disattivato: viene inviato solo il sistema operativo.",
       dictationTitle: "Dettatura e sottotitoli",
       dictationDesc: "L'audio viene inviato solo quando usi la dettatura vocale o generi i sottotitoli di un video.",
+      cloudTitle: "Thread nel cloud",
+      cloudDesc: "Quando un thread gira nel cloud, il suo repository, le sue istruzioni e le chiavi scelte in Impostazioni › Cloud vanno ai server di Nyxs, dove un container isolato ci lavora.",
       usageTitle: "Uso del modello",
       usageDesc: "Modello e token di ogni turno, per i limiti del tuo piano.",
       whenUsed: "Quando lo usi",

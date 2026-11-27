@@ -1085,6 +1085,8 @@ export interface Translations {
       deviceDesc: string;
       dictationTitle: string;
       dictationDesc: string;
+      cloudTitle: string;
+      cloudDesc: string;
       usageTitle: string;
       usageDesc: string;
       whenUsed: string;
