@@ -159,9 +159,8 @@ function SampleConversation() {
   return (
     <div
       aria-hidden
-      className="hidden lg:flex w-[320px] h-[480px] shrink-0 flex-col justify-center gap-4 rounded-[8px] p-7"
-      // A barely warm tint of the accent, so it holds in the dark theme too.
-      style={{ background: "linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, var(--bg-100)), color-mix(in srgb, var(--accent) 3%, var(--bg-100)))" }}
+      // Claude's barely pink wash; a warm dark one in the dark theme.
+      className="hidden lg:flex w-[320px] h-[480px] shrink-0 flex-col justify-center gap-4 rounded-[8px] p-7 bg-[linear-gradient(180deg,#fbf4f2,#fdf9f8)] dark:bg-[linear-gradient(180deg,#2f2927,#292624)]"
     >
       <p className={bubble}>{t.demoUser1}</p>
       <p className="text-[13px] leading-snug text-text-100">{t.demoReply1}</p>

@@ -16,7 +16,8 @@ import { ProjectIcon } from "./ProjectIcon";
 type Item = { kind: "repo"; url: string } | { kind: "file" | "folder"; path: string } | { kind: "local"; path: string };
 
 const ICON = { repo: GitFork, file: File, folder: Folder, local: FolderSymlink } as const;
-const MENU = "absolute right-0 top-full z-[70] mt-1 w-56 bg-bg-100 border border-bg-300 rounded-[6px] shadow-2xl p-1.5";
+// Fixed, under the + button: the dialog's scrolling body would cut an absolute menu off.
+const MENU = "fixed z-[70] w-56 bg-bg-100 border border-bg-300 rounded-[6px] shadow-2xl p-1.5";
 const MENU_ROW = "w-full flex items-center gap-2.5 px-2 py-1 rounded-[5px] text-left text-sm leading-5 text-text-100 hover:bg-bg-200";
 
 const itemKey = (i: Item) => (i.kind === "repo" ? `repo:${i.url.toLowerCase()}` : `${i.kind}:${i.path.toLowerCase()}`);
@@ -31,7 +32,9 @@ export function NewProjectDialog({ recentFolders, onClose, onCreate }: { recentF
   const [goal, setGoal] = useState("");
   const [items, setItems] = useState<Item[]>([]);
   const [suggested, setSuggested] = useState<string[]>([]);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuAt, setMenuAt] = useState<{ top: number; right: number } | null>(null);
+  const menuOpen = menuAt !== null;
+  const setMenuOpen = (open: boolean) => { if (!open) setMenuAt(null); };
   const [repoDraft, setRepoDraft] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -144,11 +147,15 @@ export function NewProjectDialog({ recentFolders, onClose, onCreate }: { recentF
               {t.contextLabel} <span className="text-text-400">{t.optional}</span>
             </span>
             <div ref={menuRef} className="relative">
-              <Button variant="ghost" icon aria-label={t.addContext} aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>
+              <Button variant="ghost" icon aria-label={t.addContext} aria-haspopup="menu" aria-expanded={menuOpen} onClick={(e) => {
+                if (menuOpen) return setMenuOpen(false);
+                const r = e.currentTarget.getBoundingClientRect();
+                setMenuAt({ top: r.bottom + 4, right: window.innerWidth - r.right });
+              }}>
                 <Plus className="h-4 w-4" />
               </Button>
               {menuOpen && (
-                <div role="menu" className={MENU}>
+                <div role="menu" className={MENU} style={{ top: menuAt.top, right: menuAt.right }}>
                   {([["repo", t.addRepo], ["file", t.addFile], ["folder", t.addFolder], ["local", t.linkFolder]] as const).map(([kind, label]) => {
                     const Icon = ICON[kind];
                     return (
