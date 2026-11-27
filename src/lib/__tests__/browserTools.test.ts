@@ -37,7 +37,7 @@ describe("browser MCP server", () => {
     const res = (await handleBrowserMcp({ jsonrpc: "2.0", id: 1, method: "tools/list" })) as { result: { tools: { name: string; inputSchema: unknown }[] } };
     const names = res.result.tools.map((t) => t.name);
     expect(names).toEqual(
-      expect.arrayContaining(["navigate", "snapshot", "find", "click", "fill", "fill_form", "press_key", "eval", "console_logs", "screenshot", "zoom", "click_at", "batch"]),
+      expect.arrayContaining(["navigate", "snapshot", "find", "click", "fill", "fill_form", "upload", "press_key", "eval", "console_logs", "screenshot", "zoom", "click_at", "batch"]),
     );
     expect(res.result.tools.every((t) => t.inputSchema)).toBe(true);
   });

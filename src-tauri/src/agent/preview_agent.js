@@ -1160,6 +1160,48 @@
       .map(function (l) { return "[" + l.level + "] " + l.text; });
   }
 
+  /**
+   * Keeps an action of the agent from opening a file picker. The system's picker is a window
+   * of its own that blocks the page until someone closes it, so a click on "Upload" left the
+   * agent waiting for an answer that never came. A file field's click (the page's own
+   * `input.click()` too), `showPicker()` and `showOpenFilePicker()` are stopped instead, and
+   * the action says which field to give `upload`. Returns the function that undoes it and
+   * reports what it stopped.
+   */
+  function blockFilePickers() {
+    var stopped = null;
+    var isFile = function (el) { return el && el.tagName === "INPUT" && (el.type || "").toLowerCase() === "file"; };
+    var onClick = function (e) {
+      if (!isFile(e.target)) return;
+      e.preventDefault();
+      stopped = e.target;
+    };
+    window.addEventListener("click", onClick, true);
+    var proto = window.HTMLInputElement.prototype;
+    var showPicker = proto.showPicker;
+    if (showPicker) {
+      proto.showPicker = function () {
+        if (isFile(this)) { stopped = this; return; }
+        return showPicker.apply(this, arguments);
+      };
+    }
+    var openPicker = window.showOpenFilePicker;
+    if (openPicker) {
+      window.showOpenFilePicker = function () {
+        stopped = stopped || true;
+        return Promise.reject(new DOMException("The agent can't use a file picker here.", "AbortError"));
+      };
+    }
+    return function () {
+      window.removeEventListener("click", onClick, true);
+      if (showPicker) proto.showPicker = showPicker;
+      if (openPicker) window.showOpenFilePicker = openPicker;
+      if (!stopped) return "";
+      var field = stopped === true ? "the area you clicked" : label(stopped) + " [ref=" + refFor(stopped, "file field", label(stopped)) + "]";
+      return "\nThis opens a file picker, which the agent can't use, so it was stopped. To send files, call upload with their paths and " + field + ".";
+    };
+  }
+
   // Runs an action and says what it did to the page: the new URL, what changed in its controls,
   // dialogs and messages, and the errors it logged. `quiet` holds the elements whose own
   // change is the action itself (a filled field), and `target` the element it acted on.
@@ -1169,20 +1211,74 @@
     var url = location.href;
     var was = collect();
     watchTimers();
+    var pickers = blockFilePickers();
     var out;
     try {
       out = await run();
     } catch (e) {
+      pickers();
       unwatchTimers();
       throw e;
     }
     await settle(reqMark);
+    out += pickers();
     if (location.href !== url) out += "\nThe URL is now " + location.href;
     var summary = changes(was, collect(), quiet || new Set(), target);
     out += summary ? "\nChanges:\n" + summary : "\nNo change in the page's controls, dialogs or messages.";
     var errors = errorsSince(before);
     if (errors.length) out += "\nErrors after the action:\n" + errors.join("\n");
     return out;
+  }
+
+  function isFileInput(el) {
+    return !!el && el.tagName === "INPUT" && (el.type || "").toLowerCase() === "file";
+  }
+
+  /** The file field an upload goes to: the element itself, its label's field, or the one file
+   *  field around it (an "Upload" button usually sits next to a hidden input). Null when there
+   *  is none, or more than one and it can't tell which. */
+  function fileInputFor(el) {
+    if (isFileInput(el)) return el;
+    var lab = el.tagName === "LABEL" ? el : el.closest && el.closest("label");
+    if (lab && isFileInput(lab.control)) return lab.control;
+    for (var n = el, depth = 0; n && depth < 5; n = n.parentElement, depth++) {
+      var found = n.querySelectorAll ? n.querySelectorAll("input[type=file]") : [];
+      if (found.length === 1) return found[0];
+      if (found.length > 1) return null;
+    }
+    return null;
+  }
+
+  /** Gives the page `files` ({name, type, data in base64}) as if the user had picked them in the
+   *  system's picker, or dropped them on `el` when it is an area without a file field. */
+  async function upload(el, files) {
+    var W = el.ownerDocument.defaultView || window;
+    var dt = new W.DataTransfer();
+    var names = files.map(function (f) {
+      var bin = atob(String(f.data || ""));
+      var bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      var name = String(f.name || "file");
+      dt.items.add(new W.File([bytes], name, { type: String(f.type || "") }));
+      return name;
+    });
+    var list = names.join(", ");
+    var input = fileInputFor(el);
+    if (input) {
+      if (isDisabled(input)) throw new Error(label(input) + " is disabled.");
+      if (!input.multiple && names.length > 1) throw new Error(label(input) + " takes one file, not " + names.length + ".");
+      input.files = dt.files;
+      input.dispatchEvent(new W.Event("input", { bubbles: true }));
+      input.dispatchEvent(new W.Event("change", { bubbles: true }));
+      return "Uploaded " + list + " to " + label(input) + ".";
+    }
+    var r = el.getBoundingClientRect();
+    var x = r.left + r.width / 2;
+    var y = r.top + r.height / 2;
+    ["dragenter", "dragover", "drop"].forEach(function (type) {
+      el.dispatchEvent(new W.DragEvent(type, { bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, dataTransfer: dt }));
+    });
+    return "Dropped " + list + " on " + label(el) + ".";
   }
 
   var commands = {
@@ -1223,6 +1319,12 @@
       }, quiet);
     },
     press: function (a) { return act(async function () { return "Pressed " + a.key + " on " + (await press(a.key)) + "."; }); },
+    upload: function (a) {
+      var el = target(a);
+      var files = Array.isArray(a.files) ? a.files : [];
+      if (!files.length) throw new Error("Pass the paths of the files to upload.");
+      return act(function () { return upload(el, files); }, null, el);
+    },
     // A scroll changes what is on screen, so it answers with the new view.
     scroll: async function (a) {
       var mark = reqSeq;

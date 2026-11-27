@@ -280,3 +280,68 @@ describe("scroll reaches the box that scrolls", () => {
     }
   });
 });
+
+describe("files", () => {
+  // jsdom has neither: just enough of them for what the bridge does.
+  class FakeDataTransfer {
+    list: File[] = [];
+    items = { add: (f: File) => void this.list.push(f) };
+    get files() { return this.list; }
+  }
+  class FakeDragEvent extends Event {
+    dataTransfer: unknown;
+    constructor(type: string, init: EventInit & { dataTransfer?: unknown }) {
+      super(type, init);
+      this.dataTransfer = init.dataTransfer;
+    }
+  }
+  beforeAll(() => {
+    Object.assign(window, { DataTransfer: FakeDataTransfer, DragEvent: FakeDragEvent });
+  });
+
+  /** A file field whose `files` can be set, as a browser's can. */
+  function fileField(html: string) {
+    document.body.innerHTML = html;
+    const field = document.querySelector("input[type=file]") as HTMLInputElement;
+    let files: File[] = [];
+    Object.defineProperty(field, "files", { get: () => files, set: (v: File[]) => { files = v; }, configurable: true });
+    return field;
+  }
+
+  it("stops the file picker an action would open, and names the field for upload", async () => {
+    // Hidden behind its label, as styled checkboxes are: fill clicks it directly.
+    const field = fileField('<input type="checkbox" id="c" aria-label="Attach" style="display:none"><input type="file" id="f" aria-label="Logo">');
+    let opened = true;
+    field.addEventListener("click", (e) => { opened = !e.defaultPrevented; });
+    document.getElementById("c")!.addEventListener("click", () => field.click());
+    const out = await run("fill", { selector: "#c", value: "true" });
+    expect(opened).toBe(false);
+    expect(out).toMatch(/opens a file picker.*call upload.*Logo.*\[ref=e\d+\]/s);
+  });
+
+  it("puts the files on the field an upload button stands for", async () => {
+    const field = fileField('<form><button type="button" id="b">Upload new logo</button><input type="file" id="f" class="sr-only"></form>');
+    const changed: string[] = [];
+    field.addEventListener("change", () => changed.push(...Array.from(field.files ?? []).map((f) => `${f.name} ${f.type} ${f.size}`)));
+    const out = await run("upload", { selector: "#b", files: [{ name: "logo.png", type: "image/png", data: btoa("png!") }] });
+    expect(changed).toEqual(["logo.png image/png 4"]);
+    expect(out).toMatch(/^Uploaded logo\.png to /);
+  });
+
+  it("refuses several files on a field that takes one", async () => {
+    fileField('<input type="file" id="f" aria-label="Avatar">');
+    const two = [{ name: "a.png", data: btoa("a") }, { name: "b.png", data: btoa("b") }];
+    await expect(run("upload", { selector: "#f", files: two })).rejects.toThrow(/takes one file, not 2/);
+  });
+
+  it("drops the files on an area without a file field", async () => {
+    document.body.innerHTML = '<div id="zone" aria-label="Drop files here">Drop</div>';
+    const dropped: string[] = [];
+    document.getElementById("zone")!.addEventListener("drop", (e) => {
+      dropped.push(...((e as unknown as { dataTransfer: FakeDataTransfer }).dataTransfer.files.map((f) => f.name)));
+    });
+    const out = await run("upload", { selector: "#zone", files: [{ name: "notes.txt", type: "text/plain", data: btoa("hola") }] });
+    expect(dropped).toEqual(["notes.txt"]);
+    expect(out).toMatch(/^Dropped notes\.txt on /);
+  });
+});

@@ -1,3 +1,4 @@
+import { invoke } from "@/lib/ipc";
 import { tunnelUrl } from "@/lib/remote";
 import { ensurePreview, hasActivePreview, previewForAddress, previewWorkspace, showAgentTab, type PreviewController } from "@/lib/previewControl";
 
@@ -121,6 +122,20 @@ async function capture(chat: string | undefined): Promise<{ page: PreviewControl
 
 const MAX_BATCH = 20;
 
+const isAbsolutePath = (p: string) => /^([A-Za-z]:[\\/]|[\\/]|~)/.test(p);
+
+const MEDIA_TYPES: Record<string, string> = {
+  png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", svg: "image/svg+xml",
+  bmp: "image/bmp", ico: "image/x-icon", avif: "image/avif", pdf: "application/pdf", txt: "text/plain", md: "text/markdown",
+  csv: "text/csv", json: "application/json", html: "text/html", xml: "application/xml", zip: "application/zip",
+  mp4: "video/mp4", webm: "video/webm", mov: "video/quicktime", mp3: "audio/mpeg", wav: "audio/wav",
+};
+
+/** The type a page sees for an uploaded file, from its extension, as a browser would give it. */
+function mediaTypeOf(name: string): string {
+  return MEDIA_TYPES[name.split(".").pop()?.toLowerCase() ?? ""] ?? "";
+}
+
 export const BROWSER_TOOLS: BrowserToolDef[] = [
   {
     name: "navigate",
@@ -238,6 +253,35 @@ export const BROWSER_TOOLS: BrowserToolDef[] = [
     },
     readOnly: false,
     run: (input, chat) => exec(chat, "fill_form", input),
+  },
+  {
+    name: "upload",
+    description:
+      "Uploads files from this computer to the page in the built-in browser, as if the user had picked them: on a file field, or on the button or drop area that stands for one (an \"Upload\" button, a \"drag & drop\" box). " +
+      "Use it instead of clicking such a button: that opens the system's file picker, which the agent can't use. Paths are absolute, or relative to the project. At most 20 MB per file.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...target,
+        paths: { type: "array", items: { type: "string" }, description: "The files to upload, e.g. [\"assets/logo.png\"]." },
+      },
+      required: ["paths"],
+      additionalProperties: false,
+    },
+    readOnly: false,
+    run: async ({ ref, selector, paths }, chat) => {
+      const list = Array.isArray(paths) ? paths.map(String).filter((p) => p.trim()) : [];
+      if (!list.length) throw new Error("Pass the paths of the files to upload.");
+      const workspace = previewWorkspace(chat);
+      const files = await Promise.all(
+        list.map(async (p) => {
+          const path = isAbsolutePath(p) || !workspace ? p : `${workspace.replace(/[\\/]+$/, "")}/${p.replace(/^\.[\\/]/, "")}`;
+          const read = await invoke<{ name: string; base64: string }>("agent_read_upload", { path });
+          return { name: read.name, type: mediaTypeOf(read.name), data: read.base64 };
+        }),
+      );
+      return exec(chat, "upload", { ref, selector, files }, 60_000);
+    },
   },
   {
     name: "press_key",
@@ -461,7 +505,7 @@ export function describeBrowserCall(def: BrowserToolDef, input: Record<string, u
   const point = typeof input.x === "number" && typeof input.y === "number" ? `${Math.round(input.x)}, ${Math.round(input.y)}` : undefined;
   const what =
     input.url ?? input.ref ?? input.selector ?? input.query ?? input.key ?? input.to ?? input.expression ??
-    count(input.fields, "field", "fields") ?? count(input.actions, "action", "actions") ?? point ?? "";
+    count(input.fields, "field", "fields") ?? count(input.actions, "action", "actions") ?? count(input.paths, "file", "files") ?? point ?? "";
   const detail = String(what).replace(/\s+/g, " ").slice(0, 80);
   return detail ? `${def.name} · ${detail}` : def.name;
 }

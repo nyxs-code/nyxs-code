@@ -20,7 +20,7 @@ const PROTOCOL_VERSION = "2025-06-18";
 const INSTRUCTIONS =
   "Nyxs' built-in browser, the Preview panel the user sees next to the chat. Use it for websites and to check your work in the running app: " +
   "navigate to a site or to the dev server (start it first if needed; it returns what the page shows), snapshot or find to read the page, " +
-  "click/fill/fill_form/press_key to use it (each reports what changed), batch to run several steps in one call, " +
+  "click/fill/fill_form/press_key to use it (each reports what changed), upload to send files from this computer to a file field or drop area, batch to run several steps in one call, " +
   "console_logs for runtime errors and screenshot/zoom for visuals. Both local pages (localhost, HTML files) and websites can be read and driven.";
 
 function reply(id: unknown, result: Json): Json {

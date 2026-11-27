@@ -416,6 +416,47 @@ pub fn agent_read_model(path: String, scope: Option<String>) -> Result<String, C
     Ok(base64::engine::general_purpose::STANDARD.encode(&bytes))
 }
 
+/// Biggest file the agent uploads to a page of the built-in browser: it goes into the page
+/// as base64, through the same channel as the agent's other commands.
+const UPLOAD_MAX_READ_BYTES: u64 = 20 * 1024 * 1024;
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UploadRead {
+    pub name: String,
+    pub base64: String,
+    pub size: u64,
+}
+
+/// A file the agent uploads to a page of the built-in browser (the `upload` browser tool),
+/// whatever its kind, as base64 with its name.
+#[tauri::command(async)]
+pub fn agent_read_upload(path: String, scope: Option<String>) -> Result<UploadRead, CmdError> {
+    use base64::Engine;
+    confine(&path, scope.as_deref())?;
+    let meta = vfs::metadata(&path).map_err(|e| CmdError::file_open_failed(&path, e))?;
+    if meta.is_dir {
+        return Err(CmdError::file_is_directory(&path));
+    }
+    if meta.len > UPLOAD_MAX_READ_BYTES {
+        return Err(format!(
+            "{path} is larger than {} MB, too large to upload from here.",
+            UPLOAD_MAX_READ_BYTES / (1024 * 1024)
+        )
+        .into());
+    }
+    let bytes = vfs::read(&path).map_err(|e| CmdError::file_read_failed(&path, e))?;
+    let name = Path::new(&path)
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "file".into());
+    Ok(UploadRead {
+        name,
+        base64: base64::engine::general_purpose::STANDARD.encode(&bytes),
+        size: meta.len,
+    })
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImageRead {
