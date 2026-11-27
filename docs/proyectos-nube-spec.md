@@ -106,18 +106,28 @@ CLI agents through the `nyxs-sessions` MCP server):
   }] }` where `type` is the headless `--format json` event type (text, tool, tool_result,
   status, report, error, done) — the app renders them as a chat.
 - `POST /threads/:id/messages` `{ text }` → queues a follow-up turn (the thread continues from
-  its saved session). `POST /threads/:id/stop`. `DELETE /threads/:id`.
+  its saved session). `POST /threads/:id/stop`. `DELETE /threads/:id`. `GET /threads/:id`.
+  `PATCH /threads/:id { status: "resolved" | "review" }` (409 while a turn is queued or running).
+- Threads also carry `workBranch`, `branch`, `turns`, `lastSeq`. Events include a `user` event
+  `{ text, turn }` for every prompt or follow-up and a `status` event on every change.
 - Status values match the app: `queued | working | needs_input | review | resolved | failed |
-  stopped`.
+  stopped`. A turn over the account's running limit isn't refused: it waits in the queue.
+- Beta gate: env `CLOUD_ALLOWED_EMAILS` (other accounts get 403 `not_allowed`; empty opens it).
 
 ### Sandbox rules (tnp-ai is shared with the firm's Kelly — never restart Docker there)
 
 - One container per running turn, from `nyxs-cloud-worker:<version>`; the thread's workspace is
   a named volume `nyxs-cloud-<threadId>` kept between turns (deleted with the thread or after
   14 days idle).
-- `--network nyxs-cloud` (a bridge created once), with `DOCKER-USER` iptables rules dropping
-  traffic from that subnet to `10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10` and the
-  host, so containers reach the internet but nothing of the office LAN, Kelly, MinIO or Postgres.
+- `--network nyxs-cloud` (`172.30.0.0/24`, no traffic between workers), with iptables rules
+  dropping traffic from that subnet to `10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16,
+  100.64.0.0/10, 169.254.0.0/16`, the host and IPv6, so containers reach the internet but nothing
+  of the office LAN, Kelly, MinIO or Postgres. The rules live in the `raw` table (Tailscale's
+  `ts-forward` accepts before `DOCKER-USER`, which never sees traffic to the host), with copies
+  in `DOCKER-USER` and `INPUT`; a systemd unit applies them at boot and a timer every 5 minutes
+  (`cloud-runner/infra/`).
+- The worker image carries `LABEL coolify.managed=true` (Coolify's nightly clean-up removes
+  unlabeled unused images). A runner redeploy fails the turns in flight (`runner_restart`).
 - `--cap-drop ALL --security-opt no-new-privileges --pids-limit 512 --cpus 2 --memory 4g
   --memory-swap 4g`, non-root user, no Docker socket, no host mounts. Disk: volume size check by
   the runner (kill + fail the turn over 10 GB).
