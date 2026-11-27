@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { useCloseOnBlur } from "@/lib/useCloseOnBlur";
 import { createPortal } from "react-dom";
-import { Plus, Search, Settings, Code2, Clock, Plug, Copy, ChevronDown, ChevronRight, Check, Languages, LifeBuoy, History, LogOut, EllipsisVertical, MessageSquareHeart, GitPullRequest, GitPullRequestDraft, GitPullRequestClosed, GitMerge, Folder, FolderOpen, Layers, Pin, Pencil, Trash2, X } from "lucide-react";
+import { Plus, Search, Settings, Code2, Clock, Plug, Copy, ChevronDown, ChevronRight, Check, Languages, LifeBuoy, History, LogOut, EllipsisVertical, MessageSquareHeart, GitPullRequest, GitPullRequestDraft, GitPullRequestClosed, GitMerge, Folder, FolderKanban, FolderOpen, Layers, Pin, Pencil, Trash2, X } from "lucide-react";
 import { LearnMoreMenu } from "@/components/sidebar/LearnMoreMenu";
 import { NavRows } from "@/components/sidebar/NavRows";
+import { ProjectsList } from "@/components/sidebar/ProjectsList";
 import { SessionMenu, type SessionCopy, type SessionMenuAction, type SessionMenuTarget } from "@/components/sidebar/SessionMenu";
 import { createSection, deleteSection, moveToSection, renameSection, setPinned, setUnread, useSessionMarks } from "@/lib/sessionMarks";
 import { shortAge } from "@/lib/time";
@@ -165,6 +166,7 @@ const OPTIONAL_ITEMS: {
   section: Section;
   badge?: string;
 }[] = [
+  { id: "projects", label: "Projects", icon: FolderKanban, section: "projects", badge: "Beta" },
   { id: "routines", label: "Scheduled", icon: Clock, section: "routines" },
   { id: "artifacts", label: "Artifacts", icon: ArtifactsIcon, section: "artifacts" },
   { id: "customize", label: "Plugins", icon: PluginsIcon, section: "customize" },
@@ -223,6 +225,10 @@ interface SidebarProps {
   onNewSessionIn?: (workspace: string) => void;
   onOpenFolder?: (workspace: string) => void;
   onRemoveProject?: (workspace: string) => void;
+  /** Opens a project (Proyectos): its coordinator conversation. */
+  onOpenProject?: (projectId: string) => void;
+  /** The project the open session belongs to, marked in the Proyectos list. */
+  activeProjectId?: string;
 }
 
 // The sidebar's width, dragged from its right edge and remembered per account.
@@ -358,12 +364,15 @@ export function Sidebar({
   onNewSessionIn,
   onOpenFolder,
   onRemoveProject,
+  onOpenProject,
+  activeProjectId,
 }: SidebarProps) {
   const inCode =
-    section === "code" || section === "routines" || section === "artifacts" || section === "customize" || section === "feedback";
+    section === "code" || section === "projects" || section === "routines" || section === "artifacts" || section === "customize" || section === "feedback";
 
   const t = useTranslations().sidebar;
   const tm = useTranslations().sidebarMenu;
+  const tProjects = useTranslations().projects;
   // A row dragged onto the chat area opens there next to the open session (see SessionDropZone).
   const dragToSide = (e: DragEvent, id: string) => {
     e.dataTransfer.setData(SESSION_DRAG_TYPE, id);
@@ -600,16 +609,17 @@ export function Sidebar({
             ...OPTIONAL_ITEMS.map((it) => ({
               id: it.id,
               icon: it.icon,
-              label: it.id === "routines" ? tm.routines : it.id === "artifacts" ? tm.artifacts : it.id === "customize" ? tm.customize : it.label,
+              label: it.id === "projects" ? tProjects.navLabel : it.id === "routines" ? tm.routines : it.id === "artifacts" ? tm.artifacts : it.id === "customize" ? tm.customize : it.label,
               onClick: () => onSectionChange(it.section),
               active: section === it.section,
-              badge: it.badge,
+              badge: it.id === "projects" ? tProjects.beta : it.badge,
             })),
           ]}
         />
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar px-2 pt-5 pb-3">
+        {onOpenProject && <ProjectsList activeProjectId={activeProjectId} onOpen={onOpenProject} />}
         <div className="flex items-center justify-between px-2">
           <p className="text-[13px] text-text-400 truncate max-w-[160px]" data-tooltip={recentsFilter.project !== "all" ? recentsFilter.project : undefined}>
             {recentsFilter.project !== "all" ? workspaceName(recentsFilter.project) : t.recents}

@@ -132,6 +132,10 @@ import { useComputerControlLayout } from "@/lib/useComputerControlLayout";
 import { modHost } from "@/lib/mods/io";
 import { ModBackdrop } from "@/components/mods/ModBackdrop";
 import { ModBand } from "@/components/mods/ModBand";
+import { ProjectsPage } from "@/components/projects/ProjectsPage";
+import { ProjectFrame } from "@/components/projects/ProjectFrame";
+import { useProjects, type ProjectAppActions } from "@/lib/projects/useProjects";
+import { projectTurnEnded } from "@/lib/projects/projectHost";
 
 const uid = () => Math.random().toString(36).slice(2, 11);
 
@@ -348,7 +352,12 @@ export default function App() {
 
 
 
-  const sessionStates = useSessionStates(classifyStates, sessions, [...pending.map((p) => p.chatId), ...(pendingQuestion ? [pendingQuestion.chatId] : [])], streamingIds);
+  const blockedIds = [...pending.map((p) => p.chatId), ...(pendingQuestion ? [pendingQuestion.chatId] : [])];
+  const sessionStates = useSessionStates(classifyStates, sessions, blockedIds, streamingIds);
+  // Projects: a coordinator conversation with threads (src/lib/projects). App's actions reach it
+  // through a ref filled below.
+  const projectAppRef = useRef<ProjectAppActions | null>(null);
+  const projectsApi = useProjects({ chats, setChats, liveChatsRef, hydratedRef, ensureHydrated, patchMessage, sessions, streamingIds, blockedIds, effectiveModel, appRef: projectAppRef });
 
   useSessionAutosave({ ready: chatsReady, workspace, activeChat, restorableMsgIds, withFileHistory, onSaved: refreshSessions });
 
@@ -846,6 +855,8 @@ export default function App() {
     backgroundShell: (chatId, event) => backgroundWakerRef.current?.onEvent(chatId, event),
     turnEnded: (chatId, outcome) => {
       backgroundWakerRef.current?.turnEnded(chatId);
+      // A project's thread that ended without reporting is ready for review.
+      projectTurnEnded(chatId, outcome);
       // A goal set with /goal: checked, and another turn while it isn't met.
       void goalTurnEnded(chatId, outcome, goalEnvRef.current());
       // The session's mods hear the reply, and the ones the agent wrote load now.
@@ -979,6 +990,19 @@ export default function App() {
     abortTurn(activeId);
     queue.pause(activeId);
   };
+
+  useEffect(() => {
+    projectAppRef.current = {
+      send: async (payload, displayText, chatId) => { await handleSendRef.current?.(payload, displayText, chatId); },
+      openSession: (id, ws) => {
+        navigate(navSnapshot({ section: "code", settingsOpen: false, settingsSection: undefined }));
+        void resumeSession(id, ws);
+      },
+      abortTurn,
+      dropSessions: (ids) => dropSessions(ids, "", undefined),
+      refreshSessions,
+    };
+  });
 
   // Notifications skip the session on screen and are titled with the session's name.
   useEffect(() => {
@@ -1228,9 +1252,12 @@ export default function App() {
         onRenameChat={renameChat}
         onRenameSession={(id, title) => { void renameSavedSession(id, title); }}
         onOpenSettings={() => navigate(navSnapshot({ settingsOpen: true, settingsSection: undefined }))}
-        sessions={orderedSessions}
-        archivedSessions={archivedSessions}
+        // A project's sessions are reached from its page, not from Recents.
+        sessions={orderedSessions.filter((s) => !s.projectId)}
+        archivedSessions={archivedSessions.filter((s) => !s.projectId)}
         sessionStates={sessionStates}
+        onOpenProject={projectsApi.openProject}
+        activeProjectId={activeChat?.projectId}
         onSelectSession={(id) => { void resumeSession(id, sessions.find((s) => s.id === id)?.workspace); }}
         onDeleteSession={(id, withNested) => {
           void sessionActions.deleteSession(id, !!withNested, sessionActionsEnv()).catch((e) => console.error("deleting session failed", e));
@@ -1319,6 +1346,8 @@ export default function App() {
       <main data-side-chat-area className={cn("flex-1 flex flex-col min-w-0", panelMaximized && panelShown && "hidden")}>
         {section === "customize" ? (
           <CustomizePanel workspace={workspace} onStartChat={startChatWithPrompt} />
+        ) : section === "projects" ? (
+          <ProjectsPage loaded={projectsApi.loaded} models={modelOptions} onOpen={projectsApi.openProject} onCreate={projectsApi.createProject} />
         ) : section === "routines" ? (
           <RoutinesPanel
             onRun={runRoutine}
@@ -1338,6 +1367,14 @@ export default function App() {
         <>
         {activeChat ? (
           <SessionDropZone enabled={splitViewOn} onOpenSession={openSessionToSide}>
+            <ProjectFrame
+              chat={activeChat}
+              models={modelOptions}
+              onOpenProject={projectsApi.openProject}
+              onOpenScheduled={() => navigate(navSnapshot({ section: "routines", settingsOpen: false, settingsSection: undefined }))}
+              onSave={projectsApi.updateProject}
+              onDelete={projectsApi.removeProject}
+            >
             <div className={cn("flex-1 flex min-h-0 min-w-0", split && "gap-2 p-2")}>
               {paneChats.map((chat, i) => (
                 // Keyed by position, so the single view keeps its composer and scroll when the
@@ -1360,7 +1397,7 @@ export default function App() {
                   onCloseFind={() => setFindOpen(false)}
                   transcript={paneTranscript}
                   prompts={panePrompts}
-                  input={paneInput}
+                  input={chat.projectRole === "coordinator" ? { ...paneInput, placeholder: t.projects.composerPlaceholder } : paneInput}
                   topBar={<><ModBand sessionKey={chat.id} isWorking={streamingIds.has(chat.id)} />{usesClaudeCodeIn(chat) && <PlanLimitBar />}{chat.goal && (
                     <GoalCard
                       chatId={chat.id}
@@ -1373,6 +1410,7 @@ export default function App() {
                 />
               ))}
             </div>
+            </ProjectFrame>
           </SessionDropZone>
         ) : (
           // A new session with no messages yet: drifting glyphs behind the empty screen.
