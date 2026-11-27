@@ -57,7 +57,12 @@ export const COORDINATOR_TOOLS: SessionToolDef[] = [
       properties: {
         title: { type: "string", description: "A short title for the thread, as the user will see it (at most 80 characters)." },
         instructions: { type: "string", description: "Everything the thread needs to do the task: what, where, constraints, how to check it." },
-        where: { type: "string", enum: ["local", "cloud"], description: 'Where it runs: "local" (this computer, the default). The Nyxs cloud isn\'t available yet.' },
+        where: {
+          type: "string",
+          enum: ["local", "cloud"],
+          description:
+            'Where it runs: "local" (a worktree on this computer) or "cloud" (an isolated container in the Nyxs cloud that clones the project\'s repository, keeps working with the computer off and opens a draft pull request). Leave it out for the project\'s default.',
+        },
         model: { type: "string", description: "A model the user asked for, as they said it. Leave it out for the project's default." },
       },
       required: ["title", "instructions"],
@@ -69,10 +74,20 @@ export const COORDINATOR_TOOLS: SessionToolDef[] = [
       const title = str(input.title).trim().slice(0, 80);
       const instructions = str(input.instructions).trim();
       if (!title || !instructions) throw new Error("Pass a title and the thread's instructions.");
-      if (str(input.where) === "cloud") throw new Error('Threads in the Nyxs cloud aren\'t available yet. Call it again without "where" to run it on this computer.');
-      const out = await host().startThread(ctx.chat!, { title, instructions, model: str(input.model).trim() || undefined });
+      const asked = str(input.where);
+      const out = await host().startThread(ctx.chat!, {
+        title,
+        instructions,
+        model: str(input.model).trim() || undefined,
+        ...(asked === "cloud" || asked === "local" ? { where: asked } : {}),
+      });
       if ("error" in out) throw new Error(out.error);
-      const where = out.branch ? `in its own worktree, on branch ${out.branch}` : "in the project folder (no worktree: it isn't a git repository)";
+      const where =
+        out.where === "cloud"
+          ? "in the Nyxs cloud: it clones the repository, works on its own branch and opens a draft pull request, even with this computer off"
+          : out.branch
+            ? `in its own worktree, on branch ${out.branch}`
+            : "in the project folder (no worktree: it isn't a git repository)";
       return `Started the thread "${title}" (${out.id}) on ${out.model}, ${out.effort} effort, ${where}. It is working on it now; its report will arrive here as a message, so end your turn with one short line.`;
     },
   }),

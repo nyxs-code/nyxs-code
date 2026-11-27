@@ -3056,5 +3056,10 @@ export interface Translations {
     deleteTitle: string;
     deleteBody: string;
     projectMenu: string;
+    cloudNeedsRepo: string;
+    cloudModelUnsupported: string;
+    cloudHint: string;
+    stopThread: string;
+    openPr: string;
   };
 }

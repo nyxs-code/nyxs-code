@@ -14,6 +14,7 @@ import type { AssistantTurn } from "@/lib/assistantTurn";
 import type { ChatHistory } from "@/lib/chatHistory";
 import { sessionTookMessages } from "@/lib/sessionMessageGuard";
 import { markRead, markReplied, noteDelivery } from "@/lib/sessionDelivery";
+import { routeToCloud } from "@/lib/projects/cloudRoute";
 
 interface Deps {
   streamAssistantTurn: (turn: AssistantTurn) => Promise<void>;
@@ -188,6 +189,11 @@ export function useSessionBridge(deps: Deps): void {
           const ws = live(id)?.workspace ?? d().workspace;
           const saved = live(id);
           if (ws && saved && !busy(id) && d().hydratedRef.current?.has(id)) await saveSession(ws, saved, Date.now()).catch(() => undefined);
+          return "sent";
+        }
+        // A project's cloud thread answers in the Nyxs cloud, whatever runs on this computer.
+        if (await routeToCloud(id, message, message.content)) {
+          if (fromId) markReplied(fromId, id);
           return "sent";
         }
         const modelId = usableModel(chat.model);

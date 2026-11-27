@@ -3063,6 +3063,11 @@ const t: Translations = {
     deleteTitle: "Delete “{name}”?",
     deleteBody: "The project, its memory and its conversations are deleted. Folders and branches are left as they are.",
     projectMenu: "Project options",
+    cloudNeedsRepo: "The cloud needs the repository URL.",
+    cloudModelUnsupported: "This model can't work in the cloud.",
+    cloudHint: "In the cloud, threads keep working with this computer off and open a draft pull request.",
+    stopThread: "Stop",
+    openPr: "Pull request",
   },
 };
 

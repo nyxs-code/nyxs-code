@@ -3063,6 +3063,11 @@ const t: Translations = {
     deleteTitle: "Hapus “{name}”?",
     deleteBody: "Proyek, memori, dan percakapannya dihapus. Folder dan branch dibiarkan apa adanya.",
     projectMenu: "Opsi proyek",
+    cloudNeedsRepo: "Cloud butuh URL repositori.",
+    cloudModelUnsupported: "Model ini tidak bisa bekerja di cloud.",
+    cloudHint: "Di cloud, utas tetap bekerja saat komputer mati dan membuka pull request draf.",
+    stopThread: "Hentikan",
+    openPr: "Pull request",
   },
 };
 

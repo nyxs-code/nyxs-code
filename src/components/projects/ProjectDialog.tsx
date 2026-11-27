@@ -6,7 +6,9 @@ import { SettingSelect } from "@/components/settings/SettingSelect";
 import { useTranslations } from "@/lib/i18n";
 import { pickWorkspace, workspaceName } from "@/lib/workspace";
 import { projectFolder } from "@/lib/projects/projectStore";
-import { PROJECT_INSTRUCTIONS_MAX, type Project } from "@/lib/projects/types";
+import { PROJECT_INSTRUCTIONS_MAX, type Project, type ThreadWhere } from "@/lib/projects/types";
+import { cloudSupport } from "@/lib/cloud/cloudCredentials";
+import { PROVIDERS, type ProviderId } from "@/lib/models";
 import type { NewProject } from "@/lib/projects/useProjects";
 import { cn } from "@/lib/utils";
 import { WhereChoice } from "./WhereChoice";
@@ -19,13 +21,16 @@ const LABEL = "block text-[13px] font-medium text-text-100 mb-1.5";
 export function ProjectDialog({
   project,
   models,
+  defaultModel,
   onClose,
   onCreate,
   onSave,
   onDelete,
 }: {
   project?: Project;
-  models: { id: string; name: string }[];
+  models: { id: string; name: string; provider?: string }[];
+  /** The app's model, which threads use when the project names none. */
+  defaultModel: string;
   onClose: () => void;
   onCreate?: (input: NewProject) => Promise<unknown>;
   onSave?: (project: Project) => Promise<unknown>;
@@ -38,8 +43,13 @@ export function ProjectDialog({
   const [gitUrl, setGitUrl] = useState(project?.repos.find((r) => r.gitUrl)?.gitUrl ?? "");
   const [instructions, setInstructions] = useState(project?.instructions ?? "");
   const [model, setModel] = useState(project?.defaults.model ?? "");
+  const [where, setWhere] = useState<ThreadWhere>(project?.defaults.where ?? "local");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // The cloud clones the repository and runs the threads' model there.
+  const provider = models.find((m) => m.id === (model || defaultModel))?.provider as ProviderId | undefined;
+  const cloudBlocked = !gitUrl.trim() ? t.cloudNeedsRepo : provider && PROVIDERS[provider] && !cloudSupport(provider).ok ? t.cloudModelUnsupported : undefined;
+  const shownWhere: ThreadWhere = cloudBlocked ? "local" : where;
 
   const choose = async () => {
     const picked = await pickWorkspace().catch(() => null);
@@ -60,9 +70,9 @@ export function ProjectDialog({
       if (project) {
         const repos = [{ path: folder, ...(gitUrl.trim() ? { gitUrl: gitUrl.trim() } : {}) }, ...project.repos.slice(1)];
         const { model: _old, ...defaults } = project.defaults;
-        await onSave?.({ ...project, name: shownName, repos, instructions, defaults: { ...defaults, ...(model ? { model } : {}) } });
+        await onSave?.({ ...project, name: shownName, repos, instructions, defaults: { ...defaults, ...(model ? { model } : {}), where: shownWhere } });
       } else {
-        await onCreate?.({ name: shownName, folder, gitUrl, instructions, model: model || undefined, where: "local" });
+        await onCreate?.({ name: shownName, folder, gitUrl, instructions, model: model || undefined, where: shownWhere });
       }
       onClose();
     } catch (e) {
@@ -117,8 +127,9 @@ export function ProjectDialog({
 
         <div className="mt-4 flex items-center gap-3">
           <span className="flex-1 text-[13px] font-medium text-text-100">{t.whereLabel}</span>
-          <WhereChoice />
+          <WhereChoice value={shownWhere} onChange={setWhere} cloudBlocked={cloudBlocked} />
         </div>
+        <p className="mt-1.5 text-[12px] leading-relaxed text-text-400">{cloudBlocked ?? t.cloudHint}</p>
 
         {error && <p role="alert" className="mt-3 text-[13px] text-red-400">{error}</p>}
       </div>

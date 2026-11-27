@@ -3063,6 +3063,11 @@ const t: Translations = {
     deleteTitle: "Supprimer « {name} » ?",
     deleteBody: "Le projet, sa mémoire et ses conversations sont supprimés. Les dossiers et les branches ne sont pas touchés.",
     projectMenu: "Options du projet",
+    cloudNeedsRepo: "Le cloud a besoin de l'URL du dépôt.",
+    cloudModelUnsupported: "Ce modèle ne peut pas travailler dans le cloud.",
+    cloudHint: "Dans le cloud, les fils continuent de travailler ordinateur éteint et ouvrent une pull request en brouillon.",
+    stopThread: "Arrêter",
+    openPr: "Pull request",
   },
 };
 

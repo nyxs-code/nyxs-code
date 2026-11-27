@@ -1,5 +1,7 @@
 import { useState, type ReactNode } from "react";
-import { ChevronRight, Folder, Laptop, PanelRight, Settings2 } from "lucide-react";
+import { ChevronRight, Cloud, Folder, GitPullRequest, Laptop, PanelRight, Settings2, Square } from "lucide-react";
+import { openExternalUrl } from "@/lib/openExternal";
+import { projectHost } from "@/lib/projects/projectHost";
 import { Button } from "@/components/ui/button";
 import { GithubMark } from "@/components/customize/logos";
 import { useTranslations } from "@/lib/i18n";
@@ -22,6 +24,7 @@ export function ProjectFrame({
   chat,
   children,
   models,
+  defaultModel,
   onOpenProject,
   onOpenScheduled,
   onSave,
@@ -29,7 +32,8 @@ export function ProjectFrame({
 }: {
   chat: Chat;
   children: ReactNode;
-  models: { id: string; name: string }[];
+  models: { id: string; name: string; provider?: string }[];
+  defaultModel: string;
   onOpenProject: (projectId: string) => void;
   onOpenScheduled: () => void;
   onSave: (project: Project) => Promise<unknown>;
@@ -45,6 +49,10 @@ export function ProjectFrame({
   if (!entry) return <>{children}</>;
   const { project } = entry;
   const isThread = chat.projectRole === "thread";
+  const thread = isThread ? entry.threads.find((x) => x.id === chat.id) : undefined;
+  // A thread shows where it runs; the coordinator, where the project's threads run by default.
+  const inCloud = isThread ? chat.threadLocation?.kind === "cloud" : project.defaults.where === "cloud";
+  const cloudWorking = isThread && chat.threadLocation?.kind === "cloud" && thread?.group === "working";
   const togglePanel = () => {
     setPanelHidden((h) => {
       localStorage.setItem(PANEL_KEY, h ? "0" : "1");
@@ -90,11 +98,23 @@ export function ProjectFrame({
             </span>
           ))}
           <span className="inline-flex h-6 shrink-0 items-center gap-1 rounded-[6px] bg-bg-200 px-2 text-[12px] text-text-300">
-            <Laptop className="h-3.5 w-3.5" />
-            {t.thisComputer}
+            {inCloud ? <Cloud className="h-3.5 w-3.5" /> : <Laptop className="h-3.5 w-3.5" />}
+            {inCloud ? t.cloud : t.thisComputer}
           </span>
+          {thread?.prUrl && (
+            <button type="button" onClick={() => openExternalUrl(thread.prUrl!)} className="inline-flex h-6 shrink-0 items-center gap-1 rounded-[6px] bg-bg-200 px-2 text-[12px] text-text-300 hover:text-text-100">
+              <GitPullRequest className="h-3.5 w-3.5" />
+              {t.openPr}
+            </button>
+          )}
         </div>
         <div className="ml-auto flex shrink-0 items-center gap-0.5">
+          {cloudWorking && (
+            <Button variant="secondary" className="mr-1" onClick={() => void projectHost()?.stopThread(chat.id)}>
+              <Square className="h-3 w-3" />
+              {t.stopThread}
+            </Button>
+          )}
           <Button variant="ghost" icon aria-label={t.settings} onClick={() => setEditing(true)}>
             <Settings2 className="h-4 w-4" />
           </Button>
@@ -108,7 +128,7 @@ export function ProjectFrame({
         {!panelHidden && <ProjectOverview entry={entry} activeId={chat.id} onOpenScheduled={onOpenScheduled} />}
       </div>
       {editing && (
-        <ProjectDialog project={project} models={models} onClose={() => setEditing(false)} onSave={onSave} onDelete={() => void askDelete()} />
+        <ProjectDialog project={project} models={models} defaultModel={defaultModel} onClose={() => setEditing(false)} onSave={onSave} onDelete={() => void askDelete()} />
       )}
       {confirmElement}
     </div>

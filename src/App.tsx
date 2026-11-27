@@ -357,7 +357,7 @@ export default function App() {
   // Projects: a coordinator conversation with threads (src/lib/projects). App's actions reach it
   // through a ref filled below.
   const projectAppRef = useRef<ProjectAppActions | null>(null);
-  const projectsApi = useProjects({ chats, setChats, liveChatsRef, hydratedRef, ensureHydrated, patchMessage, sessions, streamingIds, blockedIds, effectiveModel, appRef: projectAppRef });
+  const projectsApi = useProjects({ chats, setChats, liveChatsRef, hydratedRef, ensureHydrated, patchMessage, sessions, streamingIds, blockedIds, effectiveModel, settings, appRef: projectAppRef });
 
   useSessionAutosave({ ready: chatsReady, workspace, activeChat, restorableMsgIds, withFileHistory, onSaved: refreshSessions });
 
@@ -1347,7 +1347,7 @@ export default function App() {
         {section === "customize" ? (
           <CustomizePanel workspace={workspace} onStartChat={startChatWithPrompt} />
         ) : section === "projects" ? (
-          <ProjectsPage loaded={projectsApi.loaded} models={modelOptions} onOpen={projectsApi.openProject} onCreate={projectsApi.createProject} />
+          <ProjectsPage loaded={projectsApi.loaded} models={modelOptions} defaultModel={effectiveModel} onOpen={projectsApi.openProject} onCreate={projectsApi.createProject} />
         ) : section === "routines" ? (
           <RoutinesPanel
             onRun={runRoutine}
@@ -1370,6 +1370,7 @@ export default function App() {
             <ProjectFrame
               chat={activeChat}
               models={modelOptions}
+              defaultModel={effectiveModel}
               onOpenProject={projectsApi.openProject}
               onOpenScheduled={() => navigate(navSnapshot({ section: "routines", settingsOpen: false, settingsSection: undefined }))}
               onSave={projectsApi.updateProject}

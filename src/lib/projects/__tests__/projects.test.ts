@@ -93,14 +93,15 @@ describe("project tools", () => {
     expect(sessionToolFor("mcp__nyxs-sessions__report")?.name).toBe("Report");
   });
 
-  it("start_thread refuses the cloud for now and hands the rest to the app", async () => {
+  it("start_thread hands the thread to the app, with where only when asked", async () => {
     publish();
-    const startThread = vi.fn<ProjectHost["startThread"]>(async () => ({ id: "t9", model: "Opus", effort: "high", branch: "nyxs/t9" }));
+    const startThread = vi.fn<ProjectHost["startThread"]>(async (_c, r) => ({ id: "t9", model: "Opus", effort: "high", where: r.where ?? "local", ...(r.where === "cloud" ? {} : { branch: "nyxs/t9" }) }));
     setProjectHost({ startThread } as unknown as ProjectHost);
     const start = COORDINATOR_TOOLS.find((d) => d.mcpName === "start_thread")!;
-    await expect(start.run({ title: "Fix", instructions: "Do it", where: "cloud" }, { chat: "coord" })).rejects.toThrow(/cloud/);
-    const out = await start.run({ title: "Fix", instructions: "Do it" }, { chat: "coord" });
-    expect(startThread).toHaveBeenCalledWith("coord", { title: "Fix", instructions: "Do it", model: undefined });
+    const cloud = await start.run({ title: "Fix", instructions: "Do it", where: "cloud" }, { chat: "coord" });
+    expect(cloud).toContain("Nyxs cloud");
+    const out = await start.run({ title: "Fix", instructions: "Do it", where: "moon" }, { chat: "coord" });
+    expect(startThread).toHaveBeenLastCalledWith("coord", { title: "Fix", instructions: "Do it", model: undefined });
     expect(out).toContain("t9");
     expect(out).toContain("nyxs/t9");
     // Only the coordinator opens threads.

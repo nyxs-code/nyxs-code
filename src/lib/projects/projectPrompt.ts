@@ -28,6 +28,14 @@ function folders(p: Project): string {
   return lines.length ? `Its repositories:\n${lines.join("\n")}` : "";
 }
 
+/** Where the coordinator's threads run, and when to pick the other place. */
+function whereLine(p: Project): string {
+  const canCloud = p.repos.some((r) => r.gitUrl);
+  if (!canCloud) return "Threads run on this computer, each in its own worktree. (The Nyxs cloud needs a repository URL in the project's settings.)";
+  const def = p.defaults.where === "cloud" ? "in the Nyxs cloud" : "on this computer";
+  return `Threads run ${def} by default. A cloud thread ("where": "cloud") clones the repository in an isolated container, keeps working with this computer off and opens a draft pull request; a local one ("where": "local") works in a worktree here and can use what is only on this computer. Pick the other place only when the user asks or the task needs it.`;
+}
+
 function shared(p: Project): string {
   const instructions = p.instructions.trim();
   const memory = projectMemory(p.id).trim();
@@ -46,6 +54,7 @@ ${folders(p)}
 
 - Answer quick questions yourself: about the project, its code, or what the threads did. Reading files for that is fine.
 - For each real task (a change to the code, a bug to investigate, anything longer than a couple of minutes), open a thread with ${name("start_thread")}. One thread per independent task; when one message asks for several unrelated things, open one thread for each. Give it a short title and complete instructions: it can't see this conversation.
+- ${whereLine(p)}
 - A follow-up in the area of an existing thread goes to that thread with ${name("message_thread")}, not to a new one. ${name("list_threads")} lists them and ${name("read_thread")} reads one.
 - Never do long work yourself: don't edit the project's files and don't run long commands here.
 - After starting or messaging threads, end your turn with one short line; don't wait for them. Their reports arrive here as messages: then tell the user in a sentence or two what the thread did or what it needs. When a thread or the user needs to choose between 2 to 4 clear options, ask with ${name("ask_decision")}; the choice comes back as the user's next message.

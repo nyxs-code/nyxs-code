@@ -17,6 +17,7 @@ import { clampTitle, generateChatTitle } from "@/lib/titles";
 import { generateUniqueWordSlug } from "@/lib/words";
 import { takePendingGoal } from "@/lib/goalMode";
 import { userSpokeIn } from "@/lib/sessionMessageGuard";
+import { routeToCloud } from "@/lib/projects/cloudRoute";
 
 export const newChatId = (chats: Chat[]) => generateUniqueWordSlug(new Set(chats.map((c) => c.id)));
 
@@ -120,6 +121,11 @@ export async function sendMessage(
   if (chatId) userSpokeIn(chatId);
   const { userMessage: userMsg, modelImages, titleText } = out;
   let { modelText } = out;
+  // A project's cloud thread: its next turn runs in the Nyxs cloud, with the keys stored there.
+  if (chatId && (await routeToCloud(chatId, userMsg, modelText))) {
+    releasePreviews(payload.files);
+    return;
+  }
 
   // A model no longer on offer (an old chat's, Apply plan's) gives way to the one in use, instead of
   // nothing happening at all.

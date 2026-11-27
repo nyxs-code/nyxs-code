@@ -3063,6 +3063,11 @@ const t: Translations = {
     deleteTitle: "「{name}」を削除しますか?",
     deleteBody: "プロジェクト、そのメモリー、会話が削除されます。フォルダーとブランチはそのまま残ります。",
     projectMenu: "プロジェクトのオプション",
+    cloudNeedsRepo: "クラウドにはリポジトリ URL が必要です。",
+    cloudModelUnsupported: "このモデルはクラウドで作業できません。",
+    cloudHint: "クラウドでは、コンピューターの電源が切れていてもスレッドが作業を続け、ドラフトのプルリクエストを作成します。",
+    stopThread: "停止",
+    openPr: "プルリクエスト",
   },
 };
 

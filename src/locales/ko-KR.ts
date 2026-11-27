@@ -3063,6 +3063,11 @@ const t: Translations = {
     deleteTitle: "“{name}”을(를) 삭제할까요?",
     deleteBody: "프로젝트와 메모리, 대화가 삭제됩니다. 폴더와 브랜치는 그대로 남습니다.",
     projectMenu: "프로젝트 옵션",
+    cloudNeedsRepo: "클라우드에는 저장소 URL이 필요합니다.",
+    cloudModelUnsupported: "이 모델은 클라우드에서 작업할 수 없습니다.",
+    cloudHint: "클라우드에서는 컴퓨터가 꺼져 있어도 스레드가 계속 작업하고 초안 풀 리퀘스트를 엽니다.",
+    stopThread: "중지",
+    openPr: "풀 리퀘스트",
   },
 };
 

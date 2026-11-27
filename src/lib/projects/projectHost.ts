@@ -1,14 +1,16 @@
 import type { TurnOutcome } from "@/lib/goalMode";
-import type { ThreadStatus } from "./types";
+import type { ThreadStatus, ThreadWhere } from "./types";
 
 export interface StartThreadRequest {
   title: string;
   instructions: string;
   model?: string;
   effort?: string;
+  /** Where it runs; the project's default when unset. */
+  where?: ThreadWhere;
 }
 
-export type StartThreadOutcome = { id: string; model: string; effort: string; branch?: string } | { error: string };
+export type StartThreadOutcome = { id: string; model: string; effort: string; branch?: string; where: ThreadWhere } | { error: string };
 
 /** What the project tools and cards need from the app, which holds the chats. Filled in by
  *  useProjects; the tools (projectTools.ts) and cards use it. */
@@ -17,6 +19,8 @@ export interface ProjectHost {
    *  and starts its first turn. */
   startThread(coordinatorId: string, request: StartThreadRequest): Promise<StartThreadOutcome>;
   setThreadStatus(threadId: string, status: ThreadStatus, preview?: string): Promise<boolean>;
+  /** Stops a cloud thread's running turn; false for a thread that isn't in the cloud. */
+  stopThread(threadId: string): Promise<boolean>;
   /** The thread's `report`: its status, and a card in the coordinator conversation (which runs a
    *  turn on it, except for a progress note). */
   report(threadId: string, text: string, status: ThreadStatus): Promise<"delivered" | "noted" | "no-coordinator">;

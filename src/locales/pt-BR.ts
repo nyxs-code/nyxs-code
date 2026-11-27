@@ -3063,6 +3063,11 @@ const t: Translations = {
     deleteTitle: "Excluir “{name}”?",
     deleteBody: "O projeto, a memória e as conversas são excluídos. Pastas e branches ficam como estão.",
     projectMenu: "Opções do projeto",
+    cloudNeedsRepo: "A nuvem precisa da URL do repositório.",
+    cloudModelUnsupported: "Este modelo não pode trabalhar na nuvem.",
+    cloudHint: "Na nuvem, as threads continuam trabalhando com o computador desligado e abrem um pull request em rascunho.",
+    stopThread: "Parar",
+    openPr: "Pull request",
   },
 };
 

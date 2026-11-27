@@ -10,6 +10,10 @@ import { worktreeBaseOf } from "@/lib/worktreeBase";
 import { allowWorkspaceAccess } from "@/lib/workspace";
 import { useNow } from "@/lib/useNow";
 import type { EffortLevel } from "@/lib/effort";
+import type { Settings } from "@/lib/settings";
+import { checkCloudInbox } from "@/lib/cloud/cloudInbox";
+import { createCloudThreads } from "./cloudFollow";
+import { setCloudRoute } from "./cloudRoute";
 import { buildProjectDirectory, findThread, noteProjectRole, projectRoleOf, setProjectDirectory } from "./projectDirectory";
 import { setProjectHost, type StartThreadOutcome } from "./projectHost";
 import { deleteProject, loadProjects, memoryPathOf, newProjectId, projectById, projectFolder, projectsSnapshot, saveProject, useProjectHubs } from "./projectStore";
@@ -38,6 +42,7 @@ interface Deps {
   /** Chats waiting on a permission or a question. */
   blockedIds: string[];
   effectiveModel: string;
+  settings: Settings;
   appRef: RefObject<ProjectAppActions | null>;
 }
 
@@ -64,6 +69,7 @@ export function useProjects(deps: Deps) {
   const ref = useRef(deps);
   useEffect(() => { ref.current = deps; });
   const [saved, setSaved] = useState<SessionSummary[]>([]);
+  const checkCloudRef = useRef<() => Promise<void>>(async () => {});
   const savedRef = useRef(saved);
   useEffect(() => { savedRef.current = saved; }, [saved]);
 
@@ -153,12 +159,64 @@ export function useProjects(deps: Deps) {
       return noted === "sent" ? "noted" : "no-coordinator";
     };
 
+    const patchChat = (id: string, fn: (c: Chat) => Chat) => {
+      const apply = (c: Chat) => (c.id === id ? fn(c) : c);
+      d().setChats((prev) => prev.map(apply));
+      d().liveChatsRef.current = (d().liveChatsRef.current ?? []).map(apply);
+    };
+    const cloud = createCloudThreads({
+      live,
+      ensureLoaded,
+      addChat: async (chat) => {
+        d().hydratedRef.current?.add(chat.id);
+        d().setChats((prev) => [chat, ...prev]);
+        d().liveChatsRef.current = [chat, ...(d().liveChatsRef.current ?? [])];
+        if (chat.workspace) await saveSession(chat.workspace, chat, Date.now()).catch(() => undefined);
+        relist();
+      },
+      patchChat,
+      save: async (id) => {
+        const chat = live(id);
+        if (chat?.workspace && d().hydratedRef.current?.has(id)) await saveSession(chat.workspace, chat, Date.now()).catch(() => undefined);
+      },
+      setStatus,
+      deliver,
+      newId: () => newSessionId([...(d().liveChatsRef.current ?? []).map((c) => c.id), ...d().sessions.map((s) => s.id), ...savedRef.current.map((s) => s.id)]),
+      settings: () => d().settings,
+      effectiveModel: () => d().effectiveModel,
+    });
+    setCloudRoute((chatId, message, text) => (cloud.isCloud(chatId) ? cloud.send(chatId, message, text) : Promise.resolve(false)));
+
+    /** The cloud's threads now: notifications for what finished or waits while the app was
+     *  closed, and their sessions caught up. Only for a user with cloud threads. */
+    const sessionOfCloud = (cloudId: string) =>
+      [...(d().liveChatsRef.current ?? []), ...savedRef.current].find((s) => s.threadLocation?.kind === "cloud" && s.threadLocation.cloudThreadId === cloudId)?.id;
+    let checking = false;
+    checkCloudRef.current = async () => {
+      const any = [...(d().liveChatsRef.current ?? []), ...savedRef.current].some((s) => s.threadLocation?.kind === "cloud");
+      if (!any || checking) return;
+      checking = true;
+      try {
+        const threads = await checkCloudInbox(sessionOfCloud);
+        if (threads) await cloud.sync(threads, sessionOfCloud);
+      } finally {
+        checking = false;
+      }
+    };
+    const onFocus = () => void checkCloudRef.current();
+    window.addEventListener("focus", onFocus);
+
     setProjectHost({
-      startThread: async (coordinatorId, { title, instructions, model, effort }): Promise<StartThreadOutcome> => {
+      startThread: async (coordinatorId, { title, instructions, model, effort, where }): Promise<StartThreadOutcome> => {
         const project = projectById(projectRoleOf(coordinatorId)?.projectId);
         const b = sessionBridge();
         if (!project || !b) return { error: "This session isn't a project's coordinator." };
         await ensureLoaded(coordinatorId);
+        if ((where ?? project.defaults.where) === "cloud") {
+          const out = await cloud.start(coordinatorId, project, { title, instructions, model, effort });
+          if (!("error" in out)) relist();
+          return out;
+        }
         const parentMessageId = [...(live(coordinatorId)?.messages ?? [])].reverse().find((m) => m.role === "assistant")?.id;
         let branch: string | undefined;
         const create = (wanted: string | undefined) =>
@@ -202,8 +260,10 @@ export function useProjects(deps: Deps) {
         if ("unknownModel" in out) return { error: `No model matches "${model}". Call it again with one of these (name or id):\n${out.unknownModel.slice(0, 40).join("\n")}` };
         if ("unknownEffort" in out) return { error: `"${effort}" isn't an effort level (${out.unknownEffort.join(", ")}).` };
         relist();
-        return { id: out.id, model: out.model, effort: out.effort, ...(branch ? { branch } : {}) };
+        return { id: out.id, model: out.model, effort: out.effort, where: "local", ...(branch ? { branch } : {}) };
       },
+
+      stopThread: (id) => cloud.stop(id),
 
       setThreadStatus: (id, status, preview) => setStatus(id, status, preview),
 
@@ -249,8 +309,22 @@ export function useProjects(deps: Deps) {
         })().catch(() => undefined);
       },
     });
-    return () => setProjectHost(null);
+    return () => {
+      setProjectHost(null);
+      setCloudRoute(null);
+      window.removeEventListener("focus", onFocus);
+      cloud.dispose();
+      checkCloudRef.current = async () => {};
+    };
   }, [relist]);
+
+  // On launch: once the projects' sessions are listed, cloud threads catch up.
+  const checkedCloud = useRef(false);
+  useEffect(() => {
+    if (checkedCloud.current || !saved.some((s) => s.threadLocation?.kind === "cloud")) return;
+    checkedCloud.current = true;
+    void checkCloudRef.current();
+  }, [saved]);
 
   /** Makes the project and its coordinator session, and opens it. */
   const createProject = useCallback(async (input: NewProject): Promise<Project> => {

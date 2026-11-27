@@ -16,11 +16,13 @@ import { ProjectDialog } from "./ProjectDialog";
 export function ProjectsPage({
   loaded,
   models,
+  defaultModel,
   onOpen,
   onCreate,
 }: {
   loaded: boolean;
-  models: { id: string; name: string }[];
+  models: { id: string; name: string; provider?: string }[];
+  defaultModel: string;
   onOpen: (projectId: string) => void;
   onCreate: (input: NewProject) => Promise<unknown>;
 }) {
@@ -105,7 +107,7 @@ export function ProjectsPage({
           </div>
         )}
       </div>
-      {creating && <ProjectDialog models={models} onClose={() => setCreating(false)} onCreate={onCreate} />}
+      {creating && <ProjectDialog models={models} defaultModel={defaultModel} onClose={() => setCreating(false)} onCreate={onCreate} />}
     </div>
   );
 }

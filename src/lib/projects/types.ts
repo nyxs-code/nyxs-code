@@ -43,7 +43,7 @@ export const PROJECT_INSTRUCTIONS_MAX = 16_000;
 export const PROJECT_MEMORY_MAX = 8_000;
 
 /** Where a thread's session works. */
-export type ThreadLocation = { kind: "local"; workspace: string; worktree?: string } | { kind: "cloud"; cloudThreadId: string };
+export type ThreadLocation = { kind: "local"; workspace: string; worktree?: string } | { kind: "cloud"; cloudThreadId: string; branch?: string };
 
 export type ProjectRole = "coordinator" | "thread";
 
@@ -61,4 +61,8 @@ export interface ProjectSessionFields {
   threadPreview?: string;
   /** When its status last changed. */
   threadUpdatedAt?: number;
+  /** A cloud thread: the last event of the events API already in its transcript. */
+  threadCloudSeq?: number;
+  /** The pull request a cloud thread opened. */
+  threadPrUrl?: string;
 }

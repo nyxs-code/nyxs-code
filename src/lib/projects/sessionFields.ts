@@ -6,7 +6,7 @@ function location(v: unknown): ThreadLocation | undefined {
   if (!v || typeof v !== "object") return undefined;
   const o = v as Record<string, unknown>;
   if (o.kind === "local" && str(o.workspace)) return { kind: "local", workspace: o.workspace as string, ...(str(o.worktree) ? { worktree: o.worktree as string } : {}) };
-  if (o.kind === "cloud" && str(o.cloudThreadId)) return { kind: "cloud", cloudThreadId: o.cloudThreadId as string };
+  if (o.kind === "cloud" && str(o.cloudThreadId)) return { kind: "cloud", cloudThreadId: o.cloudThreadId as string, ...(str(o.branch) ? { branch: o.branch as string } : {}) };
   return undefined;
 }
 
@@ -29,5 +29,7 @@ export function projectFieldsOf(o: ProjectSessionFields | Record<string, unknown
     ...(str(r.parentMessageId) ? { parentMessageId: r.parentMessageId as string } : {}),
     ...(str(r.threadPreview) ? { threadPreview: r.threadPreview as string } : {}),
     ...(typeof r.threadUpdatedAt === "number" ? { threadUpdatedAt: r.threadUpdatedAt } : {}),
+    ...(typeof r.threadCloudSeq === "number" ? { threadCloudSeq: r.threadCloudSeq } : {}),
+    ...(str(r.threadPrUrl) ? { threadPrUrl: r.threadPrUrl as string } : {}),
   };
 }

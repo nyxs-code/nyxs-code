@@ -23,6 +23,8 @@ export interface ThreadLive {
   /** A permission or a question waits on the user there. */
   blocked: boolean;
   updatedAt: number;
+  /** It runs in the Nyxs cloud: no local turn shows it working, the cloud's status does. */
+  cloud?: boolean;
 }
 
 /** Which group a thread shows in now: what runs and waits live wins over what was stored. */
@@ -31,7 +33,7 @@ export function threadGroup(t: ThreadLive, now: number): ThreadGroup {
   if (t.streaming) return "working";
   switch (t.status) {
     case "working":
-      return now - t.updatedAt < STARTING_MS ? "working" : "review";
+      return t.cloud || now - t.updatedAt < STARTING_MS ? "working" : "review";
     case "failed":
       return "failed";
     case "resolved":

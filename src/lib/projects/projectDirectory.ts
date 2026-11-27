@@ -17,6 +17,8 @@ export interface ThreadEntry {
   group: ThreadGroup;
   branch?: string;
   location?: ThreadLocation;
+  /** The pull request a cloud thread opened. */
+  prUrl?: string;
   updatedAt: number;
   preview?: string;
   /** Its agent's replies so far. */
@@ -82,8 +84,9 @@ export function buildProjectDirectory(
         parentId: s.parentId,
         parentMessageId: s.parentMessageId,
         status: s.threadStatus,
-        group: threadGroup({ status: s.threadStatus, streaming: isStreaming, blocked: isBlocked, updatedAt }, now),
-        branch: s.worktree?.branch,
+        group: threadGroup({ status: s.threadStatus, streaming: isStreaming, blocked: isBlocked, updatedAt, cloud: s.threadLocation?.kind === "cloud" }, now),
+        prUrl: s.threadPrUrl,
+        branch: s.worktree?.branch ?? (s.threadLocation?.kind === "cloud" ? s.threadLocation.branch : undefined),
         location: s.threadLocation,
         updatedAt,
         preview: s.threadPreview,
