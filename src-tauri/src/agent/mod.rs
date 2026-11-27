@@ -112,6 +112,7 @@ mod oauth;
 mod output_log;
 mod pdf;
 mod preview;
+mod project_hubs;
 #[cfg(windows)]
 mod ps_host;
 mod review;
@@ -145,6 +146,7 @@ pub use notify::*;
 pub use oauth::*;
 pub use pdf::*;
 pub use preview::*;
+pub use project_hubs::*;
 pub use review::*;
 pub use scope::*;
 pub use search::*;
