@@ -2964,4 +2964,30 @@ export interface Translations {
     consentExplain: string;
     close: string;
   };
+  cloud: {
+    nav: string;
+    intro: string;
+    signedOut: string;
+    providersHeading: string;
+    providersIntro: string;
+    noProviders: string;
+    synced: string;
+    notSynced: string;
+    localOnly: string;
+    cliOnly: string;
+    accountsHeading: string;
+    claudeDesc: string;
+    codexDesc: string;
+    githubDesc: string;
+    tokenPlaceholder: string;
+    save: string;
+    remove: string;
+    upload: string;
+    noCodexLogin: string;
+    storedTag: string;
+    test: string;
+    testing: string;
+    testOk: string;
+    failed: string;
+  };
 }
