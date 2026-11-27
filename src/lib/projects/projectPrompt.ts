@@ -1,4 +1,4 @@
-import { projectById, projectMemory } from "./projectStore";
+import { projectById, projectFiles, projectFilesDir, projectMemory } from "./projectStore";
 import { projectRoleOf } from "./projectDirectory";
 import type { Project, ProjectRole } from "./types";
 
@@ -36,15 +36,51 @@ function whereLine(p: Project): string {
   return `Threads run ${def} by default. A cloud thread ("where": "cloud") clones the repository in an isolated container, keeps working with this computer off and opens a draft pull request; a local one ("where": "local") works in a worktree here and can use what is only on this computer. Pick the other place only when the user asks or the task needs it.`;
 }
 
+/** At most this much of the context files' text goes into the prompt; the rest is read on demand. */
+const FILES_INLINE_BUDGET = 24_000;
+
+/** The project's context files: where they are, and the small ones' text. `dir` is where the
+ *  session reads them (none for a cloud thread, which only gets their text). */
+export function filesSection(p: Project, dir: string | null): string {
+  const list = projectFiles(p.id);
+  if (!list.length) return "";
+  let budget = FILES_INLINE_BUDGET;
+  const inline: string[] = [];
+  const listed: string[] = [];
+  for (const f of list) {
+    const text = f.text ?? "";
+    if (text && text.length <= budget) {
+      budget -= text.length;
+      inline.push(`### ${f.rel}\n\`\`\`\n${text.replace(/```/g, "ˋˋˋ")}\n\`\`\``);
+    } else listed.push(`- ${f.rel} (${Math.max(1, Math.round(f.size / 1024))} KB)`);
+  }
+  const where = dir ? `They are copies in ${dir}; read them there when you need them.` : "Their text is below; the others aren't available here.";
+  return [
+    `## Project files\nThe user added these files as context for the project. ${where}`,
+    ...inline,
+    listed.length ? `Not included here:\n${listed.join("\n")}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 function shared(p: Project): string {
   const instructions = p.instructions.trim();
   const memory = projectMemory(p.id).trim();
   return [
     instructions && `## Project instructions\nThe user wrote these for every session of the project. Follow them unless the user says otherwise.\n\n${instructions}`,
     `## Project memory (MEMORY.md)\n${memory || "(empty so far)"}`,
+    filesSection(p, projectFilesDir(p.id)),
   ]
     .filter(Boolean)
     .join("\n\n");
+}
+
+/** The folder of the context files of the project `chatId` belongs to, which its agent may
+ *  read besides its own folder. */
+export function projectFilesDirFor(chatId: string | undefined | null): string | null {
+  const role = projectRoleOf(chatId);
+  return role && projectFiles(role.projectId).length ? projectFilesDir(role.projectId) : null;
 }
 
 export function coordinatorPrompt(p: Project, name: ToolNamer): string {

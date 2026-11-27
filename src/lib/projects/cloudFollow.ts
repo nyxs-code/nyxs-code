@@ -10,6 +10,7 @@ import { applyCloudEvents, threadStatusOfCloud, type CloudEffect } from "./cloud
 import { noteProjectRole } from "./projectDirectory";
 import type { StartThreadOutcome, StartThreadRequest } from "./projectHost";
 import { projectFolder, projectMemory } from "./projectStore";
+import { filesSection } from "./projectPrompt";
 import type { Project, ThreadStatus } from "./types";
 
 /** What the cloud threads need from the projects hook, which holds the chats. */
@@ -162,7 +163,8 @@ export function createCloudThreads(h: CloudHelpers) {
         repo: { url: repo.gitUrl, ...(repo.branch ? { branch: repo.branch } : {}) },
         model: { id: model.id, provider: model.provider, ...(effort ? { effort } : {}) },
         settings: sanitizedCloudSettings(settings),
-        projectInstructions: project.instructions,
+        // The container can't reach this computer's copies: the context files go as text.
+        projectInstructions: [project.instructions, filesSection(project, null)].filter((s) => s.trim()).join("\n\n"),
         memory: projectMemory(project.id),
       });
     } catch (e) {

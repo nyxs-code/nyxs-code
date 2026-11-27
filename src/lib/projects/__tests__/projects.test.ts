@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { normalizeProject, projectFolder, resetProjectsForTests } from "../projectStore";
+import { normalizeProject, projectFilesDir, projectFolder, resetProjectsForTests } from "../projectStore";
 import { buildProjectDirectory, noteProjectRole, resetProjectDirectoryForTests, setProjectDirectory } from "../projectDirectory";
 import { projectFieldsOf } from "../sessionFields";
 import { decisionOf, projectToolsFor, COORDINATOR_TOOLS, THREAD_TOOLS } from "../projectTools";
-import { builtinNamer, mcpNamer, projectPromptFor } from "../projectPrompt";
+import { builtinNamer, filesSection, mcpNamer, projectFilesDirFor, projectPromptFor } from "../projectPrompt";
 import { setProjectHost, type ProjectHost } from "../projectHost";
 import { handleSessionsMcp } from "@/lib/browserMcp";
 import { isProjectTool, sessionToolFor } from "@/lib/sessionTools";
@@ -167,5 +167,25 @@ describe("project prompts and the sessions MCP server", () => {
     expect(await names("plain")).not.toContain("start_thread");
     const init = (await handleSessionsMcp({ jsonrpc: "2.0", id: 2, method: "initialize", params: {} }, "coord")) as { result: { instructions: string } };
     expect(init.result.instructions).toContain("coordinator");
+  });
+});
+
+describe("context files in the prompt", () => {
+  it("inline the small text files, list the rest, and let the project's sessions read them", () => {
+    resetProjectsForTests([project], {}, {
+      dirs: { "p-1": "/data/project-hubs/p-1" },
+      files: { "p-1": [{ rel: "brief.md", size: 12, text: "# Brief" }, { rel: "docs/big.pdf", size: 2_000_000, text: null }] },
+    });
+    publish();
+    const section = filesSection(project, projectFilesDir("p-1"));
+    expect(section).toContain("/data/project-hubs/p-1/files");
+    expect(section).toContain("### brief.md");
+    expect(section).toContain("# Brief");
+    expect(section).toContain("- docs/big.pdf (1953 KB)");
+    expect(projectPromptFor("coord")).toContain("## Project files");
+    expect(projectFilesDirFor("coord")).toBe("/data/project-hubs/p-1/files");
+    expect(projectFilesDirFor("nobody")).toBeNull();
+    // A cloud thread gets the text only.
+    expect(filesSection(project, null)).toContain("aren't available here");
   });
 });

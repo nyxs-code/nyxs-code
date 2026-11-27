@@ -10,7 +10,7 @@ import { buildTools, usesApplyPatch, type AgentPathScope, type ToolDetail, type 
 import { getDiagnosticsRuntime } from "./diagnostics";
 import { detectReplyLanguage } from "./replyLanguage";
 import { buildSystemPromptCacheBlocks, modelFamilyOf } from "./systemPrompt";
-import { projectPromptFor } from "./projects/projectPrompt";
+import { projectFilesDirFor, projectPromptFor } from "./projects/projectPrompt";
 import { scanInjectedState, stripProviderExecutedParts } from "./promptPrefix";
 import { getMergedSnapshot, setSettingsPollPaused, settingsFor } from "./settingsRuntime";
 import { getOutputStyle } from "./outputStyles";
@@ -241,7 +241,9 @@ async function agentTurn(
     if (!toolsEnabled) return;
     try {
       const foreign = await userForeignSkillsDirs();
-      pathScope.extraRoots = [await userSkillsDir(), await userAttachmentsDir(), ...foreign].map((p) => p.replace(/\//g, "\\"));
+      // A project's sessions also read its context files, kept in the app's data.
+      const projectFilesDir = projectFilesDirFor(sessionKey);
+      pathScope.extraRoots = [await userSkillsDir(), await userAttachmentsDir(), ...foreign, ...(projectFilesDir ? [projectFilesDir] : [])].map((p) => p.replace(/\//g, "\\"));
     } catch {
       pathScope.extraRoots = [];
     }

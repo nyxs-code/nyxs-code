@@ -16,7 +16,8 @@ import { createCloudThreads } from "./cloudFollow";
 import { setCloudRoute } from "./cloudRoute";
 import { buildProjectDirectory, findThread, noteProjectRole, projectRoleOf, setProjectDirectory } from "./projectDirectory";
 import { setProjectHost, type StartThreadOutcome } from "./projectHost";
-import { deleteProject, loadProjects, memoryPathOf, newProjectId, projectById, projectFolder, projectsSnapshot, saveProject, useProjectHubs } from "./projectStore";
+import { addProjectFiles, deleteProject, ensureProjectHubDir, loadProjects, memoryPathOf, newProjectId, projectById, projectFolder, projectHubDir, projectsSnapshot, saveProject, useProjectHubs } from "./projectStore";
+import { trustWorkspace } from "@/lib/globalConfig";
 import type { Project, ProjectRole, ProjectSessionFields, ThreadStatus, ThreadWhere } from "./types";
 
 /** What the projects need from App, filled in an effect (App's handlers aren't passed during
@@ -48,12 +49,18 @@ interface Deps {
 
 export interface NewProject {
   name: string;
-  folder: string;
-  gitUrl?: string;
+  /** What the user wants to work on: the project's instructions. */
   instructions: string;
+  /** A linked folder on this computer, for local threads. */
+  folder?: string;
+  /** Repository URLs (the first one is what cloud threads clone). */
+  repos?: string[];
+  /** Files and folders copied in as context. */
+  contextPaths?: string[];
   model?: string;
   effort?: EffortLevel;
-  where: ThreadWhere;
+  /** Where threads run by default; from what the project has when unset. */
+  where?: ThreadWhere;
 }
 
 const PREVIEW_MAX = 600;
@@ -79,7 +86,8 @@ export function useProjects(deps: Deps) {
   const listSeq = useRef(0);
   const relist = useCallback(() => {
     const seq = ++listSeq.current;
-    const folders = [...new Set(projectsSnapshot().map(projectFolder).filter((f): f is string => !!f))];
+    // A project's sessions are in its folder, or in its own data folder when it had none.
+    const folders = [...new Set(projectsSnapshot().flatMap((p) => [projectFolder(p), projectHubDir(p.id)]).filter((f): f is string => !!f))];
     void Promise.all(folders.map(async (ws) => (await listSessions(ws)).map((s) => ({ ...s, workspace: ws }))))
       .then((lists) => {
         if (seq === listSeq.current) setSaved(lists.flat().filter((s) => s.projectId));
@@ -110,7 +118,7 @@ export function useProjects(deps: Deps) {
     const reported = new Map<string, ThreadStatus>();
 
     const workspaceOf = (id: string): string | null =>
-      live(id)?.workspace ?? savedRef.current.find((s) => s.id === id)?.workspace ?? findThread(id)?.workspace ?? projectFolder(projectById(projectRoleOf(id)?.projectId)) ?? null;
+      live(id)?.workspace ?? savedRef.current.find((s) => s.id === id)?.workspace ?? findThread(id)?.workspace ?? coordinatorWorkspace(projectById(projectRoleOf(id)?.projectId)) ?? null;
 
     /** The session in memory, read from disk when it isn't: a coordinator the user hasn't opened
      *  since the app started still takes its threads' reports. */
@@ -217,12 +225,21 @@ export function useProjects(deps: Deps) {
           if (!("error" in out)) relist();
           return out;
         }
+        const folder = projectFolder(project);
+        if (!folder) {
+          return {
+            error: project.repos.some((r) => r.gitUrl)
+              ? 'This project has no folder on this computer, so its threads run in the Nyxs cloud: call it again with "where": "cloud", or ask the user to link a local folder in the project\'s settings.'
+              : "This project has no folder on this computer and no repository. Ask the user to link a local folder or add a repository in the project's settings.",
+          };
+        }
         const parentMessageId = [...(live(coordinatorId)?.messages ?? [])].reverse().find((m) => m.role === "assistant")?.id;
         let branch: string | undefined;
         const create = (wanted: string | undefined) =>
           b.create(coordinatorId, {
             title,
             message: instructions,
+            workspace: folder,
             model: wanted,
             effort: effort ?? project.defaults.effort,
             reportBack: false,
@@ -332,22 +349,34 @@ export function useProjects(deps: Deps) {
     const id = newProjectId();
     const taken = [...(d.liveChatsRef.current ?? []).map((c) => c.id), ...d.sessions.map((s) => s.id)];
     const coordinatorChatId = newSessionId(taken);
+    const urls = (input.repos ?? []).map((u) => u.trim()).filter(Boolean);
     const project: Project = {
       id,
       name: input.name.trim(),
       createdAt: Date.now(),
-      repos: [{ path: input.folder, ...(input.gitUrl?.trim() ? { gitUrl: input.gitUrl.trim() } : {}) }],
-      instructions: input.instructions,
-      defaults: { ...(input.model ? { model: input.model } : {}), ...(input.effort ? { effort: input.effort } : {}), where: input.where },
+      repos: [...(input.folder ? [{ path: input.folder }] : []), ...urls.map((gitUrl) => ({ gitUrl }))],
+      instructions: input.instructions.trim(),
+      defaults: {
+        ...(input.model ? { model: input.model } : {}),
+        ...(input.effort ? { effort: input.effort } : {}),
+        where: input.where ?? (!input.folder && urls.length ? "cloud" : "local"),
+      },
       coordinatorChatId,
       memoryPath: memoryPathOf(id),
     };
+    // Without a folder of its own, the coordinator works in the project's data folder, which is
+    // the app's: trusted without asking.
+    const hubDir = await ensureProjectHubDir(id);
+    const workspace = input.folder ?? hubDir;
+    if (!workspace) throw new Error("Couldn't create the project's folder.");
+    if (!input.folder) await trustWorkspace(workspace).catch(() => undefined);
     await saveProject(project);
+    await addProjectFiles(id, input.contextPaths ?? []).catch((e) => console.warn("[projects] couldn't copy the context files:", e));
     noteProjectRole(coordinatorChatId, id, "coordinator");
     const chat: Chat = {
       id: coordinatorChatId,
       title: project.name,
-      workspace: input.folder,
+      workspace,
       messages: [],
       model: input.model ?? d.effectiveModel,
       ...(input.effort ? { effort: input.effort } : {}),
@@ -357,10 +386,10 @@ export function useProjects(deps: Deps) {
     d.hydratedRef.current?.add(chat.id);
     d.setChats((prev) => [chat, ...prev]);
     d.liveChatsRef.current = [chat, ...(d.liveChatsRef.current ?? [])];
-    await saveSession(input.folder, chat, Date.now()).catch(() => undefined);
+    await saveSession(workspace, chat, Date.now()).catch(() => undefined);
     relist();
     d.appRef.current?.refreshSessions();
-    d.appRef.current?.openSession(coordinatorChatId, input.folder);
+    d.appRef.current?.openSession(coordinatorChatId, workspace);
     return project;
   }, [relist]);
 
@@ -382,7 +411,7 @@ export function useProjects(deps: Deps) {
     d.appRef.current?.dropSessions([...ids]);
     d.setChats((prev) => prev.filter((c) => !ids.has(c.id)));
     for (const id of ids) {
-      const ws = savedRef.current.find((s) => s.id === id)?.workspace ?? d.liveChatsRef.current?.find((c) => c.id === id)?.workspace ?? projectFolder(project);
+      const ws = savedRef.current.find((s) => s.id === id)?.workspace ?? d.liveChatsRef.current?.find((c) => c.id === id)?.workspace ?? coordinatorWorkspace(project);
       await deleteSession(ws ?? null, id).catch(() => undefined);
     }
     await deleteProject(projectId);
@@ -392,8 +421,16 @@ export function useProjects(deps: Deps) {
 
   const openProject = useCallback((projectId: string) => {
     const project = projectById(projectId);
-    if (project) ref.current.appRef.current?.openSession(project.coordinatorChatId, projectFolder(project));
+    if (!project) return;
+    const id = project.coordinatorChatId;
+    const ws = ref.current.liveChatsRef.current?.find((c) => c.id === id)?.workspace ?? savedRef.current.find((s) => s.id === id)?.workspace ?? coordinatorWorkspace(project);
+    ref.current.appRef.current?.openSession(id, ws);
   }, []);
 
   return { projects, loaded, createProject, updateProject, removeProject, openProject };
+}
+
+/** Where a project's coordinator works when nothing else says: its folder, else its own. */
+function coordinatorWorkspace(project: Project | undefined): string | null {
+  return project ? projectFolder(project) ?? projectHubDir(project.id) : null;
 }

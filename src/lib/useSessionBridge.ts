@@ -205,9 +205,9 @@ export function useSessionBridge(deps: Deps): void {
         return outcome;
       },
 
-      create: async (fromId, { title, message, model, effort, reportBack, prepare }) => {
+      create: async (fromId, { title, message, model, effort, reportBack, prepare, workspace: asked }) => {
         const parent = fromId ? live(fromId) : undefined;
-        const workspace = parent ? parent.workspace ?? d().workspace : d().workspace;
+        const workspace = asked ?? (parent ? parent.workspace ?? d().workspace : d().workspace);
         if (!workspace) return "no-project";
         // The same model and effort as the session asking, unless the user asked for others.
         let modelId: string | null;

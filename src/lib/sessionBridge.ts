@@ -31,6 +31,9 @@ export interface CreateSessionRequest {
   /** Fields of the new session worked out once its id is known, before it's saved and its first
    *  turn starts (a project thread's worktree and project fields). */
   prepare?: (id: string, workspace: string) => Promise<Partial<Chat>>;
+  /** The folder it works in, instead of its parent's (a project's folder, when its coordinator
+   *  works elsewhere). */
+  workspace?: string;
 }
 
 export interface SendOptions {

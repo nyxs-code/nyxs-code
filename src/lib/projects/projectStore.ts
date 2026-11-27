@@ -117,6 +117,8 @@ export async function loadProjects(): Promise<void> {
       projects.map(async (p) => {
         const text = await invoke<string>("nyxs_project_hub_memory_read", { id: p.id }).catch(() => null);
         if (text !== null) memories.set(p.id, text);
+        await ensureProjectHubDir(p.id);
+        await refreshProjectFiles(p.id);
       }),
     );
     set({ projects: sortProjects(projects), loaded: true });
@@ -180,8 +182,85 @@ export function useProjectMemory(id: string | undefined | null): string {
   return projectMemory(id);
 }
 
-export function resetProjectsForTests(projects: Project[] = [], mem: Record<string, string> = {}): void {
+/** A context file of a project (copied into its own folder), with its text when small. */
+export interface ProjectFile {
+  rel: string;
+  size: number;
+  text?: string | null;
+}
+
+const hubDirs = new Map<string, string>();
+const files = new Map<string, ProjectFile[]>();
+const NO_FILES: ProjectFile[] = [];
+
+/** The project's own folder in the app's data (its memory and files), made when missing. */
+export async function ensureProjectHubDir(id: string): Promise<string | null> {
+  const known = hubDirs.get(id);
+  if (known || !isTauri) return known ?? null;
+  const dir = await invoke<string>("nyxs_project_hub_dir", { id }).catch(() => null);
+  if (dir) hubDirs.set(id, dir);
+  return dir;
+}
+
+export function projectHubDir(id: string | undefined | null): string | null {
+  return (id && hubDirs.get(id)) || null;
+}
+
+/** The folder of a project's context files, as a path. */
+export function projectFilesDir(id: string | undefined | null): string | null {
+  const dir = projectHubDir(id);
+  return dir ? `${dir}${dir.includes("\\") ? "\\" : "/"}files` : null;
+}
+
+/** A project's own data folder: the coordinator of a project with no folder on this computer
+ *  works there, and it doesn't belong in the list of the user's folders. */
+export function isProjectHubDir(path: string | null | undefined): boolean {
+  if (!path) return false;
+  const p = path.replace(/[\\/]+$/, "").toLowerCase();
+  return [...hubDirs.values()].some((d) => d.replace(/[\\/]+$/, "").toLowerCase() === p);
+}
+
+export function projectFiles(id: string | undefined | null): ProjectFile[] {
+  return (id && files.get(id)) || NO_FILES;
+}
+
+export function useProjectFiles(id: string | undefined | null): ProjectFile[] {
+  return useSyncExternalStore(
+    (l) => {
+      listeners.add(l);
+      return () => listeners.delete(l);
+    },
+    () => projectFiles(id),
+  );
+}
+
+export async function refreshProjectFiles(id: string): Promise<void> {
+  if (!isTauri) return;
+  const list = await invoke<ProjectFile[]>("nyxs_project_hub_files", { id }).catch(() => null);
+  if (!list) return;
+  files.set(id, list);
+  listeners.forEach((l) => l());
+}
+
+/** Copies files or folders into the project's context. */
+export async function addProjectFiles(id: string, paths: string[]): Promise<void> {
+  if (!isTauri || !paths.length) return;
+  await invoke("nyxs_project_hub_add_files", { id, paths });
+  await refreshProjectFiles(id);
+}
+
+export async function removeProjectFile(id: string, rel: string): Promise<void> {
+  if (!isTauri) return;
+  await invoke("nyxs_project_hub_remove_file", { id, rel });
+  await refreshProjectFiles(id);
+}
+
+export function resetProjectsForTests(projects: Project[] = [], mem: Record<string, string> = {}, extra: { dirs?: Record<string, string>; files?: Record<string, ProjectFile[]> } = {}): void {
   memories.clear();
+  hubDirs.clear();
+  files.clear();
+  for (const [k, v] of Object.entries(extra.dirs ?? {})) hubDirs.set(k, v);
+  for (const [k, v] of Object.entries(extra.files ?? {})) files.set(k, v);
   for (const [k, v] of Object.entries(mem)) memories.set(k, v);
   set({ projects: sortProjects(projects), loaded: true });
 }
