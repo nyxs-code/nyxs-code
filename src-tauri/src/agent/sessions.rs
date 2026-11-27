@@ -486,6 +486,21 @@ fn projects_root() -> Result<PathBuf, String> {
     }
 }
 
+/// Whether a session belongs to a project (its coordinator or one of its threads): those stay
+/// until the user deletes them or the project, however long they sit quiet, since a project's
+/// conversation and its cloud threads' sessions can't be rebuilt from anything else.
+fn is_project_session(meta_path: &Path) -> bool {
+    fs::read_to_string(meta_path)
+        .ok()
+        .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+        .and_then(|v| {
+            v.get("projectId")
+                .and_then(|p| p.as_str())
+                .map(|p| !p.is_empty())
+        })
+        .unwrap_or(false)
+}
+
 fn newest_mtime(paths: &[PathBuf]) -> Option<SystemTime> {
     paths
         .iter()
@@ -538,7 +553,7 @@ pub fn nyxs_cleanup_old_sessions(period_days: u64) -> Result<CleanupReport, Stri
             let Some(mtime) = newest_mtime(&[path.clone(), meta_path.clone()]) else {
                 continue;
             };
-            if mtime >= cutoff {
+            if mtime >= cutoff || is_project_session(&meta_path) {
                 continue;
             }
 
@@ -570,5 +585,27 @@ mod dir_tests {
         );
         assert_eq!(sessions_dir(&ws.to_lowercase()).unwrap(), dir);
         assert!(!dir.ends_with(&crate::project_paths::encode_project_path(&ws)));
+    }
+
+    #[test]
+    fn the_old_sessions_clean_up_keeps_project_sessions() {
+        let dir = std::env::temp_dir().join(format!("nyxs-cleanup-meta-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let write = |name: &str, body: &str| {
+            let p = dir.join(name);
+            fs::write(&p, body).unwrap();
+            p
+        };
+        let coordinator = write(
+            "a.meta.json",
+            r#"{"title":"x","projectId":"p1","projectRole":"coordinator"}"#,
+        );
+        let plain = write("b.meta.json", r#"{"title":"y"}"#);
+        let empty = write("c.meta.json", r#"{"projectId":""}"#);
+        assert!(is_project_session(&coordinator));
+        assert!(!is_project_session(&plain));
+        assert!(!is_project_session(&empty));
+        assert!(!is_project_session(&dir.join("missing.meta.json")));
+        let _ = fs::remove_dir_all(&dir);
     }
 }
