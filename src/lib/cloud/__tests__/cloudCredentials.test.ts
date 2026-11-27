@@ -13,9 +13,9 @@ const settings = {
 
 describe("cloud credentials", () => {
   it("knows what each provider needs in the cloud", () => {
-    expect(cloudSupport("anthropic", settings)).toEqual({ ok: true, key: "provider:anthropic" });
+    expect(cloudSupport("anthropic", settings)).toEqual({ ok: true, key: "ANTHROPIC_API_KEY" });
     expect(cloudSupport("claude-code", settings)).toEqual({ ok: true, key: "CLAUDE_CODE_OAUTH_TOKEN" });
-    expect(cloudSupport("codex-cli", settings)).toEqual({ ok: true, key: "provider:openai" });
+    expect(cloudSupport("codex-cli", settings)).toEqual({ ok: true, key: "OPENAI_API_KEY" });
     expect(cloudSupport("grok-cli", settings)).toEqual({ ok: false, reason: "cli" });
   });
 
@@ -26,7 +26,7 @@ describe("cloud credentials", () => {
 
   it("sends only the chosen keys that exist", () => {
     expect(providerKeysForCloud(settings, ["anthropic", "openai", "custom", "claude-code"])).toEqual([
-      { key: "provider:anthropic", value: "sk-ant-1" },
+      { key: "ANTHROPIC_API_KEY", value: "sk-ant-1" },
     ]);
   });
 

@@ -4,15 +4,17 @@ import type { Settings } from "@/lib/settings";
 // Which of the user's providers can run in the Nyxs cloud, under which credential name, and the
 // settings a cloud thread gets (docs/proyectos-nube-spec.md, "PUT /secrets").
 
-/** The cloud name of a provider's API key (the worker turns it back into Nyxs's keychain entry). */
-export const providerCloudKey = (id: ProviderId): string => `provider:${id}`;
+/** The cloud name of a provider's API key: `<ID>_API_KEY`, the env var the turn gets it in, which
+ *  the worker reads as Nyxs's keychain entry (`headless.rs` `secret_env_names`) and most vendors'
+ *  own tools read too. */
+export const providerCloudKey = (id: ProviderId): string => `${id.toUpperCase().replace(/[^A-Z0-9]/g, "_")}_API_KEY`;
 
 /** What an agent CLI signs in with in the cloud. Claude Code: a long-lived token from `claude
  *  setup-token`, pasted in Settings › Nube. Codex: the OpenAI API key, because its ChatGPT
  *  sign-in renews itself and a copy in the cloud would sign this computer out. */
 export const CLI_CLOUD_KEYS = {
   "claude-code": "CLAUDE_CODE_OAUTH_TOKEN",
-  "codex-cli": "provider:openai",
+  "codex-cli": "OPENAI_API_KEY",
 } as const satisfies Partial<Record<ProviderId, string>>;
 /** The token the worker clones, pushes and opens pull requests with. */
 export const GITHUB_CLOUD_KEY = "GITHUB_TOKEN";

@@ -91,9 +91,10 @@ CLI agents through the `nyxs-sessions` MCP server):
 - `PUT /secrets` `{ items: [{ key, value }] }` → stores the user's provider credentials
   encrypted (AES-256-GCM, key from env `CLOUD_SECRETS_KEY`); `GET /secrets` → keys only, never
   values; `DELETE /secrets/:key`. Key names (`src/lib/cloud/cloudCredentials.ts`):
-  `provider:<providerId>` for a provider's API key (Nyxs's keychain entry without the user id),
-  `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`), `GITHUB_TOKEN` (cloning, pushing and
-  PRs). Codex runs with the OpenAI key (`provider:openai` → `OPENAI_API_KEY`): its ChatGPT
+  env var names, exactly what the turn's container gets: `<ID>_API_KEY` for a provider's API key
+  (id upper-cased, every character other than a letter or digit as `_`: `ANTHROPIC_API_KEY`,
+  `MINIMAX_ANTHROPIC_API_KEY`), `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`),
+  `GITHUB_TOKEN` (cloning, pushing and PRs). Codex runs with `OPENAI_API_KEY`: its ChatGPT
   sign-in renews itself, so a copy in the cloud would sign the user's computer out. Local providers (Ollama, LM
   Studio, a LAN base URL) and agent CLIs other than Claude Code and Codex don't run in the cloud.
   `settings` in a thread is `{ providers: { <providerId>: <provider settings without apiKey> } }`.
@@ -135,10 +136,8 @@ CLI agents through the `nyxs-sessions` MCP server):
   "memory", "permissionMode": "auto", "maxSteps": 200 }`.
 - `/work` persists between turns: `/work/repo` (the clone, on `workBranch`) and
   `/work/.nyxs/session.json` (the saved conversation the next turn resumes from).
-- Secrets arrive as env vars. The runner passes `provider:<id>` as `<ID>_API_KEY` (id upper-cased,
-  every character other than a letter or digit as `_`: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`,
-  `MINIMAX_ANTHROPIC_API_KEY`), which is also the name most vendors' own tools read; the others
-  keep their names (`CLAUDE_CODE_OAUTH_TOKEN`, `GITHUB_TOKEN`). Nyxs's job mode reads them as its
+- Secrets arrive as env vars under their stored names (`<ID>_API_KEY`, which is also the name most
+  vendors' own tools read, `CLAUDE_CODE_OAUTH_TOKEN`, `GITHUB_TOKEN`). Nyxs's job mode reads them as its
   keychain (`headless.rs` `secret_env_names`); Codex uses `OPENAI_API_KEY`, Claude Code
   `CLAUDE_CODE_OAUTH_TOKEN` or else `ANTHROPIC_API_KEY`.
 - stdout: JSONL, one event per line, `{ "type", "data" }`, the same events `nyxs --headless
