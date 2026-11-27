@@ -139,6 +139,185 @@ fn write_memory_in(root: &Path, id: &str, text: &str) -> Result<(), String> {
         .map_err(|e| format!("Couldn't save the project's memory: {e}"))
 }
 
+/// A project's context files (Contexto in the creation dialog): copies in
+/// `<id>/files/`, so threads read the same thing whatever happens to the originals.
+const FILES_DIR: &str = "files";
+/// Text files up to this size come with their content, for the project's prompt.
+const MAX_INLINE_BYTES: u64 = 32 * 1024;
+const MAX_LISTED: usize = 500;
+/// Copying stops past this much, so a dropped home folder doesn't fill the disk.
+const MAX_COPY_BYTES: u64 = 200 * 1024 * 1024;
+/// Folders that are never context: dependencies, VCS data, build output.
+const SKIPPED_DIRS: [&str; 6] = [".git", "node_modules", "target", ".venv", "dist", "build"];
+
+fn hub_dir_in(root: &Path, id: &str) -> Result<PathBuf, String> {
+    let dir = root.join(checked_id(id)?);
+    fs::create_dir_all(dir.join(FILES_DIR))
+        .map_err(|e| format!("Couldn't create the project's folder: {e}"))?;
+    Ok(dir)
+}
+
+#[derive(Serialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct HubFile {
+    /// Its path under the files folder, with `/`.
+    rel: String,
+    size: u64,
+    /// Its text, for a small UTF-8 file.
+    text: Option<String>,
+}
+
+fn list_files_in(root: &Path, id: &str) -> Result<Vec<HubFile>, String> {
+    let base = root.join(checked_id(id)?).join(FILES_DIR);
+    let mut out = Vec::new();
+    let mut stack = vec![base.clone()];
+    while let Some(dir) = stack.pop() {
+        let Ok(entries) = fs::read_dir(&dir) else {
+            continue;
+        };
+        let mut entries: Vec<_> = entries.flatten().collect();
+        entries.sort_by_key(|e| e.file_name());
+        for entry in entries {
+            let path = entry.path();
+            let Ok(kind) = entry.file_type() else {
+                continue;
+            };
+            if kind.is_dir() {
+                stack.push(path);
+                continue;
+            }
+            if !kind.is_file() || out.len() >= MAX_LISTED {
+                continue;
+            }
+            let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
+            let text = (size <= MAX_INLINE_BYTES)
+                .then(|| fs::read(&path).ok())
+                .flatten()
+                .filter(|b| !b.contains(&0))
+                .and_then(|b| String::from_utf8(b).ok());
+            let rel = path
+                .strip_prefix(&base)
+                .map(|p| p.to_string_lossy().replace('\\', "/"))
+                .unwrap_or_default();
+            out.push(HubFile { rel, size, text });
+        }
+    }
+    out.sort_by(|a, b| a.rel.cmp(&b.rel));
+    Ok(out)
+}
+
+/// `name`, or `name (2)`, `name (3)`… when it's taken in `dir`.
+fn free_name(dir: &Path, name: &str) -> PathBuf {
+    let first = dir.join(name);
+    if !first.exists() {
+        return first;
+    }
+    let (stem, ext) = match name.rfind('.') {
+        Some(i) if i > 0 => (&name[..i], &name[i..]),
+        _ => (name, ""),
+    };
+    (2..)
+        .map(|n| dir.join(format!("{stem} ({n}){ext}")))
+        .find(|p| !p.exists())
+        .unwrap_or(first)
+}
+
+fn copy_tree(from: &Path, to: &Path, budget: &mut u64) -> std::io::Result<()> {
+    let meta = fs::symlink_metadata(from)?;
+    if meta.is_file() {
+        if meta.len() > *budget {
+            return Err(std::io::Error::other("the files are too large"));
+        }
+        *budget -= meta.len();
+        fs::copy(from, to)?;
+        return Ok(());
+    }
+    if !meta.is_dir() {
+        return Ok(());
+    }
+    fs::create_dir_all(to)?;
+    for entry in fs::read_dir(from)?.flatten() {
+        let name = entry.file_name();
+        if SKIPPED_DIRS.iter().any(|s| name == *s) {
+            continue;
+        }
+        copy_tree(&entry.path(), &to.join(&name), budget)?;
+    }
+    Ok(())
+}
+
+/// Copies files and folders into the project's files. Returns the names they got there.
+fn add_files_in(root: &Path, id: &str, paths: &[String]) -> Result<Vec<String>, String> {
+    let dir = hub_dir_in(root, id)?.join(FILES_DIR);
+    let mut budget = MAX_COPY_BYTES;
+    let mut added = Vec::new();
+    for p in paths {
+        let from = PathBuf::from(p);
+        let Some(name) = from.file_name().map(|n| n.to_string_lossy().into_owned()) else {
+            continue;
+        };
+        let to = free_name(&dir, &name);
+        if let Err(e) = copy_tree(&from, &to, &mut budget) {
+            let _ = fs::remove_dir_all(&to);
+            let _ = fs::remove_file(&to);
+            return Err(format!("Couldn't copy {p} into the project: {e}"));
+        }
+        added.push(
+            to.file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or(name),
+        );
+    }
+    Ok(added)
+}
+
+/// Removes one of the project's files or folders, by its path under the files folder.
+fn remove_file_in(root: &Path, id: &str, rel: &str) -> Result<(), String> {
+    let rel = rel.trim_matches(|c| c == '/' || c == '\\');
+    let bad = rel.is_empty()
+        || rel
+            .split(['/', '\\'])
+            .any(|part| part.is_empty() || part == "." || part == "..");
+    if bad {
+        return Err(format!("Invalid project file: {rel}"));
+    }
+    let path = root.join(checked_id(id)?).join(FILES_DIR).join(rel);
+    let gone = if path.is_dir() {
+        fs::remove_dir_all(&path)
+    } else {
+        fs::remove_file(&path)
+    };
+    match gone {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(format!("Couldn't remove {rel}: {e}")),
+    }
+}
+
+/// The project's own folder (made if missing): its memory and files live there, and the
+/// coordinator works in it when the project has no folder on this computer.
+#[tauri::command(async)]
+pub fn nyxs_project_hub_dir(id: String) -> Result<String, String> {
+    Ok(hub_dir_in(&hubs_root()?, &id)?
+        .to_string_lossy()
+        .into_owned())
+}
+
+#[tauri::command(async)]
+pub fn nyxs_project_hub_files(id: String) -> Result<Vec<HubFile>, String> {
+    list_files_in(&hubs_root()?, &id)
+}
+
+#[tauri::command(async)]
+pub fn nyxs_project_hub_add_files(id: String, paths: Vec<String>) -> Result<Vec<String>, String> {
+    add_files_in(&hubs_root()?, &id, &paths)
+}
+
+#[tauri::command(async)]
+pub fn nyxs_project_hub_remove_file(id: String, rel: String) -> Result<(), String> {
+    remove_file_in(&hubs_root()?, &id, &rel)
+}
+
 #[tauri::command(async)]
 pub fn nyxs_project_hubs_list() -> Result<HubList, String> {
     list_in(&hubs_root()?)
@@ -227,5 +406,44 @@ mod tests {
         assert_eq!(list.set_aside.len(), 1);
         assert!(root.0.join("bad.json.corrupt").is_file());
         assert!(!root.0.join("bad.json").exists());
+    }
+
+    #[test]
+    fn context_files_are_copied_listed_and_removed() {
+        let root = Root::new("files");
+        let src = root.0.join("src");
+        fs::create_dir_all(src.join("docs").join("node_modules")).unwrap();
+        fs::write(src.join("brief.md"), "# Brief\n").unwrap();
+        fs::write(src.join("docs").join("api.txt"), "GET /x").unwrap();
+        fs::write(src.join("docs").join("logo.bin"), [0u8, 1, 2]).unwrap();
+        fs::write(src.join("docs").join("node_modules").join("dep.js"), "x").unwrap();
+        let p = |x: &Path| x.to_string_lossy().into_owned();
+        let added = add_files_in(
+            &root.0,
+            "p",
+            &[p(&src.join("brief.md")), p(&src.join("docs"))],
+        )
+        .unwrap();
+        assert_eq!(added, vec!["brief.md", "docs"]);
+        // The same name again gets a name of its own.
+        let again = add_files_in(&root.0, "p", &[p(&src.join("brief.md"))]).unwrap();
+        assert_eq!(again, vec!["brief (2).md"]);
+        let listed = list_files_in(&root.0, "p").unwrap();
+        let rels: Vec<&str> = listed.iter().map(|f| f.rel.as_str()).collect();
+        assert_eq!(
+            rels,
+            vec!["brief (2).md", "brief.md", "docs/api.txt", "docs/logo.bin"]
+        );
+        assert_eq!(listed[1].text.as_deref(), Some("# Brief\n"));
+        assert_eq!(listed[3].text, None);
+        assert!(remove_file_in(&root.0, "p", "../p.json").is_err());
+        remove_file_in(&root.0, "p", "docs").unwrap();
+        remove_file_in(&root.0, "p", "brief (2).md").unwrap();
+        let rels: Vec<String> = list_files_in(&root.0, "p")
+            .unwrap()
+            .into_iter()
+            .map(|f| f.rel)
+            .collect();
+        assert_eq!(rels, vec!["brief.md"]);
     }
 }
