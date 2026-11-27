@@ -13,6 +13,181 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.8.64",
+    date: "November 26, 2026",
+    added: [
+      "Projects (beta): one conversation with a coordinator that answers quick questions itself and opens a thread for each real task, with an overview of what waits on you, what is working and what is ready to review.",
+      "Threads can run in the Nyxs cloud (private beta): an isolated container keeps working with your computer off, pushes a branch and opens a draft pull request.",
+      "Settings › Cloud chooses which provider keys the cloud may use, and takes your Claude Code and GitHub tokens.",
+      "Each plugin has its own page with what it adds, its files and its version, like in Claude.",
+      "GitHub connects in one click with Nyxs's own app.",
+    ],
+    improved: [
+      "Connecting a service shows a short spinner while the browser opens, and never stays on \"Connecting\".",
+      "Privacy says what goes to Nyxs servers when a thread runs in the cloud.",
+    ],
+    fixed: [
+      "The agent can upload files in the built-in browser without it hanging.",
+    ],
+    card: {
+      v: 1,
+      slides: [
+        {
+          title: {
+            "en-US": "Projects (beta)", "es-ES": "Proyectos (beta)", "fr-FR": "Projets (bêta)", "de-DE": "Projekte (Beta)",
+            "it-IT": "Progetti (beta)", "pt-BR": "Projetos (beta)", "id-ID": "Proyek (beta)", "ja-JP": "プロジェクト（ベータ）",
+            "ko-KR": "프로젝트 (베타)", "hi-IN": "प्रोजेक्ट (बीटा)",
+          },
+          desc: {
+            "en-US": "Ask a project for anything: it opens a thread per task and reports back.",
+            "es-ES": "Pídele cosas a un proyecto: abre un hilo por tarea y te avisa al terminar.",
+            "fr-FR": "Demande au projet : il ouvre un fil par tâche et te prévient à la fin.",
+            "de-DE": "Frag ein Projekt: Es öffnet pro Aufgabe einen Thread und meldet sich.",
+            "it-IT": "Chiedi al progetto: apre un thread per attività e ti avvisa alla fine.",
+            "pt-BR": "Peça ao projeto: ele abre uma thread por tarefa e avisa ao terminar.",
+            "id-ID": "Minta apa saja ke proyek: ia membuka utas per tugas dan melapor.",
+            "ja-JP": "頼むとタスクごとにスレッドを開き、終わったら知らせます。",
+            "ko-KR": "프로젝트에 요청하면 작업마다 스레드를 열고 끝나면 알려 줘요.",
+            "hi-IN": "प्रोजेक्ट से कहें: हर काम का थ्रेड खुलता है और पूरा होने पर बताता है।",
+          },
+          scene: {
+            kind: "mascot",
+            steps: [
+              {
+                pose: "think",
+                label: {
+                  "en-US": "Opening 2 threads", "es-ES": "Abriendo 2 hilos", "fr-FR": "Ouvre 2 fils", "de-DE": "Öffne 2 Threads",
+                  "it-IT": "Apro 2 thread", "pt-BR": "Abrindo 2 threads", "id-ID": "Membuka 2 utas", "ja-JP": "スレッドを2つ作成",
+                  "ko-KR": "스레드 2개 여는 중", "hi-IN": "2 थ्रेड खोल रहा है",
+                },
+              },
+              {
+                pose: "code",
+                label: {
+                  "en-US": "2 threads working", "es-ES": "2 hilos trabajando", "fr-FR": "2 fils au travail", "de-DE": "2 Threads arbeiten",
+                  "it-IT": "2 thread al lavoro", "pt-BR": "2 threads ativas", "id-ID": "2 utas bekerja", "ja-JP": "2つが作業中",
+                  "ko-KR": "스레드 2개 작업 중", "hi-IN": "2 थ्रेड काम पर",
+                },
+              },
+            ],
+            placeholder: {
+              "en-US": "Fix the login and the docs", "es-ES": "Arregla el login y la doc", "fr-FR": "Répare le login et la doc",
+              "de-DE": "Repariere Login und Doku", "it-IT": "Sistema login e documenti", "pt-BR": "Corrija o login e a doc",
+              "id-ID": "Perbaiki login dan dokumen", "ja-JP": "ログインと説明書を直して", "ko-KR": "로그인이랑 문서 고쳐 줘",
+              "hi-IN": "लॉगिन और डॉक्स ठीक करो",
+            },
+          },
+        },
+        {
+          title: {
+            "en-US": "Threads in the cloud", "es-ES": "Hilos en la nube", "fr-FR": "Fils dans le cloud", "de-DE": "Threads in der Cloud",
+            "it-IT": "Thread nel cloud", "pt-BR": "Threads na nuvem", "id-ID": "Utas di cloud", "ja-JP": "クラウドのスレッド",
+            "ko-KR": "클라우드 스레드", "hi-IN": "क्लाउड में थ्रेड",
+          },
+          desc: {
+            "en-US": "A thread can run in the Nyxs cloud and keep working with your computer off.",
+            "es-ES": "Un hilo puede trabajar en la nube de Nyxs y seguir con tu equipo apagado.",
+            "fr-FR": "Un fil peut tourner dans le cloud Nyxs, même ordinateur éteint.",
+            "de-DE": "Ein Thread kann in der Nyxs-Cloud laufen, auch wenn dein PC aus ist.",
+            "it-IT": "Un thread può lavorare nel cloud di Nyxs anche a computer spento.",
+            "pt-BR": "Uma thread pode rodar na nuvem do Nyxs com o computador desligado.",
+            "id-ID": "Utas bisa berjalan di cloud Nyxs meski komputermu mati.",
+            "ja-JP": "スレッドは Nyxs のクラウドで動き、PC を切っても作業を続けます。",
+            "ko-KR": "스레드는 Nyxs 클라우드에서 실행돼 컴퓨터가 꺼져도 계속 작업해요.",
+            "hi-IN": "थ्रेड Nyxs क्लाउड में चल सकता है, कंप्यूटर बंद होने पर भी।",
+          },
+          scene: {
+            kind: "mascot",
+            steps: [
+              {
+                pose: "sleep",
+                label: {
+                  "en-US": "Your computer is off", "es-ES": "Tu equipo, apagado", "fr-FR": "Ordinateur éteint", "de-DE": "Dein PC ist aus",
+                  "it-IT": "Computer spento", "pt-BR": "PC desligado", "id-ID": "Komputer mati", "ja-JP": "PC は電源オフ",
+                  "ko-KR": "컴퓨터 꺼짐", "hi-IN": "कंप्यूटर बंद",
+                },
+              },
+              {
+                pose: "celebrate",
+                label: {
+                  "en-US": "Pull request ready", "es-ES": "Pull request listo", "fr-FR": "Pull request prête", "de-DE": "Pull Request bereit",
+                  "it-IT": "Pull request pronta", "pt-BR": "Pull request pronto", "id-ID": "Pull request siap", "ja-JP": "PR が完成",
+                  "ko-KR": "풀 리퀘스트 준비됨", "hi-IN": "पुल रिक्वेस्ट तैयार",
+                },
+              },
+            ],
+          },
+        },
+        {
+          title: {
+            "en-US": "A page for each plugin", "es-ES": "Una página por plugin", "fr-FR": "Une page par plugin", "de-DE": "Eine Seite pro Plugin",
+            "it-IT": "Una pagina per plugin", "pt-BR": "Uma página por plugin", "id-ID": "Halaman tiap plugin", "ja-JP": "プラグインごとのページ",
+            "ko-KR": "플러그인별 페이지", "hi-IN": "हर प्लगइन का पेज",
+          },
+          desc: {
+            "en-US": "See what a plugin adds, its files and its version, and keep it up to date.",
+            "es-ES": "Mira qué añade cada plugin, sus archivos y su versión, y mantenlo al día.",
+            "fr-FR": "Vois ce qu'ajoute un plugin, ses fichiers et sa version, et mets-le à jour.",
+            "de-DE": "Sieh, was ein Plugin bringt, seine Dateien und Version, und halte es aktuell.",
+            "it-IT": "Vedi cosa aggiunge un plugin, i file e la versione, e tienilo aggiornato.",
+            "pt-BR": "Veja o que um plugin traz, seus arquivos e versão, e mantenha-o em dia.",
+            "id-ID": "Lihat isi plugin, berkas dan versinya, lalu jaga tetap terbaru.",
+            "ja-JP": "プラグインの中身、ファイル、バージョンを確認して最新に保てます。",
+            "ko-KR": "플러그인 구성, 파일, 버전을 보고 최신으로 유지하세요.",
+            "hi-IN": "प्लगइन में क्या है, उसकी फ़ाइलें और वर्शन देखें, उसे अपडेट रखें।",
+          },
+          scene: { kind: "icon", icon: "layers" },
+        },
+        {
+          title: {
+            "en-US": "And also", "es-ES": "Y además", "fr-FR": "Et aussi", "de-DE": "Außerdem", "it-IT": "E inoltre",
+            "pt-BR": "E também", "id-ID": "Selain itu", "ja-JP": "そのほか", "ko-KR": "그 밖에", "hi-IN": "और भी",
+          },
+          desc: {
+            "en-US": "2 more changes in this version.", "es-ES": "2 cambios más en esta versión.", "fr-FR": "2 autres changements dans cette version.",
+            "de-DE": "2 weitere Änderungen in dieser Version.", "it-IT": "Altre 2 modifiche in questa versione.", "pt-BR": "Mais 2 mudanças nesta versão.",
+            "id-ID": "2 perubahan lain di versi ini.", "ja-JP": "このバージョンのその他の変更は2つ。", "ko-KR": "이번 버전의 다른 변경 사항 2가지.", "hi-IN": "इस संस्करण में 2 और बदलाव।",
+          },
+          scene: {
+            kind: "list",
+            items: [
+              {
+                tag: "new",
+                text: {
+                  "en-US": "GitHub connects in one click with Nyxs's own app.",
+                  "es-ES": "GitHub se conecta con un clic, con la app de Nyxs.",
+                  "fr-FR": "GitHub se connecte en un clic, avec l'app de Nyxs.",
+                  "de-DE": "GitHub verbindet sich mit einem Klick über die Nyxs-App.",
+                  "it-IT": "GitHub si collega con un clic, con l'app di Nyxs.",
+                  "pt-BR": "O GitHub conecta com um clique, pelo app do Nyxs.",
+                  "id-ID": "GitHub tersambung sekali klik lewat aplikasi Nyxs.",
+                  "ja-JP": "GitHub が Nyxs のアプリでワンクリック接続。",
+                  "ko-KR": "GitHub를 Nyxs 앱으로 클릭 한 번에 연결해요.",
+                  "hi-IN": "GitHub अब Nyxs ऐप से एक क्लिक में जुड़ता है।",
+                },
+              },
+              {
+                tag: "fixed",
+                text: {
+                  "en-US": "The agent uploads files in the browser without hanging.",
+                  "es-ES": "El agente sube archivos en el navegador sin colgarse.",
+                  "fr-FR": "L'agent envoie des fichiers dans le navigateur sans bloquer.",
+                  "de-DE": "Der Agent lädt im Browser Dateien hoch, ohne zu hängen.",
+                  "it-IT": "L'agente carica file nel browser senza bloccarsi.",
+                  "pt-BR": "O agente envia arquivos no navegador sem travar.",
+                  "id-ID": "Agen mengunggah berkas di browser tanpa macet.",
+                  "ja-JP": "ブラウザでのファイルのアップロードで止まりません。",
+                  "ko-KR": "에이전트가 브라우저에서 파일을 올려도 멈추지 않아요.",
+                  "hi-IN": "एजेंट ब्राउज़र में फ़ाइलें अपलोड करते हुए अटकता नहीं।",
+                },
+              },
+            ],
+          },
+        },
+      ],
+    },
+  },
+  {
     version: "0.8.63",
     date: "November 26, 2026",
     added: [
