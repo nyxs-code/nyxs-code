@@ -48,7 +48,9 @@ describe("Settings › Privacy", () => {
     expect(toggle("Imágenes para modelos que no las ven").getAttribute("aria-checked")).toBe("true");
     expect(toggle("Búsqueda semántica en el servicio de Nyxs").getAttribute("aria-checked")).toBe("false");
     expect(toggle("Datos del equipo").getAttribute("aria-checked")).toBe("true");
-    expect(screen.getByText("Al usarlo")).toBeTruthy();
+    // Dictation and cloud threads: sent only when used.
+    expect(screen.getAllByText("Al usarlo")).toHaveLength(2);
+    expect(screen.getByText("Hilos en la nube")).toBeTruthy();
     expect(screen.getByText("Siempre")).toBeTruthy();
   });
 
