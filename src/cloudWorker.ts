@@ -2,7 +2,7 @@ import type { ModelMessage } from "ai";
 import { invoke } from "@/lib/ipc";
 import { streamChat, type CacheStats, type ChatTurn } from "@/lib/ai";
 import { getModel, PROVIDERS, type ModelInfo, type ProviderId } from "@/lib/models";
-import { checkPermission, loadFileRules, describePermission } from "@/lib/permissions";
+import { checkPermission, loadFileRules, describePermission, type PermissionBehavior } from "@/lib/permissions";
 import { loadSettings, saveSettings, type ProviderSettings, type Settings } from "@/lib/settings";
 import { getSecret, providerSecretAccount } from "@/lib/secureStore";
 import { getMergedSettings, setSettingsWorkspace } from "@/lib/settingsRuntime";
@@ -185,6 +185,11 @@ function safeJson(raw: string): unknown {
   }
 }
 
+/** A tool call the cloud lets through: anything but a refusal (see the turn's gate). */
+export function cloudAllows(verdict: PermissionBehavior): boolean {
+  return verdict !== "deny";
+}
+
 /** Where the turn ends up: failed if it failed, else what its last report asked for, else review. */
 export function doneStatus(failed: boolean, lastReport: ReportStatus | null): DoneStatus {
   if (failed || lastReport === "failed") return "failed";
@@ -246,10 +251,13 @@ export async function runCloudTurn(args: HeadlessArgs, deps: CloudDeps = { chat:
   const denied: string[] = [];
   const reported = new Set<string>();
   let lastReport: { text: string; status: ReportStatus } | null = null;
+  /** The model's last message: what the thread's card shows when it didn't report. */
+  let lastText = "";
 
   if (job.dryRun) {
     await emit("start", { threadId: job.threadId, turn: job.turn, model: null, cwd: repo.dir, permissionMode: mode, dryRun: true });
     full = "Dry run: the repository and the thread's session are ready; no model was called.";
+    lastText = full;
     await emit("text", { text: full });
   } else {
     const settings = await cloudSettings(job, loadSettings());
@@ -268,7 +276,9 @@ export async function runCloudTurn(args: HeadlessArgs, deps: CloudDeps = { chat:
       const flush = () => {
         const { text, rest } = takeText(pending);
         pending = rest;
-        return text ? emit("text", { text }) : queue;
+        if (!text) return queue;
+        lastText = text;
+        return emit("text", { text });
       };
       const seenTools = new Set<string>();
       const doneTools = new Set<string>();
@@ -322,8 +332,10 @@ export async function runCloudTurn(args: HeadlessArgs, deps: CloudDeps = { chat:
             void flush();
             onReports(msgs);
           },
+          // Nobody can answer a question here, and the container is the sandbox: what would ask
+          // goes ahead. What the settings deny (and plan mode refuses) stays refused.
           gate: async (toolName, input) => {
-            if (checkPermission(toolName, input, mode, rules) === "allow") return true;
+            if (cloudAllows(checkPermission(toolName, input, mode, rules))) return true;
             const what = describePermission(toolName, input);
             denied.push(what);
             void emit("permission_denied", { tool: toolName, detail: what });
@@ -365,7 +377,7 @@ export async function runCloudTurn(args: HeadlessArgs, deps: CloudDeps = { chat:
   }
 
   const reportedLast = lastReport as { text: string; status: ReportStatus } | null;
-  const preview = reportedLast?.text || text || failure || "";
+  const preview = reportedLast?.text || lastText || text || failure || "";
   const final = doneStatus(failure !== null, reportedLast?.status ?? null);
   if (failure !== null) {
     // What a failed turn left stays uncommitted in the volume; the next turn goes on from it.

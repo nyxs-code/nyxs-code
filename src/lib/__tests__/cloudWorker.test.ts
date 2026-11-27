@@ -14,7 +14,7 @@ const settings = {
 const saveSettings = vi.fn();
 vi.mock("@/lib/settings", async (orig) => ({ ...(await orig<object>()), loadSettings: () => settings, saveSettings: (s: unknown) => saveSettings(s) }));
 
-const { runCloudTurn, cloudSettings, cloudPreamble, readCloudSession, takeText, reportCalls, doneStatus, cloudTitle } = await import("@/cloudWorker");
+const { runCloudTurn, cloudSettings, cloudPreamble, readCloudSession, takeText, reportCalls, doneStatus, cloudTitle, cloudAllows } = await import("@/cloudWorker");
 const { publishRepo, GIT_AUTH } = await import("@/cloudWorkerGit");
 type Exec = import("@/cloudWorkerGit").CloudExec;
 type StreamChat = typeof import("@/lib/ai").streamChat;
@@ -211,6 +211,21 @@ describe("cloud worker turn", () => {
     expect(events().at(-1)?.data).toMatchObject({ status: "failed", preview: "rate limited" });
     expect(git.calls.some((c) => c.startsWith("git commit") || c.startsWith("git push"))).toBe(false);
     expect(JSON.parse(out.session!).history[1].content).toBe("(The turn failed: rate limited)");
+  });
+
+  it("lets through what would ask, refuses what the settings deny, and previews the last message", async () => {
+    expect(cloudAllows("ask")).toBe(true);
+    expect(cloudAllows("allow")).toBe(true);
+    expect(cloudAllows("deny")).toBe(false);
+    const { events } = io();
+    const chat = (async (o) => {
+      o.onChunk("First I look.");
+      o.onTool?.("t1", { name: "Bash", detail: "git diff" });
+      o.onChunk("All done.");
+      return "First I look.All done.";
+    }) as StreamChat;
+    await runCloudTurn(args(), { chat, exec: fakeGit().exec, now: () => 0 });
+    expect(events().at(-1)?.data).toMatchObject({ status: "review", preview: "All done." });
   });
 
   it("runs a dry run through the pipeline without a model", async () => {
