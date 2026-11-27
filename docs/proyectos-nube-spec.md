@@ -90,9 +90,12 @@ CLI agents through the `nyxs-sessions` MCP server):
 
 - `PUT /secrets` `{ items: [{ key, value }] }` → stores the user's provider credentials
   encrypted (AES-256-GCM, key from env `CLOUD_SECRETS_KEY`); `GET /secrets` → keys only, never
-  values; `DELETE /secrets/:key`. Keys are the same names Nyxs uses for its keychain entries
-  (provider API keys, `CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token`, `CODEX_AUTH_JSON`,
-  `GITHUB_TOKEN` for cloning and PRs).
+  values; `DELETE /secrets/:key`. Key names (`src/lib/cloud/cloudCredentials.ts`):
+  `provider:<providerId>` for a provider's API key (Nyxs's keychain entry without the user id),
+  `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`), `CODEX_AUTH_JSON` (the contents of
+  `~/.codex/auth.json`), `GITHUB_TOKEN` (cloning, pushing and PRs). Local providers (Ollama, LM
+  Studio, a LAN base URL) and agent CLIs other than Claude Code and Codex don't run in the cloud.
+  `settings` in a thread is `{ providers: { <providerId>: <provider settings without apiKey> } }`.
 - `POST /threads` `{ projectId, title, instructions, repo: { url, branch? }, model: { id,
   provider, effort? }, settings: <sanitized Nyxs settings: providers/models, no secrets>,
   projectInstructions, memory }` → `{ id, status: "queued" }`.
@@ -131,9 +134,11 @@ CLI agents through the `nyxs-sessions` MCP server):
   "memory", "permissionMode": "auto", "maxSteps": 200 }`.
 - `/work` persists between turns: `/work/repo` (the clone, on `workBranch`) and
   `/work/.nyxs/session.json` (the saved conversation the next turn resumes from).
-- Secrets arrive as env vars named like the keychain entries (see API `PUT /secrets`); the worker
-  makes them visible to Nyxs headless the way the keychain would, and to the CLIs as they expect
-  (`ANTHROPIC_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`, `OPENAI_API_KEY`, `GITHUB_TOKEN`…).
+- Secrets arrive as env vars. `provider:<id>` isn't a valid env name, so the runner passes it as
+  `NYXS_SECRET_PROVIDER_<ID>` (id upper-cased, `-` → `_`, e.g. `NYXS_SECRET_PROVIDER_MINIMAX_ANTHROPIC`);
+  the others keep their names (`CLAUDE_CODE_OAUTH_TOKEN`, `CODEX_AUTH_JSON`, `GITHUB_TOKEN`). The
+  worker makes them visible to Nyxs headless the way the keychain would, and to the CLIs as they
+  expect (Codex: write `CODEX_AUTH_JSON` to `~/.codex/auth.json`).
 - stdout: JSONL, one event per line, `{ "type", "data" }`, the same events `nyxs --headless
   --format json` prints, plus: `{ "type": "status", "data": { "status" } }` when it changes,
   `{ "type": "report", "data": { "text", "status" } }` for the thread's `report` tool, and a last
