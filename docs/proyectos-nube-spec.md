@@ -108,7 +108,8 @@ CLI agents through the `nyxs-sessions` MCP server):
 - `POST /threads/:id/messages` `{ text }` → queues a follow-up turn (the thread continues from
   its saved session). `POST /threads/:id/stop`. `DELETE /threads/:id`. `GET /threads/:id`.
   `PATCH /threads/:id { status: "resolved" | "review" }` (409 while a turn is queued or running).
-- Threads also carry `workBranch`, `branch`, `turns`, `lastSeq`. Events include a `user` event
+- Threads also carry `workBranch`, `branch`, `turns`, `lastSeq`. Each event carries its `turn`.
+  The runner sends the thread's `title` in the job. Events include a `user` event
   `{ text, turn }` for every prompt or follow-up and a `status` event on every change.
 - Status values match the app: `queued | working | needs_input | review | resolved | failed |
   stopped`. A turn over the account's running limit isn't refused: it waits in the queue.
