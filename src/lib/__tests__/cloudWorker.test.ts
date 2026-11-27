@@ -14,7 +14,8 @@ const settings = {
 const saveSettings = vi.fn();
 vi.mock("@/lib/settings", async (orig) => ({ ...(await orig<object>()), loadSettings: () => settings, saveSettings: (s: unknown) => saveSettings(s) }));
 
-const { runCloudTurn, cloudSettings, cloudPreamble, readCloudSession, takeText, reportCalls, doneStatus, cloudTitle, cloudAllows } = await import("@/cloudWorker");
+const { runCloudTurn, cloudSettings, cloudPreamble, readCloudSession, takeText, doneStatus, cloudTitle, cloudAllows } = await import("@/cloudWorker");
+const { projectToolsFor } = await import("@/lib/projects/projectTools");
 const { publishRepo, GIT_AUTH } = await import("@/cloudWorkerGit");
 type Exec = import("@/cloudWorkerGit").CloudExec;
 type StreamChat = typeof import("@/lib/ai").streamChat;
@@ -76,16 +77,21 @@ function io() {
 }
 
 /** A model turn that reads a file, writes, and reports that it needs the user. */
-const scriptedChat = (seen: { history?: unknown; effort?: unknown; sessionKey?: unknown } = {}): StreamChat =>
+const scriptedChat = (seen: { history?: unknown; effort?: unknown; sessionKey?: unknown; tools?: string[]; reply?: unknown } = {}): StreamChat =>
   (async (o) => {
     seen.history = o.history;
     seen.effort = o.effort;
     seen.sessionKey = o.sessionKey;
+    // The model's tools: a cloud turn is a project's thread, so `report` is among them.
+    const threadTools = projectToolsFor(o.sessionKey);
+    seen.tools = threadTools.map((t) => t.mcpName);
     o.onChunk("Looking at the repo.");
     o.onTool?.("t1", { name: "Read", detail: "package.json" });
     o.onChunk("⟦TOOL⟧t1⟦/TOOL⟧");
     o.onTool?.("t1", { name: "Read", detail: "package.json", endedAt: 2, output: '{"name":"app"}' });
     o.onChunk("I wrote the README.");
+    const reply = await threadTools.find((t) => t.mcpName === "report")!.run({ text: "Which license?", status: "needs_input" }, { chat: o.sessionKey });
+    seen.reply = reply;
     const messages: ModelMessage[] = [
       { role: "assistant", content: [{ type: "tool-call", toolCallId: "r1", toolName: "report", input: { text: "Which license?", status: "needs_input" } }] },
       { role: "tool", content: [{ type: "tool-result", toolCallId: "r1", toolName: "report", output: { type: "text", value: "ok" } }] },
@@ -118,8 +124,10 @@ describe("cloud worker turn", () => {
   it("clones, runs the turn, prints the contract's events and opens a draft PR", async () => {
     const { out, events } = io();
     const git = fakeGit();
-    const seen: { history?: unknown; effort?: unknown; sessionKey?: unknown } = {};
+    const seen: { history?: unknown; effort?: unknown; sessionKey?: unknown; tools?: string[]; reply?: unknown } = {};
     await runCloudTurn(args(), { chat: scriptedChat(seen), exec: git.exec, now: () => Date.UTC(2026, 10, 26) });
+    expect(seen.tools).toEqual(["report"]);
+    expect(seen.reply).toBe("Reported to the coordinator.");
 
     expect(out.exit).toBe(0);
     const ev = events();
@@ -257,8 +265,7 @@ describe("cloud worker pieces", () => {
     expect(takeText("Hi ⟦TOOL⟧x")).toEqual({ text: "Hi", rest: "⟦TOOL⟧x" });
   });
 
-  it("reads report calls, the final status and the title", () => {
-    expect(reportCalls([{ role: "assistant", content: [{ type: "tool-call", toolCallId: "a", toolName: "report", input: '{"text":"done","status":"bogus"}' }] } as never])).toEqual([{ id: "a", text: "done" }]);
+  it("tells the final status and the title", () => {
     expect(doneStatus(false, null)).toBe("review");
     expect(doneStatus(false, "needs_input")).toBe("needs_input");
     expect(doneStatus(false, "failed")).toBe("failed");

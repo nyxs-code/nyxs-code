@@ -10,6 +10,8 @@ import { saveSettingsForSource } from "@/lib/configStore";
 import { CLAUDE_CODE_CONNECTED } from "@/lib/claudeCodeModels";
 import { AGENT_CLI_CONNECTED } from "@/lib/agentCli";
 import { EFFORT_LEVELS, type EffortLevel } from "@/lib/effort";
+import { noteProjectRole } from "@/lib/projects/projectDirectory";
+import { setProjectHost, type ProjectHost } from "@/lib/projects/projectHost";
 import type { NyxsSettings } from "@/lib/configStore";
 import { describeFailure, headlessPermissionMode, stripStreamMarkers, type HeadlessArgs } from "./headless";
 import { prepareRepo, publishRepo, tauriExec, CloudGitError, type CloudExec, type PreparedRepo } from "./cloudWorkerGit";
@@ -54,6 +56,8 @@ export interface CloudDeps {
 }
 
 const REPORT_STATUSES: ReportStatus[] = ["working", "needs_input", "review", "failed"];
+/** The project a cloud turn's thread belongs to, as far as its tools know: one per container. */
+const CLOUD_PROJECT_ID = "cloud";
 const PREVIEW_CHARS = 500;
 const TOOL_OUTPUT_CHARS = 4000;
 const CLI_SENTINEL: Partial<Record<ProviderId, string>> = { "claude-code": CLAUDE_CODE_CONNECTED };
@@ -82,6 +86,7 @@ export function cloudPreamble(job: CloudJob, base: string, previous: CloudSessio
     `You are a thread of a Nyxs project, running in the Nyxs cloud in the repository at the working folder, on the branch ${job.workBranch} (from ${base}).`,
     "Nobody can answer questions while you work: decide sensibly, and say at the end what you need from the user, if anything.",
     "When the turn ends, Nyxs commits your changes, pushes the branch and opens a draft pull request. Don't push or open pull requests yourself.",
+    `When you finish, fail or need the user, call the report tool with a short summary: what you did and what is left. Status "review" when it's done, "needs_input" when you need an answer (put the question in the text), "failed" when you can't do it.`,
     "</nyxs-cloud-thread>",
   ];
   const instructions = (job.projectInstructions ?? "").trim();
@@ -161,28 +166,25 @@ export function takeText(buffer: string): { text: string; rest: string } {
   return { text: stripStreamMarkers(buffer.slice(0, cut)), rest: buffer.slice(cut) };
 }
 
-/** `report` calls in the turn's messages (the thread tool, see the spec's "thread" tools). */
-export function reportCalls(messages: ModelMessage[]): { id: string; text: string; status?: ReportStatus }[] {
-  const out: { id: string; text: string; status?: ReportStatus }[] = [];
-  for (const m of messages) {
-    if (m.role !== "assistant" || !Array.isArray(m.content)) continue;
-    for (const part of m.content) {
-      if (part.type !== "tool-call" || part.toolName !== "report") continue;
-      const input = (typeof part.input === "string" ? safeJson(part.input) : part.input) as { text?: unknown; status?: unknown } | null;
-      const text = typeof input?.text === "string" ? input.text : "";
-      const status = REPORT_STATUSES.includes(input?.status as ReportStatus) ? (input?.status as ReportStatus) : undefined;
-      out.push({ id: part.toolCallId, text, ...(status ? { status } : {}) });
-    }
-  }
-  return out;
-}
+/** The chat key a cloud turn runs under; the thread's tools find their thread by it. */
+export const cloudChatKey = (threadId: string) => `cloud-${threadId}`;
 
-function safeJson(raw: string): unknown {
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
+/** What the project tools reach in a cloud turn, which is always a project's thread: its
+ *  `report` becomes the contract's report event (the runner relays it to the coordinator); the
+ *  coordinator's actions don't exist here. */
+export function cloudThreadHost(onReport: (text: string, status: ReportStatus) => void): ProjectHost {
+  return {
+    startThread: async () => ({ error: "A cloud thread can't open threads." }),
+    setThreadStatus: async () => false,
+    stopThread: async () => false,
+    report: async (_thread, text, status) => {
+      onReport(text, REPORT_STATUSES.includes(status as ReportStatus) ? (status as ReportStatus) : "review");
+      return "delivered";
+    },
+    readThread: async () => null,
+    answerDecision: () => undefined,
+    turnEnded: () => undefined,
+  };
 }
 
 /** A tool call the cloud lets through: anything but a refusal (see the turn's gate). */
@@ -249,7 +251,6 @@ export async function runCloudTurn(args: HeadlessArgs, deps: CloudDeps = { chat:
   let usage: CacheStats | null = null;
   let messages: ModelMessage[] = [];
   const denied: string[] = [];
-  const reported = new Set<string>();
   let lastReport: { text: string; status: ReportStatus } | null = null;
   /** The model's last message: what the thread's card shows when it didn't report. */
   let lastText = "";
@@ -282,17 +283,18 @@ export async function runCloudTurn(args: HeadlessArgs, deps: CloudDeps = { chat:
       };
       const seenTools = new Set<string>();
       const doneTools = new Set<string>();
-      // Synchronous, like `flush`: a report goes out after the text the model wrote before it.
-      const onReports = (msgs: ModelMessage[]) => {
-        for (const r of reportCalls(msgs)) {
-          if (reported.has(r.id)) continue;
-          reported.add(r.id);
-          const next = r.status ?? "working";
-          lastReport = { text: r.text, status: next };
-          void emit("report", { text: r.text, status: next });
+      // The thread's `report` tool (projectTools.ts) is offered to a session the project directory
+      // knows as a thread; its report goes out after the text the model wrote before it.
+      const chatKey = cloudChatKey(job.threadId);
+      noteProjectRole(chatKey, CLOUD_PROJECT_ID, "thread");
+      setProjectHost(
+        cloudThreadHost((reportText, next) => {
+          void flush();
+          lastReport = { text: reportText, status: next };
+          void emit("report", { text: reportText, status: next });
           void setStatus(next);
-        }
-      };
+        }),
+      );
       try {
         full = await deps.chat({
           modelId: model.id,
@@ -330,7 +332,6 @@ export async function runCloudTurn(args: HeadlessArgs, deps: CloudDeps = { chat:
           onMessages: (msgs, segment) => {
             messages = segment ? [...messages, ...msgs] : msgs;
             void flush();
-            onReports(msgs);
           },
           // Nobody can answer a question here, and the container is the sandbox: what would ask
           // goes ahead. What the settings deny (and plan mode refuses) stays refused.
@@ -343,11 +344,10 @@ export async function runCloudTurn(args: HeadlessArgs, deps: CloudDeps = { chat:
           },
           askUser: async () => null,
           effort: effortOf(job.model?.effort),
-          sessionKey: `cloud-${job.threadId}`,
+          sessionKey: chatKey,
           ...(maxSteps ? { maxSteps } : {}),
         });
         void flush();
-        onReports(messages);
         await queue;
       } catch (err) {
         failure = describeFailure(err);
