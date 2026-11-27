@@ -1,6 +1,7 @@
 import { invoke } from "@/lib/ipc";
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import { closeOAuthPort } from "@/lib/auth";
+import { LocalizedError } from "@/lib/localizedError";
 import { connectorCallbackPage } from "@/lib/oauthPage";
 
 export interface OAuthTokens {
@@ -34,6 +35,18 @@ export interface OAuthOptions {
   /** The connector's logo and colour, for the page the browser shows when it comes back. */
   logo?: string;
   color?: string;
+  /** Calls the sign-in off: the user cancelled, or started another one. */
+  signal?: AbortSignal;
+  /** Called once the sign-in page is open in the browser (the button's spinner ends there). */
+  onOpened?: () => void;
+}
+
+/** The error a sign-in called off with `signal` ends with: nothing to tell the user. */
+export class OAuthCancelledError extends Error {
+  constructor() {
+    super("The sign-in was cancelled");
+    this.name = "OAuthCancelledError";
+  }
 }
 
 /**
@@ -158,12 +171,18 @@ export async function runMcpOAuth(
 ): Promise<OAuthTokens & OAuthRenewal> {
   const port = await invoke<number>("oauth_reserve");
   const waiting = { started: false };
+  // A closed browser tab never comes back: calling the sign-in off stops the wait at once.
+  const cancel = () => void invoke("oauth_cancel", { port }).catch(() => undefined);
+  opts.signal?.addEventListener("abort", cancel, { once: true });
   try {
+    if (opts.signal?.aborted) throw new OAuthCancelledError();
     return await authorize(port, mcpUrl, connectorName, opts, waiting);
   } catch (e) {
     // The wait closes the port itself; one that never started leaves it to be closed here.
     if (!waiting.started) await closeOAuthPort(port);
-    throw e;
+    throw opts.signal?.aborted ? new OAuthCancelledError() : e;
+  } finally {
+    opts.signal?.removeEventListener("abort", cancel);
   }
 }
 
@@ -184,6 +203,15 @@ async function authorize(
     clientId = reg.clientId;
     clientSecret = clientSecret ?? reg.clientSecret;
   }
+  // A service that only lets registered apps in (GitHub's, without dynamic registration): a
+  // sign-in without a client_id only reaches its "Page not found".
+  if (!clientId) {
+    throw new LocalizedError(
+      "oauthNeedsClient",
+      { service: connectorName },
+      `${connectorName} only lets registered apps sign in, and Nyxs has no OAuth app for it yet.`,
+    );
+  }
   const { verifier, challenge } = await pkce();
   const state = randomString(16);
 
@@ -202,7 +230,10 @@ async function authorize(
   if (clientId) authParams.set("client_id", clientId);
   if (scopes?.length) authParams.set("scope", scopes.join(" "));
   const authorizeUrl = `${meta.authorization_endpoint}?${authParams.toString()}`;
+  // Called off while the server was being asked: no browser tab for a sign-in nobody wants.
+  if (opts.signal?.aborted) throw new OAuthCancelledError();
   await invoke("agent_open_external", { url: authorizeUrl });
+  opts.onOpened?.();
 
   // Only the callback carrying this state is taken: another local connection to the port isn't.
   waiting.started = true;

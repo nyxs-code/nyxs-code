@@ -55,6 +55,9 @@ export interface ConnectorCatalogEntry {
   oauthManualClient?: boolean;
   oauthClientId?: string;
   oauthClientSecret?: string;
+  /** Where the user registers their own OAuth app when Nyxs has none for the service; Google's
+   *  Cloud Console when not given. */
+  oauthClientConsole?: string;
   /** The tools its makers publish, shown before it's connected; the server's own list replaces them after. */
   tools?: string[];
   supportUrl?: string;
@@ -67,6 +70,14 @@ export interface ConnectorCatalogEntry {
 const GOOGLE_OAUTH = {
   clientId: import.meta.env.VITE_GOOGLE_OAUTH_CLIENT_ID ?? "",
   clientSecret: import.meta.env.VITE_GOOGLE_OAUTH_CLIENT_SECRET ?? "",
+};
+
+/** Nyxs's own GitHub OAuth app, the same way: GitHub's MCP server only lets registered apps sign
+ *  in (its authorization server has no dynamic registration). Without it the page asks for the
+ *  user's own OAuth app. */
+const GITHUB_OAUTH = {
+  clientId: import.meta.env.VITE_GITHUB_OAUTH_CLIENT_ID ?? "",
+  clientSecret: import.meta.env.VITE_GITHUB_OAUTH_CLIENT_SECRET ?? "",
 };
 
 const OAUTH_CLIENTS_KEY = "optimicer.oauthClients.v1";
@@ -122,7 +133,7 @@ export const CONNECTOR_CATALOG: ConnectorCatalogEntry[] = [
   { name: "DeepWiki", url: "https://mcp.deepwiki.com/mcp", description: "Search and read documentation for any public GitHub repository.", auth: "none", color: "#6b7280", developer: "DeepWiki", developerUrl: "https://deepwiki.com", docsUrl: "https://docs.devin.ai/work-with-devin/deepwiki-mcp", longDescription: "Connect DeepWiki to search and read the documentation of any public GitHub repository. Useful for quickly understanding unfamiliar codebases, APIs and libraries without leaving the chat.", category: "Código", type: "web", popularity: 60, addedAt: "2024-11-01" },
   { name: "Cloudflare-Docs", url: "https://docs.mcp.cloudflare.com/mcp", description: "Search the Cloudflare developer documentation.", auth: "none", logo: `${CN_ICON}/cloudflare-color.svg`, color: "#f38020", developer: "Cloudflare", developerUrl: "https://developers.cloudflare.com", docsUrl: "https://developers.cloudflare.com/agents/model-context-protocol/", category: "Código", type: "web", popularity: 50, addedAt: "2024-12-01" },
   { name: "Hugging Face", url: "https://huggingface.co/mcp", description: "Explore models, datasets and Spaces on Hugging Face.", auth: "token", logo: `${CN_ICON}/huggingface-color.svg`, color: "#ff9d00", developer: "Hugging Face", developerUrl: "https://huggingface.co", docsUrl: "https://huggingface.co/settings/mcp", category: "Datos", type: "web", popularity: 70, trending: true, addedAt: "2025-01-15" },
-  { name: "GitHub", url: "https://api.githubcopilot.com/mcp/", description: "Repos, issues, pull requests and code search on GitHub.", auth: "oauth", logo: `${CN_ICON}/github.svg`, color: "#e5e5e5", developer: "GitHub", developerUrl: "https://github.com", docsUrl: "https://docs.github.com", category: "Código", type: "web", popularity: 100, trending: true, addedAt: "2024-10-01" },
+  { name: "GitHub", url: "https://api.githubcopilot.com/mcp/", description: "Repos, issues, pull requests and code search on GitHub.", auth: "oauth", logo: `${CN_ICON}/github.svg`, color: "#e5e5e5", developer: "GitHub", developerUrl: "https://github.com", docsUrl: "https://docs.github.com", category: "Código", type: "web", popularity: 100, trending: true, addedAt: "2024-10-01", oauthManualClient: true, oauthClientId: GITHUB_OAUTH.clientId, oauthClientSecret: GITHUB_OAUTH.clientSecret, oauthClientConsole: "https://github.com/settings/applications/new", oauthScopes: ["repo", "read:org", "read:user", "user:email", "notifications", "gist", "project"] },
   { name: "Linear", url: "https://mcp.linear.app/mcp", description: "Create and search issues, projects and cycles in Linear.", auth: "oauth", logo: `${CN_ICON}/linear.svg`, color: "#5e6ad2", developer: "Linear", developerUrl: "https://linear.app", docsUrl: "https://linear.app/docs", category: "Productividad", type: "web", popularity: 80, addedAt: "2025-02-01" },
   { name: "Notion", url: "https://mcp.notion.com/mcp", description: "Search, read and update pages in your Notion workspace.", auth: "oauth", logo: `${CN_ICON}/notion.svg`, color: "#e5e5e5", developer: "Notion", developerUrl: "https://notion.so", docsUrl: "https://developers.notion.com", category: "Productividad", type: "web", popularity: 85, trending: true, addedAt: "2025-03-01" },
   { name: "Sentry", url: "https://mcp.sentry.dev/mcp", description: "Inspect errors, issues and releases tracked in Sentry.", auth: "oauth", logo: `${CN_ICON}/sentry.svg`, color: "#8d5494", developer: "Sentry", developerUrl: "https://sentry.io", docsUrl: "https://docs.sentry.io", category: "Estado", type: "web", popularity: 55, addedAt: "2025-04-01" },

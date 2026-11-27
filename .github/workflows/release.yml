@@ -164,12 +164,15 @@ jobs:
           # below stay; adding back { os: ubuntu-22.04, key: linux-x86_64,
           # target: x86_64-unknown-linux-gnu, kind: linux } brings it back.
     runs-on: ${{ matrix.os }}
-    # Nyxs's own Google OAuth client, so Gmail and Google Calendar connect in one click. It lives
-    # only in the release environment's secrets, never in the repo; the frontend build reads the
-    # VITE_ names (src/lib/mcp.ts). Without them the app asks each user for their own client.
+    # Nyxs's own Google OAuth client and GitHub OAuth app, so Gmail, Google Calendar and GitHub
+    # connect in one click. They live only in the release environment's secrets, never in the
+    # repo; the frontend build reads the VITE_ names (src/lib/mcp.ts). Without them the app asks
+    # each user for their own client. (Secret names can't start with GITHUB_, hence NYXS_.)
     env:
       VITE_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
       VITE_GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      VITE_GITHUB_OAUTH_CLIENT_ID: ${{ secrets.NYXS_GITHUB_OAUTH_CLIENT_ID }}
+      VITE_GITHUB_OAUTH_CLIENT_SECRET: ${{ secrets.NYXS_GITHUB_OAUTH_CLIENT_SECRET }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

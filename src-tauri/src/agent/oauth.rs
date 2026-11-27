@@ -13,6 +13,30 @@ fn oauth_listeners() -> &'static Mutex<HashMap<u16, Reserved>> {
     OAUTH_LISTENERS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+/// Waits the app called off: the user cancelled, or started another sign-in.
+static OAUTH_CANCELLED: OnceLock<Mutex<std::collections::HashSet<u16>>> = OnceLock::new();
+fn oauth_cancelled() -> &'static Mutex<std::collections::HashSet<u16>> {
+    OAUTH_CANCELLED.get_or_init(|| Mutex::new(std::collections::HashSet::new()))
+}
+
+/// Stops the sign-in waiting on `port`, as Claude does when the user gives up or starts another
+/// one: a wait in progress returns within a moment, and a port not waited on yet is just closed.
+/// A closed browser tab never comes back, so without this the app waited the whole timeout.
+#[tauri::command]
+pub fn oauth_cancel(port: u16) {
+    let reserved = oauth_listeners()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .remove(&port)
+        .is_some();
+    if !reserved {
+        oauth_cancelled()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(port);
+    }
+}
+
 /// Longer than any wait (5 minutes): a reservation this old lost its `oauth_wait`.
 const STALE_RESERVATION: Duration = Duration::from_secs(15 * 60);
 /// How long a connection may take to send its request line before it's dropped, so one that
@@ -115,6 +139,13 @@ fn oauth_wait_blocking(
                 Answer::Other => {}
             },
             Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                if oauth_cancelled()
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .remove(&port)
+                {
+                    return Err("The OAuth sign-in was cancelled".to_string().into());
+                }
                 if Instant::now() >= deadline {
                     return Err(if bare_callback {
                         CmdError::oauth_no_params()
@@ -497,5 +528,23 @@ mod tests {
         assert!(!released(port));
         assert!(oauth_wait_blocking(port, 0, None, None).is_err());
         assert!(released(port));
+    }
+
+    #[test]
+    fn cancelling_ends_a_wait_at_once_and_closes_its_port() {
+        let port = oauth_reserve().unwrap();
+        let started = Instant::now();
+        let wait = std::thread::spawn(move || oauth_wait_blocking(port, 20_000, None, None));
+        std::thread::sleep(Duration::from_millis(300));
+        oauth_cancel(port);
+        assert!(wait.join().unwrap().is_err());
+        assert!(started.elapsed() < Duration::from_secs(5));
+        assert!(released(port));
+
+        // Before its wait started, the reservation itself goes.
+        let port = oauth_reserve().unwrap();
+        oauth_cancel(port);
+        assert!(released(port));
+        assert!(oauth_wait_blocking(port, 20_000, None, None).is_err());
     }
 }
